@@ -1,10 +1,10 @@
 use std::{ffi::{CStr, CString}, mem::MaybeUninit};
-use grammar_types_core::{Precedence, Term};
+use grammar_types_core::{Precedence, SymbolType, Term};
 
 pub mod keyword_check;
 pub mod lemon_bindings;
 
-use keyword_check::sqlite3_keyword_check;
+mod interop;
 
 pub struct LemonBuilder {
     inner: lemon_bindings::lemon,
@@ -66,8 +66,8 @@ impl Lemon {
         
             let sym_eof = lemon_bindings::Symbol_new(CString::new("EOF").unwrap().as_ptr());
 
-            let start_rule = rule_raw_by_name(&mut self.inner, "input");
-            expand_rhs_symbol(start_rule, &[sym_eof]);
+            let start_rule = interop::rule_raw_by_name(&mut self.inner, "input");
+            interop::expand_rhs_symbol(start_rule, &[sym_eof]);
 
             self.inner.nsymbol = lemon_bindings::Symbol_count();
             self.inner.symbols = lemon_bindings::Symbol_arrayof();
@@ -76,77 +76,12 @@ impl Lemon {
     }
 
     pub fn symbols(&self) -> Vec<Symbol> {
-        symbols_internal(self.inner.symbols, self.inner.nsymbol as usize).collect()
+        interop::enumerate_symbols(self.inner.symbols, self.inner.nsymbol as usize).collect()
     }
 
     pub fn rules(&self) -> Vec<Rule> {
-        let mut rule_map = std::collections::BTreeMap::<i32, Vec<*mut lemon_bindings::rule>>::new();
-        let mut rule_raw = self.inner.rule;
-
-        while ! rule_raw.is_null() {
-            unsafe {
-                let mut next_lhs = (*rule_raw).nextlhs;
-                let mut index = (*rule_raw).index;
-
-                while !next_lhs.is_null() {
-                    index = (*next_lhs).index;
-                    next_lhs = (*next_lhs).nextlhs;
-                }
-                rule_map.entry(index)
-                    .and_modify(|members| members.push(rule_raw))
-                    .or_insert_with(|| vec![rule_raw])
-                ;
-
-                rule_raw = (*rule_raw ).next;
-            }
-        }
-
-        rule_map.values().into_iter()
-            .map(|members| Rule::from_raw(&members))
-            .collect::<Vec<_>>()
+        interop::enumerate_rules(self.inner.rule)
     }
-}
-
-unsafe fn rule_raw_by_name(lemon: *mut lemon_bindings::lemon, needle: &str) -> *mut lemon_bindings::rule {
-    unsafe {
-        let mut rule = (*lemon).rule;
-
-        while ! rule.is_null() {
-            let lhs = Rule::name_from(rule);
-            if lhs == needle {
-                return rule;
-            }
-            rule = (*rule).next;
-        }
-
-        std::ptr::null_mut()
-    }
-}
-
-unsafe fn expand_rhs_symbol(rule: *mut lemon_bindings::rule, symbols: &[*mut lemon_bindings::symbol]) {
-    unsafe {
-        let new_size = ((*rule).nrhs as usize) + symbols.len();
-
-        let new_layout = std::alloc::Layout::array::<*mut lemon_bindings::symbol>(new_size).expect("New layout failed");
-
-        let new_rules = std::alloc::alloc(new_layout) as *mut *mut lemon_bindings::symbol;
-
-        let offset = (*rule).nrhs as usize;
-        for i in 0..offset {
-            *new_rules.add(i) = *(*rule).rhs.add(i);
-        }
-        for i in 0..symbols.len() {
-            *new_rules.add(i + offset) = symbols[i];
-        }
-        (*rule).rhs = new_rules;
-        (*rule).nrhs = new_size as i32;
-    }
-}
-
-fn symbols_internal(symbols: *mut *mut lemon_bindings::symbol, len: usize) -> impl Iterator<Item = Symbol> {
-    unsafe { std::slice::from_raw_parts(symbols, len) }.into_iter()
-    .enumerate()
-    .map(|(i, &x)| Symbol::from_raw(i + 1, x))
 }
 
 pub struct Symbol {
@@ -171,11 +106,11 @@ impl Symbol {
     }
 
     pub fn symbol_type(&self) -> SymbolType {
-        SymbolType::from_raw(self.inner, &self.name())
+        interop::symbol_type_from_raw(self.inner, &self.name())
     }
 
     pub fn precedence(&self) -> Option<Precedence> {
-        precedence_from_raw(self.inner)
+        interop::precedence_from_raw(self.inner)
     }
 }
 
@@ -190,51 +125,6 @@ impl serde::Serialize for Symbol {
         state.serialize_field("type", &self.symbol_type())?;
         state.serialize_field("precedence", &self.precedence())?;
         state.end()
-    }
-}
-
-#[derive(serde::Serialize)]
-pub enum SymbolType {
-    Terminal{ is_keyword: bool },
-    NonTerminal,
-    MultiTerminal{ classes: Vec<String>},
-}
-
-impl SymbolType {
-    fn from_raw(symbol: *mut lemon_bindings::symbol, symbol_name: &str) -> Self {
-        match (unsafe { *symbol }).type_ {
-            lemon_bindings::symbol_type_TERMINAL => {
-                let name = symbol_name.to_lowercase();
-                let name_len = name.len();
-
-                let is_keyword = unsafe { sqlite3_keyword_check(CString::new(name).unwrap().as_ptr(), name_len as i32) };
-                SymbolType::Terminal { is_keyword: is_keyword == 1 }
-            }
-            lemon_bindings::symbol_type_NONTERMINAL => {
-                SymbolType::NonTerminal
-            }
-            lemon_bindings::symbol_type_MULTITERMINAL => {
-                let classes = multi_terminal_member_names(symbol);
-                SymbolType::MultiTerminal{ classes }
-            }
-            n => panic!("unexpected symbol type value ({n})"),
-        }
-    }
-}
-
-fn multi_terminal_member_names(symbol: *mut lemon_bindings::symbol) -> Vec<String> {
-    unsafe { std::slice::from_raw_parts((*symbol).subsym, (*symbol).nsubsym as usize) }.into_iter()
-        .map(|&sub| Symbol::from_raw(0, sub).name())
-        .collect()
-}
-
-fn precedence_from_raw(sym: *mut lemon_bindings::symbol) -> Option<Precedence> {
-    match unsafe { ((*sym).assoc, (*sym).prec) } {
-        (lemon_bindings::e_assoc_LEFT, prec) => Some(Precedence::Left(prec)),
-        (lemon_bindings::e_assoc_RIGHT, prec) => Some(Precedence::Right(prec)),
-        (lemon_bindings::e_assoc_NONE, _) => Some(Precedence::Noassoc),
-        (lemon_bindings::e_assoc_UNK, _) => None,
-        (assoc, prec) => panic!("Unexpected precedence value (assoc: {assoc}, prec: {prec})"),
     }
 }
 
@@ -277,7 +167,7 @@ impl RuleMember {
         unsafe {
             match (*self.inner).precsym.is_null() {
                 false => {
-                    precedence_from_raw((*self.inner).precsym)
+                    interop::precedence_from_raw((*self.inner).precsym)
                 }
                 true => None
             }
@@ -318,7 +208,7 @@ impl serde::Serialize for Rhs {
         let rhs = unsafe {
             match ((*self.inner).type_ == 2, (*self.inner).useCnt == 0) {
                 (true, true) => {
-                    Term::CharClass { members: multi_terminal_member_names(self.inner) }
+                    Term::CharClass { members: interop::multi_terminal_member_names(self.inner) }
                 }
                 _ => {
                     Term::Symbol { name }
@@ -341,4 +231,3 @@ impl serde::Serialize for RuleMember {
         state.end()
     }
 }
-

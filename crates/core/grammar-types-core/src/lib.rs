@@ -1,4 +1,11 @@
 
+#[derive(serde::Serialize)]
+pub enum SymbolType {
+    Terminal{ is_keyword: bool },
+    NonTerminal,
+    MultiTerminal{ classes: Vec<String>},
+}
+
 #[derive(PartialEq, Eq, Ord, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Precedence {
     Left(i32),
