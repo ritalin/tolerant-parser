@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{io::Write, path::PathBuf};
 
 pub fn get_tool_build_dir() -> Result<PathBuf, anyhow::Error> {
     let path = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?).join("../../../build");
@@ -25,15 +25,46 @@ pub fn download_sqlite_repository(build_dir: &PathBuf) -> Result<PathBuf, anyhow
 
 pub fn generate_keywordhash(build_dir: &PathBuf, sqlite_dir: &PathBuf) -> Result<PathBuf, anyhow::Error> {
     let generated_command = generate_keywordhash_header(build_dir, sqlite_dir)?;
-    
-    run_mkkeywordhash(&build_dir, &generated_command)
+    let partial_header = run_mkkeywordhash(&build_dir, &generated_command)?;
+
+    merge_keywordhash(&build_dir, &partial_header)
 }
 
 fn run_mkkeywordhash(build_dir: &PathBuf, command_path: &PathBuf) -> Result<PathBuf, anyhow::Error> {
-    let out_file_path = build_dir.join("keywordhash.h");
+    let out_file_path = build_dir.join("keywordhash-partial.h");
     run_command_with_redirect(&command_path.display().to_string(), Some(out_file_path.display().to_string()))?;
 
     Ok(out_file_path)
+}
+
+fn merge_keywordhash(build_dir: &PathBuf, partial_file: &PathBuf) -> Result<PathBuf, anyhow::Error> {
+    let out_file_path = build_dir.join("keywordhash.h");
+    merge_files(
+        include_str!("assets/keywords.h"), 
+        &[&partial_file.display().to_string()], 
+        &out_file_path
+    )?;
+
+    Ok(out_file_path)
+}
+
+fn merge_files(base_asset: &str, append_files: &[&str], out_file_path: &PathBuf) -> Result<(), anyhow::Error> {
+    let out_file = std::fs::File::create(out_file_path).map_err(|_| anyhow::anyhow!("Can not create file: `{out_file_path:?}`"))?;
+    let mut writer = std::io::BufWriter::new(out_file);
+
+    writer.write_all(base_asset.as_bytes())?;
+
+    use std::io::BufRead;
+    for file_path in append_files {
+        let in_file = std::fs::File::open(file_path).map_err(|_| anyhow::anyhow!("Can not open merge source: `{file_path}`"))?;
+        let reader = std::io::BufReader::new(in_file);
+        for line in reader.lines() {
+            let line = line?; 
+            writeln!(writer, "{}", line)?; 
+        }
+    }
+
+    Ok(())
 }
 
 fn generate_keywordhash_header(build_dir: &PathBuf, sqlite_dir: &PathBuf) -> Result<PathBuf, anyhow::Error> {
@@ -98,6 +129,8 @@ mod build_tests {
         let file_path = run_mkkeywordhash(&build_dir, &command_path)?;
         assert!(file_path.exists());
 
+        let file_path = merge_keywordhash(&build_dir, &file_path)?;
+        assert!(file_path.exists());
         Ok(())
     }
 }
