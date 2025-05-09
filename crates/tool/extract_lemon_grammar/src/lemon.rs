@@ -61,10 +61,10 @@ impl Lemon {
             lemon_bindings::Symbol_init();
             lemon_bindings::Parse(&mut self.inner);
         
-            // let sym_eof = lemon_bindings::Symbol_new(CString::new("EOF").unwrap().as_ptr());
+            let sym_eof = lemon_bindings::Symbol_new(CString::new("EOF").unwrap().as_ptr());
 
-            // let start_rule = rule_raw_by_name(&mut self.inner, "input");
-            // expand_rhs_symbol(start_rule, &[sym_eof]);
+            let start_rule = rule_raw_by_name(&mut self.inner, "input");
+            expand_rhs_symbol(start_rule, &[sym_eof]);
 
             self.inner.nsymbol = lemon_bindings::Symbol_count();
             self.inner.symbols = lemon_bindings::Symbol_arrayof();
@@ -73,13 +73,50 @@ impl Lemon {
     }
 
     pub fn symbols(&self) -> Vec<Symbol> {
-        self.symbols_internal().collect()
+        symbols_internal(self.inner.symbols, self.inner.nsymbol as usize).collect()
     }
 
-    pub fn symbols_internal(&self) -> impl Iterator<Item = Symbol> {
-        unsafe { std::slice::from_raw_parts(self.inner.symbols, self.inner.nsymbol as usize) }.into_iter()
-        .enumerate()
-        .map(|(i, &x)| Symbol::from_raw(i + 1, x))
+    pub fn rules(&self) -> Vec<Rule> {
+        let mut rule_map = std::collections::BTreeMap::<i32, Vec<*mut lemon_bindings::rule>>::new();
+        let mut rule_raw = self.inner.rule;
+
+        while ! rule_raw.is_null() {
+            unsafe {
+                let mut next_lhs = (*rule_raw).nextlhs;
+                let mut index = (*rule_raw).index;
+
+                while !next_lhs.is_null() {
+                    index = (*next_lhs).index;
+                    next_lhs = (*next_lhs).nextlhs;
+                }
+                rule_map.entry(index)
+                    .and_modify(|members| members.push(rule_raw))
+                    .or_insert_with(|| vec![rule_raw])
+                ;
+
+                rule_raw = (*rule_raw ).next;
+            }
+        }
+
+        rule_map.values().into_iter()
+            .map(|members| Rule::from_raw(&members))
+            .collect::<Vec<_>>()
+    }
+}
+
+unsafe fn rule_raw_by_name(lemon: *mut lemon_bindings::lemon, needle: &str) -> *mut lemon_bindings::rule {
+    unsafe {
+        let mut rule = (*lemon).rule;
+
+        while ! rule.is_null() {
+            let lhs = Rule::name_from(rule);
+            if lhs == needle {
+                return rule;
+            }
+            rule = (*rule).next;
+        }
+
+        std::ptr::null_mut()
     }
 }
 
@@ -101,6 +138,12 @@ unsafe fn expand_rhs_symbol(rule: *mut lemon_bindings::rule, symbols: &[*mut lem
         (*rule).rhs = new_rules;
         (*rule).nrhs = new_size as i32;
     }
+}
+
+fn symbols_internal(symbols: *mut *mut lemon_bindings::symbol, len: usize) -> impl Iterator<Item = Symbol> {
+    unsafe { std::slice::from_raw_parts(symbols, len) }.into_iter()
+    .enumerate()
+    .map(|(i, &x)| Symbol::from_raw(i + 1, x))
 }
 
 pub struct Symbol {
@@ -223,3 +266,114 @@ impl PartialOrd for Precedence {
         rhs_score.partial_cmp(&lhs_score)
     }
 }
+
+#[derive(serde::Serialize)]
+pub struct Rule {
+    lhs: String,
+    members: Vec<RuleMember>,
+}
+
+impl Rule {
+    pub fn from_raw(members: &[*mut lemon_bindings::rule]) -> Self {
+        let lhs = Rule::name_from(members[0]);
+        let mut members = members.into_iter().map(|&x| RuleMember::from_raw(x)).collect::<Vec<_>>();
+        members.sort_by(|m1, m2| m1.index.cmp(&m2.index));
+
+        Self { lhs, members }
+    }
+
+    pub fn name_from(rule: *mut lemon_bindings::rule) -> String {
+        unsafe { CStr::from_ptr((*(*rule).lhs).name) }
+        .to_string_lossy()
+        .to_string()
+    }
+}
+
+pub struct RuleMember {
+    index: usize,
+    inner: *mut lemon_bindings::rule,
+}
+
+impl RuleMember {
+    pub fn from_raw(rule: *mut lemon_bindings::rule) -> Self {
+        Self { 
+            index: unsafe {(*rule).index} as usize,
+            inner: rule 
+        }
+    }
+
+    pub fn precedence(&self) -> Option<Precedence> {
+        unsafe {
+            match (*self.inner).precsym.is_null() {
+                false => {
+                    Precedence::from_raw((*self.inner).precsym)
+                }
+                true => None
+            }
+        }
+    }
+
+    pub fn rhs(&self) -> Vec<Rhs> {
+        let rhs = unsafe { std::slice::from_raw_parts((*self.inner).rhs, (*self.inner).nrhs as usize) };
+
+        let rhs = rhs.into_iter()
+            .map(|&x| Rhs::from_raw(x))
+            .collect::<Vec<_>>()
+        ;
+
+        rhs
+    }
+}
+
+pub struct Rhs {
+    inner: *mut lemon_bindings::symbol,
+}
+
+impl Rhs {
+    fn from_raw(inner: *mut lemon_bindings::symbol) -> Self {
+        Self { inner }
+    }
+}
+
+impl serde::Serialize for Rhs {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: serde::Serializer 
+    {
+        let name = unsafe { CStr::from_ptr((*self.inner).name) }
+            .to_string_lossy()
+            .to_string()
+        ;
+
+        let rhs = unsafe {
+            match ((*self.inner).type_ == 2, (*self.inner).useCnt == 0) {
+                (true, true) => {
+                    Term::CharClass { members: multi_terminal_member_names(self.inner) }
+                }
+                _ => {
+                    Term::Symbol { name }
+                }
+            }
+        };
+        rhs.serialize(serializer)
+    }
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub enum Term {
+    Symbol {name: String},
+    CharClass { members: Vec<String> },
+}
+
+impl serde::Serialize for RuleMember {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: serde::Serializer 
+    {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("rule", 10)?;
+        state.serialize_field("id", &(self.index + 1))?;
+        state.serialize_field("sequences", &self.rhs())?;
+        state.serialize_field("precedence", &self.precedence())?;
+        state.end()
+    }
+}
+

@@ -14,9 +14,14 @@ pub fn main() -> Result<(), anyhow::Error> {
 
     lemon.parse();
     let symbols = lemon.symbols();
-    let symbol_file_path = build_dir.join("grammar_symbols.json");
+    let grammar_file_path = build_dir.join("grammar_symbols.json");
 
-    std::fs::write(symbol_file_path, serde_json::to_string_pretty(&symbols)?)?;
+    std::fs::write(grammar_file_path, serde_json::to_string_pretty(&symbols)?)?;
+
+    let rules = lemon.rules();
+    let grammar_file_path = build_dir.join("grammar_rules.json");
+
+    std::fs::write(grammar_file_path, serde_json::to_string_pretty(&rules)?)?;
 
     Ok(())
 }
