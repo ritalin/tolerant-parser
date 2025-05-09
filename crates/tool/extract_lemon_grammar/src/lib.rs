@@ -1,5 +1,7 @@
 mod keyword_check;
+mod lemon_bindings;
 
+pub mod lemon;
 
 #[cfg(test)]
 mod tests {

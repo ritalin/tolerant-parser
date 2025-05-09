@@ -88,6 +88,23 @@ fn build_keyword_check(scource_path: &PathBuf, output_dir: &PathBuf) -> Result<(
     Ok((obj_path, lib_path, lib_name))
 }
 
+pub fn generate_lemon_lib(_build_dir: &PathBuf, sqlite_dir: &PathBuf, output_dir: &PathBuf) -> Result<(), anyhow::Error> {
+    build_lemon_lib(&sqlite_dir, output_dir)?;
+
+    Ok(())
+}
+
+fn build_lemon_lib(sqlite_dir: &PathBuf, output_dir: &PathBuf) -> Result<(PathBuf, PathBuf, String), anyhow::Error> {
+    let source = sqlite_dir.join("tool/lemon.c");
+
+    let (obj_path, lib_path) = run_build_lib(&source, &["-D", "main=dont_use_main"], output_dir, "lemon")?;
+    let lib_name: String = obj_path.file_stem().expect("Need to generate *.a").to_string_lossy().into();
+
+    println!("cargo:rustc-link-lib=static=lemon");
+
+    Ok((obj_path, lib_path, lib_name))
+}
+
 fn run_build_lib(source_path: &Path, additional_options: &[&str], out_dir: &PathBuf, out_filename: &str) -> Result<(PathBuf, PathBuf), anyhow::Error> {
     eprintln!("run_build_lib called !");
     println!("cargo:rerun-if-changed={}", source_path.display());
@@ -192,6 +209,19 @@ mod build_tests {
         assert!(lib_file.exists());
         assert_eq!(Some("a"), lib_file.extension().and_then(|ext| ext.to_str()));
         assert_eq!("keyword_check", lib_name);
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_lemon() -> Result<(), anyhow::Error> {
+        let build_dir = get_tool_build_dir()?;
+        let (obj_file, lib_file, lib_name) = build_lemon_lib(&build_dir.join("sqlite"), &build_dir)?;
+
+        assert!(obj_file.exists());
+        assert_eq!(Some("o"), obj_file.extension().and_then(|ext| ext.to_str()));
+        assert!(lib_file.exists());
+        assert_eq!(Some("a"), lib_file.extension().and_then(|ext| ext.to_str()));
+        assert_eq!("lemon", lib_name);
         Ok(())
     }
 }
