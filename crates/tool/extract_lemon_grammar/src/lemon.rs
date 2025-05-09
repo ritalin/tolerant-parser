@@ -1,7 +1,10 @@
 use std::{ffi::{CStr, CString}, mem::MaybeUninit};
-use crate::keyword_check::sqlite3_keyword_check;
+use grammar_types_core::{Precedence, Term};
 
-use super::lemon_bindings;
+pub mod keyword_check;
+pub mod lemon_bindings;
+
+use keyword_check::sqlite3_keyword_check;
 
 pub struct LemonBuilder {
     inner: lemon_bindings::lemon,
@@ -172,7 +175,7 @@ impl Symbol {
     }
 
     pub fn precedence(&self) -> Option<Precedence> {
-        Precedence::from_raw(self.inner)
+        precedence_from_raw(self.inner)
     }
 }
 
@@ -225,45 +228,13 @@ fn multi_terminal_member_names(symbol: *mut lemon_bindings::symbol) -> Vec<Strin
         .collect()
 }
 
-#[derive(PartialEq, Eq, Ord, Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub enum Precedence {
-    Left(i32),
-    Right(i32),
-    Noassoc,
-}
-
-impl Precedence {
-    pub fn from_raw(sym: *mut lemon_bindings::symbol) -> Option<Precedence> {
-        match unsafe { ((*sym).assoc, (*sym).prec) } {
-            (lemon_bindings::e_assoc_LEFT, prec) => Some(Precedence::Left(prec)),
-            (lemon_bindings::e_assoc_RIGHT, prec) => Some(Precedence::Right(prec)),
-            (lemon_bindings::e_assoc_NONE, _) => Some(Precedence::Noassoc),
-            (lemon_bindings::e_assoc_UNK, _) => None,
-            (assoc, prec) => panic!("Unexpected precedence value (assoc: {assoc}, prec: {prec})"),
-        }
-    }
-
-    pub fn score(&self) -> i32 {
-        match self {
-            Precedence::Left(score) => *score,
-            Precedence::Right(score) => *score,
-            Precedence::Noassoc => 0
-        }
-    }
-}
-
-impl PartialOrd for Precedence {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        let lhs_score = match self.score() {
-            score if score > 0 => Some(score),
-            _ => None
-        };
-        let rhs_score = match other.score(){
-            score if score > 0 => Some(score),
-            _ => None
-        };
-
-        rhs_score.partial_cmp(&lhs_score)
+fn precedence_from_raw(sym: *mut lemon_bindings::symbol) -> Option<Precedence> {
+    match unsafe { ((*sym).assoc, (*sym).prec) } {
+        (lemon_bindings::e_assoc_LEFT, prec) => Some(Precedence::Left(prec)),
+        (lemon_bindings::e_assoc_RIGHT, prec) => Some(Precedence::Right(prec)),
+        (lemon_bindings::e_assoc_NONE, _) => Some(Precedence::Noassoc),
+        (lemon_bindings::e_assoc_UNK, _) => None,
+        (assoc, prec) => panic!("Unexpected precedence value (assoc: {assoc}, prec: {prec})"),
     }
 }
 
@@ -306,7 +277,7 @@ impl RuleMember {
         unsafe {
             match (*self.inner).precsym.is_null() {
                 false => {
-                    Precedence::from_raw((*self.inner).precsym)
+                    precedence_from_raw((*self.inner).precsym)
                 }
                 true => None
             }
@@ -356,12 +327,6 @@ impl serde::Serialize for Rhs {
         };
         rhs.serialize(serializer)
     }
-}
-
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub enum Term {
-    Symbol {name: String},
-    CharClass { members: Vec<String> },
 }
 
 impl serde::Serialize for RuleMember {

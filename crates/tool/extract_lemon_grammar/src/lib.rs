@@ -1,5 +1,3 @@
-mod keyword_check;
-mod lemon_bindings;
 
 pub mod lemon;
 
@@ -7,7 +5,7 @@ pub mod lemon;
 mod tests {
     use std::ffi::CString;
 
-    use crate::keyword_check::sqlite3_keyword_check;
+    use crate::lemon::keyword_check::sqlite3_keyword_check;
 
     #[test]
     fn test_keyword_ckeck() -> Result<(), anyhow::Error> {
