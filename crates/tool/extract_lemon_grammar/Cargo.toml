@@ -1,0 +1,14 @@
+[package]
+name = "extract_lemon_grammar"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+grammar-types-core = { path = "../../core/grammar-types-core" }
+
+[build-dependencies]
+build_support = { path = "../build-support" }
+anyhow = { workspace = true }
