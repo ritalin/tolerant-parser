@@ -17,7 +17,6 @@ impl PartialEq for SyntaxKind {
 }
 
 pub struct Engine {
-    pub symbol_rules: SymbolRuleSet,
     pub scanning_rules: scanner_engine::ScanningRuleSet,
     pub parsing_rules: ParsingRuleSet,
 }
@@ -25,7 +24,6 @@ pub struct Engine {
 impl Default for Engine {
     fn default() -> Self {
         Self { 
-            symbol_rules: Default::default(),
             scanning_rules: Default::default(), 
             parsing_rules: Default::default() 
         }
@@ -36,15 +34,6 @@ impl Default for Engine {
 pub enum EngineError {
     #[error("Can not initialize parser/scanner engine")]
     CreateFailed
-}
-
-#[derive(Default)]
-pub struct SymbolRuleSet;
-
-impl SymbolRuleSet {
-    pub fn syntax_kind_from_id(id: u32) -> SyntaxKind {
-        todo!();
-    }
 }
 
 #[derive(Default)]

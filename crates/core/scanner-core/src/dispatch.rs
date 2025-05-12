@@ -1,7 +1,4 @@
-use std::arch::x86_64::_MM_ROUND_DOWN;
-
-use engine_core::scanner_engine::{self, ScanEvent};
-
+use engine_core::scanner_engine::{self, AcceptableRegexSet, ScanEvent};
 
 pub struct ScanEventDispatcher {
     source: String,
@@ -33,22 +30,31 @@ impl ScanEventDispatcher {
         }
     }
 
-    pub fn next_regex(&mut self) -> Option<ScanEvent> {
+    pub fn next_regex(&mut self, regex_set: AcceptableRegexSet) -> Option<ScanEvent> {
         match self.source.len().cmp(&self.index) {
-            std::cmp::Ordering::Greater => {
+            std::cmp::Ordering::Less => {
                 None
             }
             std::cmp::Ordering::Equal => {
-                self.index += 1;
-                Some(ScanEvent { kind: self.engine.eof(), offset: self.source.len(), len: 0, value: None })
+                match regex_set {
+                    AcceptableRegexSet::Main => {
+                        self.index += 1;
+                        Some(ScanEvent { kind: self.engine.eof(), offset: self.source.len(), len: 0, value: None })
+                    }
+                    _ => None
+                }
             }
-            std::cmp::Ordering::Less => {
-                todo!()
+            std::cmp::Ordering::Greater => {
+                let event = self.engine.scan_by_regex(&self.source[self.index..], self.index, regex_set);
+                if let Some(event) = event.as_ref() {
+                    self.index += event.len;
+                }
+                event
             }
         }
     }
 
-    pub fn next(&mut self) -> Option<ScanEvent> {
+    pub fn next(&mut self, regex_set: AcceptableRegexSet) -> Option<ScanEvent> {
         todo!()
     }
 }
