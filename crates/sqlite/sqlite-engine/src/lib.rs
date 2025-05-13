@@ -207,6 +207,31 @@ mod scan_by_regex_tests {
     }
 
     #[test]
+    fn test_empty_source_for_main_token() -> Result<(), anyhow::Error> {
+        let source = "";
+        let engine = super::create()?.scanning_rules;
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine);
+
+        let expect_event = ScanEvent {
+            offset:0, len:0, value: None, kind: syntax_kind::r#EOF.clone()
+        };
+        assert_eq!(Some(expect_event), dispatcher.next_regex(AcceptableRegexSet::Main));
+        assert_eq!(None, dispatcher.next_regex(AcceptableRegexSet::Main));
+        Ok(())
+    }
+
+    #[test]
+    fn test_empty_source_trivia() -> Result<(), anyhow::Error> {
+        let source = "";
+        let engine = super::create()?.scanning_rules;
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine);
+
+        assert_eq!(None, dispatcher.next_regex(AcceptableRegexSet::Leading));
+        assert_eq!(None, dispatcher.next_regex(AcceptableRegexSet::Trailing));
+        Ok(())
+    }
+
+    #[test]
     fn test_overflow_offset() -> Result<(), anyhow::Error> {
         let source = "";
         let engine = super::create()?.scanning_rules;
@@ -219,7 +244,7 @@ mod scan_by_regex_tests {
     }
 
     #[test]
-    fn test_short_match_all() -> Result<(), anyhow::Error> {
+    fn test_match_all() -> Result<(), anyhow::Error> {
         let source = "INSERTORREPLACEINTO";
         let engine = super::create()?.scanning_rules;
         let mut dispatcher = ScanEventDispatcher::new(source, 0, engine);
@@ -246,27 +271,64 @@ mod scan_greedy_tests {
     use crate::generated::syntax_kind;
 
     #[test]
-    fn test_accepted() -> Result<(), anyhow::Error> {
-        todo!()
-    }
-
-    #[test]
     fn test_rejected() -> Result<(), anyhow::Error> {
-        todo!()
+        let source = "$$";
+        let engine = super::create()?.scanning_rules;
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine);
+        assert_eq!(None, dispatcher.next(AcceptableRegexSet::Leading));
+        Ok(())
     }
 
     #[test]
     fn test_empty_source() -> Result<(), anyhow::Error> {
-        todo!()
+        let source = "";
+        let engine = super::create()?.scanning_rules;
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine);
+
+        let expect_event = ScanEvent {
+            offset:0, len:0, value: None, kind: syntax_kind::r#EOF.clone()
+        };
+        assert_eq!(Some(expect_event), dispatcher.next(AcceptableRegexSet::Main));
+        assert_eq!(None, dispatcher.next(AcceptableRegexSet::Main));
+        Ok(())
+    }
+
+    #[test]
+    fn test_empty_source_trivia() -> Result<(), anyhow::Error> {
+        let source = "";
+        let engine = super::create()?.scanning_rules;
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine);
+
+        assert_eq!(None, dispatcher.next(AcceptableRegexSet::Leading));
+        assert_eq!(None, dispatcher.next(AcceptableRegexSet::Trailing));
+        Ok(())
     }
 
     #[test]
     fn test_overflow_offset() -> Result<(), anyhow::Error> {
-        todo!()
+        let source = "";
+        let engine = super::create()?.scanning_rules;
+        let mut dispatcher = ScanEventDispatcher::new(source, 1, engine);
+
+        assert_eq!(None, dispatcher.next(AcceptableRegexSet::Main));
+        Ok(())
     }
 
     #[test]
-    fn test_short_match_all() -> Result<(), anyhow::Error> {
-        todo!()
+    fn test_match_all() -> Result<(), anyhow::Error> {
+        let source = "INSERTORREPLACEINTO";
+        let engine = super::create()?.scanning_rules;
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine);
+
+        let expect_event_1 = ScanEvent {
+            offset:0, len:19, value: Some("INSERTORREPLACEINTO".into()), kind: syntax_kind::r#ID.clone()
+        };
+        let expect_event_2 = ScanEvent {
+            offset:19, len:0, value: None, kind: syntax_kind::r#EOF.clone()
+        };
+        assert_eq!(Some(expect_event_1), dispatcher.next(AcceptableRegexSet::Main));
+        assert_eq!(Some(expect_event_2), dispatcher.next(AcceptableRegexSet::Main));
+        assert_eq!(None, dispatcher.next(AcceptableRegexSet::Main));
+        Ok(())
     }
 }
