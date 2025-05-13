@@ -1,0 +1,15 @@
+[package]
+name = "gen_transtion_table"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+grammar-types-core = { path = "../../core/grammar-types-core" }
+engine-core = { path = "../../core/engine-core" }
+anyhow = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tempfile = "3.19.1"
+proc-macro2 = "1.0.95"
+quote = "1.0.40"

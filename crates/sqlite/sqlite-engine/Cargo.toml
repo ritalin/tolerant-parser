@@ -1,0 +1,15 @@
+[package]
+name = "sqlite-engine"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+engine-core = { path = "../../core/engine-core" }
+phf = { version = "0.11.3", features = ["macros"] }
+
+[dev-dependencies]
+scanner-core = { path = "../../core/scanner-core" }
+anyhow = { workspace = true }
+
+[build-dependencies]
+anyhow = { workspace = true }

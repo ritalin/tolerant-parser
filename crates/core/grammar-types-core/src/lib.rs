@@ -1,5 +1,7 @@
+pub mod scan_rule;
+pub mod symbol;
 
-#[derive(serde::Serialize)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum SymbolType {
     Terminal{ is_keyword: bool },
     NonTerminal,
