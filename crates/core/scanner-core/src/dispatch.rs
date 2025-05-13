@@ -30,7 +30,7 @@ impl ScanEventDispatcher {
         }
     }
 
-    pub fn next_regex(&mut self, regex_set: AcceptableRegexSet) -> Option<ScanEvent> {
+    pub fn next_regex(&mut self, regex_set: &AcceptableRegexSet) -> Option<ScanEvent> {
         match self.source.len().cmp(&self.index) {
             std::cmp::Ordering::Less => {
                 None
@@ -54,7 +54,7 @@ impl ScanEventDispatcher {
         }
     }
 
-    pub fn next(&mut self, regex_set: AcceptableRegexSet) -> Option<ScanEvent> {
+    pub fn next(&mut self, regex_set: &AcceptableRegexSet) -> Option<ScanEvent> {
         match self.source.len().cmp(&self.index) {
             std::cmp::Ordering::Less => {
                 None

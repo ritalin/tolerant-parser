@@ -4,7 +4,7 @@ use crate::SyntaxKind;
 
 pub struct ScanningRuleSet {
     lexme_rule: fn(prefix: char) -> Option<&'static [ScanPattern]>,
-    acceptable_regex: fn(regex_set: AcceptableRegexSet) -> Option<&'static [usize]>,
+    acceptable_regex: fn(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]>,
     symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
     eof_id: u32,
     regex_cache: HashMap<usize, RegexScanPattern>,
@@ -14,7 +14,7 @@ impl ScanningRuleSet {
     pub fn new(
         lexme_rule: fn(prefix: char) -> Option<&'static [ScanPattern]>,
         regex_rule: fn(index: usize) -> Option<&'static ScanPattern>,
-        acceptable_regex: fn(regex_set: AcceptableRegexSet) -> Option<&'static [usize]>,
+        acceptable_regex: fn(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]>,
         symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
         eof_id: u32) -> Self
     {
@@ -45,7 +45,7 @@ impl ScanningRuleSet {
         None
     }
 
-    pub fn scan_by_regex(&self, source: &str, offset: usize, regex_set: AcceptableRegexSet) -> Option<ScanEvent> {
+    pub fn scan_by_regex(&self, source: &str, offset: usize, regex_set: &AcceptableRegexSet) -> Option<ScanEvent> {
         let Some(regex_indexes) = (self.acceptable_regex)(regex_set) else {
             return None;
         };
@@ -71,7 +71,7 @@ impl ScanningRuleSet {
 
 fn init_regex_cache(
     regex_rule: fn(index: usize) -> Option<&'static ScanPattern>,
-    acceptable_regex: fn(regex_set: AcceptableRegexSet) -> Option<&'static [usize]>) -> HashMap<usize, RegexScanPattern> 
+    acceptable_regex: fn(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]>) -> HashMap<usize, RegexScanPattern> 
 {
     let mut cache = HashMap::new();
 
@@ -84,11 +84,11 @@ fn init_regex_cache(
 
 fn init_regex_cache_internal(
     regex_rule: fn(index: usize) -> Option<&'static ScanPattern>,
-    acceptable_regex: fn(regex_set: AcceptableRegexSet) -> Option<&'static [usize]>,
+    acceptable_regex: fn(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]>,
     regex_set: AcceptableRegexSet, 
     cache: &mut HashMap<usize, RegexScanPattern>)
 {
-    let Some(regex_indexes) = (acceptable_regex)(regex_set) else {
+    let Some(regex_indexes) = (acceptable_regex)(&regex_set) else {
         return;
     };
 
@@ -127,7 +127,7 @@ fn default_lexme_rule_lookup(_sprefix: char) -> Option<&'static [ScanPattern]> {
     None
 }
 
-fn default_acceptable_regex_lookup(_regex_set: AcceptableRegexSet) -> Option<&'static [usize]> {
+fn default_acceptable_regex_lookup(_regex_set: &AcceptableRegexSet) -> Option<&'static [usize]> {
     None
 }
 

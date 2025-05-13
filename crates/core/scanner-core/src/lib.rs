@@ -5,6 +5,7 @@ pub use scanner::Scanner;
 
 use engine_core::scanner_engine::ScanEvent;
 
+#[derive(PartialEq, Clone, Debug)]
 pub struct Token {
     /// Leading trivia is containing comments, white space and so on.
     pub leading_trivia: Option<Vec<ScanEvent>>,

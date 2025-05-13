@@ -19,7 +19,7 @@ mod generated {
         syntax_map::SYNTAX_KIND_MAP.get(&symbol_id).cloned().unwrap_or(&syntax_kind::r#ILLEGAL)
     }
 
-    pub fn get_acceptable_regex_indexes(regex_set: AcceptableRegexSet) -> Option<&'static [usize]> {
+    pub fn get_acceptable_regex_indexes(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]> {
         match regex_set {
             AcceptableRegexSet::Leading => Some(scan_rule_map::SUPPORT_LEADING),
             AcceptableRegexSet::Main => Some(scan_rule_map::SUPPORT_MAIN),

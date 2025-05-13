@@ -22,7 +22,7 @@ mod default_scanner_engine_tests {
         let engine = Engine::default().scanning_rules;
         let mut dispatcher = ScanEventDispatcher::new(source, 0, engine);
 
-        assert_eq!(None, dispatcher.next_regex(AcceptableRegexSet::Main));
+        assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Main));
         Ok(())
     }
 }
@@ -131,7 +131,7 @@ mod scan_by_regex_tests {
         let expect_event = ScanEvent {
             offset:0, len:4, value: Some("FROM".into()), kind: syntax_kind::r#ID.clone()
         };
-        assert_eq!(Some(expect_event), dispatcher.next_regex(AcceptableRegexSet::Main));
+        assert_eq!(Some(expect_event), dispatcher.next_regex(&AcceptableRegexSet::Main));
         Ok(())
     }
 
@@ -140,7 +140,7 @@ mod scan_by_regex_tests {
         let source = "FROM foo";
         let engine = super::create()?;
         let mut dispatcher = ScanEventDispatcher::new(source, 0, engine.scanning_rules);
-        assert_eq!(None, dispatcher.next_regex(AcceptableRegexSet::Leading));
+        assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Leading));
         Ok(())
     }
 
@@ -153,8 +153,8 @@ mod scan_by_regex_tests {
         let expect_event = ScanEvent {
             offset:0, len:0, value: None, kind: syntax_kind::r#EOF.clone()
         };
-        assert_eq!(Some(expect_event), dispatcher.next_regex(AcceptableRegexSet::Main));
-        assert_eq!(None, dispatcher.next_regex(AcceptableRegexSet::Main));
+        assert_eq!(Some(expect_event), dispatcher.next_regex(&AcceptableRegexSet::Main));
+        assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Main));
         Ok(())
     }
 
@@ -167,8 +167,8 @@ mod scan_by_regex_tests {
         let expect_event = ScanEvent {
             offset:0, len:0, value: None, kind: syntax_kind::r#EOF.clone()
         };
-        assert_eq!(Some(expect_event), dispatcher.next_regex(AcceptableRegexSet::Main));
-        assert_eq!(None, dispatcher.next_regex(AcceptableRegexSet::Main));
+        assert_eq!(Some(expect_event), dispatcher.next_regex(&AcceptableRegexSet::Main));
+        assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Main));
         Ok(())
     }
 
@@ -178,8 +178,8 @@ mod scan_by_regex_tests {
         let engine = super::create()?.scanning_rules;
         let mut dispatcher = ScanEventDispatcher::new(source, 0, engine);
 
-        assert_eq!(None, dispatcher.next_regex(AcceptableRegexSet::Leading));
-        assert_eq!(None, dispatcher.next_regex(AcceptableRegexSet::Trailing));
+        assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Leading));
+        assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Trailing));
         Ok(())
     }
 
@@ -189,9 +189,9 @@ mod scan_by_regex_tests {
         let engine = super::create()?.scanning_rules;
         let mut dispatcher = ScanEventDispatcher::new(source, 1, engine);
 
-        assert_eq!(None, dispatcher.next_regex(AcceptableRegexSet::Leading));
-        assert_eq!(None, dispatcher.next_regex(AcceptableRegexSet::Main));
-        assert_eq!(None, dispatcher.next_regex(AcceptableRegexSet::Trailing));
+        assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Leading));
+        assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Main));
+        assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Trailing));
         Ok(())
     }
 
@@ -207,9 +207,9 @@ mod scan_by_regex_tests {
         let expect_event_2 = ScanEvent {
             offset:19, len:0, value: None, kind: syntax_kind::r#EOF.clone()
         };
-        assert_eq!(Some(expect_event_1), dispatcher.next_regex(AcceptableRegexSet::Main));
-        assert_eq!(Some(expect_event_2), dispatcher.next_regex(AcceptableRegexSet::Main));
-        assert_eq!(None, dispatcher.next_regex(AcceptableRegexSet::Main));
+        assert_eq!(Some(expect_event_1), dispatcher.next_regex(&AcceptableRegexSet::Main));
+        assert_eq!(Some(expect_event_2), dispatcher.next_regex(&AcceptableRegexSet::Main));
+        assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Main));
         Ok(())
     }
 }
@@ -226,7 +226,7 @@ mod scan_greedy_tests {
         let source = "$$";
         let engine = super::create()?.scanning_rules;
         let mut dispatcher = ScanEventDispatcher::new(source, 0, engine);
-        assert_eq!(None, dispatcher.next(AcceptableRegexSet::Leading));
+        assert_eq!(None, dispatcher.next(&AcceptableRegexSet::Leading));
         Ok(())
     }
 
@@ -239,8 +239,8 @@ mod scan_greedy_tests {
         let expect_event = ScanEvent {
             offset:0, len:0, value: None, kind: syntax_kind::r#EOF.clone()
         };
-        assert_eq!(Some(expect_event), dispatcher.next(AcceptableRegexSet::Main));
-        assert_eq!(None, dispatcher.next(AcceptableRegexSet::Main));
+        assert_eq!(Some(expect_event), dispatcher.next(&AcceptableRegexSet::Main));
+        assert_eq!(None, dispatcher.next(&AcceptableRegexSet::Main));
         Ok(())
     }
 
@@ -250,8 +250,8 @@ mod scan_greedy_tests {
         let engine = super::create()?.scanning_rules;
         let mut dispatcher = ScanEventDispatcher::new(source, 0, engine);
 
-        assert_eq!(None, dispatcher.next(AcceptableRegexSet::Leading));
-        assert_eq!(None, dispatcher.next(AcceptableRegexSet::Trailing));
+        assert_eq!(None, dispatcher.next(&AcceptableRegexSet::Leading));
+        assert_eq!(None, dispatcher.next(&AcceptableRegexSet::Trailing));
         Ok(())
     }
 
@@ -261,7 +261,7 @@ mod scan_greedy_tests {
         let engine = super::create()?.scanning_rules;
         let mut dispatcher = ScanEventDispatcher::new(source, 1, engine);
 
-        assert_eq!(None, dispatcher.next(AcceptableRegexSet::Main));
+        assert_eq!(None, dispatcher.next(&AcceptableRegexSet::Main));
         Ok(())
     }
 
@@ -277,9 +277,9 @@ mod scan_greedy_tests {
         let expect_event_2 = ScanEvent {
             offset:19, len:0, value: None, kind: syntax_kind::r#EOF.clone()
         };
-        assert_eq!(Some(expect_event_1), dispatcher.next(AcceptableRegexSet::Main));
-        assert_eq!(Some(expect_event_2), dispatcher.next(AcceptableRegexSet::Main));
-        assert_eq!(None, dispatcher.next(AcceptableRegexSet::Main));
+        assert_eq!(Some(expect_event_1), dispatcher.next(&AcceptableRegexSet::Main));
+        assert_eq!(Some(expect_event_2), dispatcher.next(&AcceptableRegexSet::Main));
+        assert_eq!(None, dispatcher.next(&AcceptableRegexSet::Main));
         Ok(())
     }
 }
