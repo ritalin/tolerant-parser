@@ -119,7 +119,9 @@ impl Default for ScanningRuleSet {
     }
 }
 
-static DEFAULT_SYNTAX_KIND: crate::SyntaxKind = crate::SyntaxKind { id: 0, text: "EOF", is_keyword: false, is_terminal: true };
+pub mod default_syntax_kind {
+    pub static DEFAULT: crate::SyntaxKind = crate::SyntaxKind { id: 0, text: "EOF", is_keyword: false, is_terminal: true };
+}
 
 fn default_lexme_rule_lookup(_sprefix: char) -> Option<&'static [ScanPattern]> {
     None
@@ -130,10 +132,10 @@ fn default_acceptable_regex_lookup(_regex_set: AcceptableRegexSet) -> Option<&'s
 }
 
 fn default_symbol_lookup(_id: u32) -> &'static crate::SyntaxKind {
-    &DEFAULT_SYNTAX_KIND
+    &default_syntax_kind::DEFAULT
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct ScanEvent {
     /// Identifier for distinguishing token.
     pub kind: crate::SyntaxKind,
