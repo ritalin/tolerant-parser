@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, HashMap};
 pub struct GrammarScanRule {
     pub lexme: HashMap<String, Vec<String>>,
     pub regex: BTreeMap<String, Vec<RegexGrammarScanRule>>,
+    pub combination_symbols: HashMap<String, GrammarCombinationSymbol>,
     pub alternatives: HashMap<String, Vec<String>>,
 }
 
@@ -16,4 +17,10 @@ pub struct RegexGrammarScanRule {
     pub trailing: bool,
     #[serde(default)]
     pub main: bool,
+}
+
+#[derive(serde::Deserialize)]
+pub struct GrammarCombinationSymbol {
+    pub lhs: String,
+    pub follow_symbols: Vec<String>,
 }

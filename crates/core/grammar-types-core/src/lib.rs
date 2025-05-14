@@ -1,4 +1,5 @@
 pub mod scan_rule;
+pub mod parse_rule;
 pub mod symbol;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug, serde::Serialize, serde::Deserialize)]

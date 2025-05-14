@@ -13,3 +13,4 @@ serde_json = { workspace = true }
 tempfile = "3.19.1"
 proc-macro2 = "1.0.95"
 quote = "1.0.40"
+lalry = "0.1.0"

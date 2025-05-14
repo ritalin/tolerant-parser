@@ -1,5 +1,7 @@
 pub mod scanner_engine;
-mod parser_engine;
+pub mod parser_engine;
+
+pub use scanner_engine::default_syntax_kind;
 
 /// Grammar symbol
 #[derive(Debug, Clone)]
@@ -18,7 +20,7 @@ impl PartialEq for SyntaxKind {
 
 pub struct Engine {
     pub scanning_rules: scanner_engine::ScanningRuleSet,
-    pub parsing_rules: ParsingRuleSet,
+    pub parsing_rules: parser_engine::ParsingRuleSet,
 }
 
 impl Default for Engine {
@@ -35,6 +37,3 @@ pub enum EngineError {
     #[error("Can not initialize parser/scanner engine")]
     CreateFailed
 }
-
-#[derive(Default)]
-pub struct ParsingRuleSet;
