@@ -25,10 +25,11 @@ pub fn generate(config: CmdConfig) -> Result<(), anyhow::Error> {
 
     let builder = translation_table::ParseTableBuilder::create(&parse_rules, &symbols, &scan_rules.combination_symbols);
     let parse_table = builder.build()?;
+    let start_symbol = parse_rules[0].lhs.as_str();
 
     generator_symbol_set::generate(&symbols, temp_dir.path().to_path_buf())?;
     generator_scan_rule::generate(&scan_rules, &symbols, &symbol_map, temp_dir.path().to_path_buf())?;
-    generate_parse_rule::generate(&parse_table, &symbol_map, temp_dir.path().to_path_buf())?;
+    generate_parse_rule::generate(&parse_table, &symbol_map, start_symbol, temp_dir.path().to_path_buf())?;
 
     swap_folder(&output_dir, temp_dir.path(), &backup_dir.path().join("backup"))?;
 

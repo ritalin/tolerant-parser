@@ -63,6 +63,9 @@ fn generate_lexme_scan_rule(
         }
     }
 
+    writeln!(writer, "{}", with_indent("#[cfg(engine_ungenerated)]", 1))?;
+    writeln!(writer, "{}", with_indent("pub static LEXME_SCAN_RULE: phf::Map<char, &'static [ScanPattern]> = phf::phf_map!{};", 1))?;
+    writeln!(writer, "{}", with_indent("#[cfg(not(engine_ungenerated))]", 1))?;
     writeln!(writer, "{}", with_indent("pub static LEXME_SCAN_RULE: phf::Map<char, &'static [ScanPattern]> = phf::phf_map!{", 1))?;
 
     for (prefix, mut scan_rule) in scan_rules {

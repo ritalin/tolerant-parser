@@ -42,7 +42,11 @@ fn create_syntax_kind_token(symbols: &[GrammarSymbol], writer: &mut impl Write) 
 
 fn create_syntax_kind_map(symbols: &[GrammarSymbol], writer: &mut impl Write) -> Result<(), anyhow::Error> {
     writeln!(writer, "pub mod syntax_map {{")?;
+
     writeln!(writer, "{}", with_indent("use super::syntax_kind::*;", 1))?;
+    writeln!(writer, "{}", with_indent("#[cfg(engine_ungenerated)]", 1))?;
+    writeln!(writer, "{}", with_indent("pub static SYNTAX_KIND_MAP: phf::Map<u32, &'static engine_core::SyntaxKind> = phf::phf_map!{};", 1))?;
+    writeln!(writer, "{}", with_indent("#[cfg(not(engine_ungenerated))]", 1))?;
     writeln!(writer, "{}", with_indent("pub static SYNTAX_KIND_MAP: phf::Map<u32, &'static engine_core::SyntaxKind> = phf::phf_map!{", 1))?;
 
     for symbol in symbols {

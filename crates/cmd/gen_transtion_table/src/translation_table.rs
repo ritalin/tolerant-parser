@@ -1,7 +1,5 @@
 use std::collections::{BTreeMap, HashMap, LinkedList};
-
 use grammar_types_core::{parse_rule::{GrammarParseRule, GrammarParseRuleMember, RuleId}, scan_rule::GrammarCombinationSymbol, symbol::GrammarSymbol, SymbolType, Term};
-
 use crate::configs::ActionResolveConfig;
 
 pub struct ParseTableBuilder {

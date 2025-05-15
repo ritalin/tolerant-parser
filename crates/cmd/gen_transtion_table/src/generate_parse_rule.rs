@@ -6,19 +6,14 @@ use quote::quote;
 pub fn generate(
     table: &lalry::LR1ParseTable<GrammarSymbolRef, String, RuleId>,
     symbol_lookup: &HashMap<String, u32>,
+    start_synbol: &str,
     output_dir: PathBuf) -> Result<(), anyhow::Error>
 {
     let output_file = crate::storage_support::make_output_file(output_dir, "parse_rule.rs")?;
     let mut writer = BufWriter::new(output_file);
 
-    writeln!(writer, "mod parse_rule_map {{")?;
-    writeln!(writer, "use engine_core::parser_engine::Transition;")?;
-
-    generate_lookahead_state(&table.states, &symbol_lookup, 1, &mut writer)?;
+    generate_lookahead_state(&table.states, &symbol_lookup, start_synbol, 1, &mut writer)?;
     generate_goto_state(&table.states, &symbol_lookup, 1, &mut writer)?;
-    generate_eof_state(&table.states, 1, &mut writer)?;
-
-    writeln!(writer, "}}")?;
 
     Ok(())
 }
@@ -26,10 +21,16 @@ pub fn generate(
 fn generate_lookahead_state(
     parse_states: &[lalry::LR1State<GrammarSymbolRef, String, RuleId>], 
     symbol_lookup: &HashMap<String, u32>, 
+    start_symbol: &str,
     indent: usize,
     writer: &mut impl Write) -> Result<(), anyhow::Error> 
 {
-    writeln!(writer, "{}", with_indent("pub static LA_TRANSITION_TABLE: &[phf::Map<u32, usize>] = &[", indent))?;
+    writeln!(writer, "mod lookahead_transition {{")?;
+    writeln!(writer, "{}", with_indent("use engine_core::parser_engine::Transition;", indent))?;
+    writeln!(writer, "{}", with_indent("#[cfg(engine_ungenerated)]", indent))?;
+    writeln!(writer, "{}", with_indent("pub static TABLES: &[phf::Map<u32, Transition>] = &[];", indent))?;
+    writeln!(writer, "{}", with_indent("#[cfg(not(engine_ungenerated))]", indent))?;
+    writeln!(writer, "{}", with_indent("pub static TABLES: &[phf::Map<u32, Transition>] = &[", indent))?;
 
     for (i, state) in parse_states.iter().enumerate() {
         writeln!(writer, "{}", with_indent(&format!("// state: #{i}"), indent+1))?;
@@ -42,6 +43,10 @@ fn generate_lookahead_state(
     }
 
     writeln!(writer, "{}", with_indent("];", 1))?;
+
+    generate_accept_state(parse_states, symbol_lookup.get(start_symbol), indent, writer)?;
+
+    writeln!(writer, "}}")?;
 
     Ok(())
 }
@@ -61,7 +66,7 @@ fn generate_lookahead_state_member(
             let lhs_id = symbol_lookup.get(*lhs).expect(&format!("Mismatch symbol id (symbol: {})", lhs));
 
             let rule = quote! {
-                #la_id => LATransition::Reduce { pop_count: #pop_count, lhs: #lhs_id },
+                #la_id => Transition::Reduce { pop_count: #pop_count, lhs: #lhs_id },
             };
             write!(writer, "{}", tokens_to_string(rule, indent))?;
             writeln!(writer, " // LA: {}", la.name)?;
@@ -85,7 +90,11 @@ fn generate_goto_state(
     indent: usize,
     writer: &mut impl Write) -> Result<(), anyhow::Error> 
 {
-    writeln!(writer, "{}", with_indent("pub static GOTO_TRANSITION_TABLE: &[Option<phf::Map<u32, usize>>] = &[", indent))?;
+    writeln!(writer, "mod goto_transition {{")?;
+    writeln!(writer, "{}", with_indent("#[cfg(engine_ungenerated)]", indent))?;
+    writeln!(writer, "{}", with_indent("pub static TABLES: &[Option<phf::Map<u32, usize>>] = &[];", indent))?;
+    writeln!(writer, "{}", with_indent("#[cfg(not(engine_ungenerated))]", indent))?;
+    writeln!(writer, "{}", with_indent("pub static TABLES: &[Option<phf::Map<u32, usize>>] = &[", indent))?;
 
     for (i, state) in parse_states.iter().enumerate() {
         match state.goto.is_empty() {
@@ -102,27 +111,41 @@ fn generate_goto_state(
                 writeln!(writer, "{}", with_indent("}),", indent+1))?;
             }
             true => {
+                writeln!(writer, "{}", with_indent(&format!("// state: #{i}"), indent+1))?;
                 writeln!(writer, "{}", tokens_to_string(quote! { None, }, indent+1))?;
             }
         }
 
     }
     writeln!(writer, "{}", with_indent("];", indent))?;
+    writeln!(writer, "}}")?;
 
     Ok(())
 }
 
-fn generate_eof_state(
+fn generate_accept_state(
     parse_states: &[lalry::LR1State<GrammarSymbolRef, String, RuleId>],
+    start_symbol_id: Option<&u32>,
     indent: usize,
     writer: &mut impl Write) -> Result<(), anyhow::Error>
 {
-    let eof_state = parse_states.iter().enumerate()
+    let accept_state = parse_states.iter().enumerate()
         .find(|(_, state)| state.eof.is_some())
     ;
 
-    if let Some((state, _)) = eof_state {
-        writeln!(writer, "{}", tokens_to_string(quote!{ pub static EOF_TRANSITION_STATE: usize = #state; }, indent))?;
-    }
+    let transition = match (accept_state, start_symbol_id) {
+        (Some((state, _)), symbol_id) => {
+            quote!{
+                pub static ACCEPT: Option<Transition> = Some(Transition::Accept {
+                    last_state: #state, 
+                    lhs: #symbol_id
+                });
+            }
+        }
+        _ => {
+            quote!{ pub static ACCEPT: Option<Transition> = None; }
+        }
+    };
+    writeln!(writer, "{}", tokens_to_string(transition, indent))?;
     Ok(())
 }
