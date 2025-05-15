@@ -11,7 +11,7 @@ mod default_scanner_engine_tests {
         let eof_kind = engine.eof();
         let mut dispatcher = ParseEventDispatcher::new(0, engine);
 
-        let expect_event = ParseEvent::Shift { kind: eof_kind, current_state: 0, next_state: 0 };
+        let expect_event = ParseEvent::Shift { kind: eof_kind, current_state: 0, next_state: 0, edit_state: 0 };
         assert_eq!(Ok(expect_event), dispatcher.next(Some(eof_kind)));
         assert_eq!(true, dispatcher.state_values().is_empty());
         Ok(())
@@ -30,7 +30,7 @@ mod scanner_engine_tests {
         let engine = sqlite_engine::create()?.parsing_rules;
         let mut dispatcher = ParseEventDispatcher::new(0, engine);
 
-        let expect_event = ParseEvent::Shift { kind: syntax_kind::r#EOF, current_state: 0, next_state: 0 };
+        let expect_event = ParseEvent::Shift { kind: syntax_kind::r#EOF, current_state: 0, next_state: 0, edit_state: 0 };
         assert_eq!(Ok(expect_event), dispatcher.next(Some(syntax_kind::r#EOF)));
         assert_eq!(true, dispatcher.state_values().is_empty());
         Ok(())
@@ -42,13 +42,13 @@ mod scanner_engine_tests {
         let mut dispatcher = ParseEventDispatcher::new(0, engine);
 
         'next_state: {
-            let expected_event = ParseEvent::Shift{ kind: syntax_kind::r#SELECT, current_state: 0, next_state: 18 };
+            let expected_event = ParseEvent::Shift{ kind: syntax_kind::r#SELECT, current_state: 0, next_state: 18, edit_state: 0 };
             assert_eq!(Ok(expected_event), dispatcher.next(Some(syntax_kind::r#SELECT)));
             assert_eq!(vec![18, 0], dispatcher.state_values());
             break 'next_state;
         }
         'next_state: {
-            let expected_event = ParseEvent::Shift{ kind: syntax_kind::r#DISTINCT, current_state: 18, next_state: 70 };
+            let expected_event = ParseEvent::Shift{ kind: syntax_kind::r#DISTINCT, current_state: 18, next_state: 70, edit_state: 18 };
             assert_eq!(Ok(expected_event), dispatcher.next(Some(syntax_kind::r#DISTINCT)));
             assert_eq!(vec![70, 18, 0], dispatcher.state_values());
             break 'next_state;
@@ -62,37 +62,37 @@ mod scanner_engine_tests {
         let mut dispatcher = ParseEventDispatcher::new(0, engine);
 
         'next_state: {
-            let expected_event = ParseEvent::Shift{ kind: syntax_kind::r#SELECT, current_state: 0, next_state: 18 };
+            let expected_event = ParseEvent::Shift{ kind: syntax_kind::r#SELECT, current_state: 0, next_state: 18, edit_state: 0 };
             assert_eq!(Ok(expected_event), dispatcher.next(Some(syntax_kind::r#SELECT)));
             assert_eq!(vec![18, 0], dispatcher.state_values());
             break 'next_state;
         }
         'next_state: {
-            let expected_event = ParseEvent::Reduce{ kind: syntax_kind::r#distinct, pop_count: 0, current_state: 18, next_state: 71 };
+            let expected_event = ParseEvent::Reduce{ kind: syntax_kind::r#distinct, pop_count: 0, current_state: 18, next_state: 71, edit_state: 18 };
             assert_eq!(Ok(expected_event), dispatcher.next(Some(syntax_kind::r#INTEGER)));
             assert_eq!(vec![71, 18, 0], dispatcher.state_values());
             break 'next_state;
         }
         'next_state: {
-            let expected_event = ParseEvent::Reduce{ kind: syntax_kind::r#sclp, pop_count: 0, current_state: 71, next_state: 144 };
+            let expected_event = ParseEvent::Reduce{ kind: syntax_kind::r#sclp, pop_count: 0, current_state: 71, next_state: 144, edit_state: 71 };
             assert_eq!(Ok(expected_event), dispatcher.next(Some(syntax_kind::r#INTEGER)));
             assert_eq!(vec![144, 71, 18, 0], dispatcher.state_values());
             break 'next_state;
         }
         'next_state: {
-            let expected_event = ParseEvent::Reduce{ kind: syntax_kind::r#scanpt, pop_count: 0, current_state: 144, next_state: 238 };
+            let expected_event = ParseEvent::Reduce{ kind: syntax_kind::r#scanpt, pop_count: 0, current_state: 144, next_state: 238, edit_state: 144 };
             assert_eq!(Ok(expected_event), dispatcher.next(Some(syntax_kind::r#INTEGER)));
             assert_eq!(vec![238, 144, 71, 18, 0], dispatcher.state_values());
             break 'next_state;
         }
         'next_state: {
-            let expected_event = ParseEvent::Shift{ kind: syntax_kind::r#INTEGER, current_state: 238, next_state: 122 };
+            let expected_event = ParseEvent::Shift{ kind: syntax_kind::r#INTEGER, current_state: 238, next_state: 122, edit_state: 238 };
             assert_eq!(Ok(expected_event), dispatcher.next(Some(syntax_kind::r#INTEGER)));
             assert_eq!(vec![122, 238, 144, 71, 18, 0], dispatcher.state_values());
             break 'next_state;
         }
         'next_state: {
-            let expected_event = ParseEvent::Reduce{ kind: syntax_kind::r#term, pop_count: 1, current_state: 122, next_state: 128 };
+            let expected_event = ParseEvent::Reduce{ kind: syntax_kind::r#term, pop_count: 1, current_state: 122, next_state: 128, edit_state: 238 };
             assert_eq!(Ok(expected_event), dispatcher.next(Some(syntax_kind::r#SEMI)));
             assert_eq!(vec![128, 238, 144, 71, 18, 0], dispatcher.state_values());
             break 'next_state;
@@ -107,13 +107,13 @@ mod scanner_engine_tests {
         let mut dispatcher = ParseEventDispatcher::new(22, engine);
 
         'next_state: {
-            let expected_event = ParseEvent::Shift{ kind: syntax_kind::r#EOF, current_state: 22, next_state: 74 };
+            let expected_event = ParseEvent::Shift{ kind: syntax_kind::r#EOF, current_state: 22, next_state: 74, edit_state: 22 };
             assert_eq!(Ok(expected_event), dispatcher.next(Some(syntax_kind::r#EOF)));
             assert_eq!(vec![74, 22], dispatcher.state_values());
             break 'next_state;
         }
         'next_state: {
-            let expected_event = ParseEvent::Accept{ kind: syntax_kind::r#input, last_state: 74 };
+            let expected_event = ParseEvent::Accept{ kind: syntax_kind::r#input, last_state: 74, edit_state: 0 };
             assert_eq!(Ok(expected_event), dispatcher.next(None));
             assert_eq!(Vec::<usize>::new(), dispatcher.state_values());
             break 'next_state;
@@ -128,7 +128,7 @@ mod scanner_engine_tests {
         let mut dispatcher = ParseEventDispatcher::new(74, engine);
             
         'next_state: {
-            let expected_event = ParseEvent::Accept{ kind: syntax_kind::r#input, last_state: 74 };
+            let expected_event = ParseEvent::Accept{ kind: syntax_kind::r#input, last_state: 74, edit_state: 0 };
             assert_eq!(Ok(expected_event), dispatcher.next(None));
             assert_eq!(Vec::<usize>::new(), dispatcher.state_values());
             break 'next_state;

@@ -24,7 +24,7 @@ impl ParseEventDispatcher {
                 Some(Transition::Accept { last_state, lhs }) => {
                     self.state_stack.pop_all();
                     let last_kind = self.engine.from_kind_id(*lhs);
-                    Ok(ParseEvent::Accept { kind: last_kind, last_state: *last_state })
+                    Ok(ParseEvent::Accept { kind: last_kind, last_state: *last_state, edit_state: 0 })
                 }
                 _ => {
                     Err(crate::ParseError::NotAccept)
@@ -35,7 +35,9 @@ impl ParseEventDispatcher {
         match self.engine.next_lookahead_state(lookahead_kind.id, state) {
             Some(Transition::Shift { next_state }) => {
                 self.state_stack.push_state(*next_state);
-                Ok(ParseEvent::Shift { kind: lookahead_kind, current_state: state, next_state: *next_state })
+                let edit_state = self.state_stack.mark_checkpoint(state);
+
+                Ok(ParseEvent::Shift { kind: lookahead_kind, current_state: state, next_state: *next_state, edit_state })
             }
             Some(Transition::Reduce { pop_count, lhs: goto_kind_id }) => {
                 let Some(peek_state) = self.state_stack.pop_n_state(*pop_count) else {
@@ -47,16 +49,21 @@ impl ParseEventDispatcher {
                     return Err(crate::ParseError::NoGotoCandidate { state: *peek_state, lhs: lhs_kind.text.into() })
                 };
                 self.state_stack.push_state(*goto_state);
-                Ok(ParseEvent::Reduce { kind: lhs_kind, current_state: state, next_state: *goto_state, pop_count: *pop_count })
+                let edit_state = self.state_stack
+                    .resolve_checkpoint(*pop_count)
+                    .unwrap_or_else(|| self.state_stack.mark_checkpoint(state))
+                ;
+
+                Ok(ParseEvent::Reduce { kind: lhs_kind, current_state: state, next_state: *goto_state, pop_count: *pop_count, edit_state })
             }
             Some(Transition::Accept { last_state, lhs }) => {
                 let last_kind = self.engine.from_kind_id(*lhs);
-                Ok(ParseEvent::Accept { kind: last_kind, last_state: *last_state })
+                Ok(ParseEvent::Accept { kind: last_kind, last_state: *last_state, edit_state: 0 })
             }
             None if lookahead_kind == self.engine.eof() => {
                 // fall back to handle EOF 
                 let state = self.state_stack.pop_n_state(1).cloned().unwrap_or(0);
-                return Ok(ParseEvent::Shift { kind: lookahead_kind, current_state: state, next_state: 0 });
+                return Ok(ParseEvent::Shift { kind: lookahead_kind, current_state: state, next_state: 0, edit_state: 0 });
             }
             None => {
                 return Err(crate::ParseError::RequestRecovery);
@@ -128,11 +135,52 @@ impl StateStack {
 
         values
     }
+
+    pub fn mark_checkpoint(&mut self, state: usize) -> usize {
+        self.checkpoint = self.checkpoint.child(state);
+        state
+    }
+    pub fn resolve_checkpoint(&mut self, mut pop_count: usize) -> Option<usize> {
+        if pop_count == 0 {
+            return None;
+        }
+
+        while pop_count > 1 {
+            self.checkpoint = self.checkpoint.parent().unwrap_or_default();
+            pop_count -= 1;
+        }
+        self.checkpoint.val().cloned()
+
+    }
 }
 
 #[derive(PartialEq, Debug)]
 pub enum ParseEvent {
-    Shift { kind: SyntaxKind, current_state: usize, next_state: usize },
-    Reduce{ kind: SyntaxKind, current_state: usize, next_state: usize, pop_count: usize },
-    Accept{ kind: SyntaxKind, last_state: usize },
+    Shift { 
+        kind: SyntaxKind, 
+        /// transition before state
+        current_state: usize, 
+        /// transition after state
+        next_state: usize, 
+        /// edit state for incremental parsing
+        edit_state: usize 
+    },
+    Reduce{ 
+        kind: SyntaxKind, 
+        /// transition before state
+        current_state: usize, 
+        /// transition after state
+        next_state: usize, 
+        /// count for popped from state stack
+        pop_count: usize, 
+        /// edit state for incremental parsing
+        edit_state: usize 
+    },
+    Accept{ 
+        kind: SyntaxKind, 
+        /// final state
+        last_state: usize,
+        /// edit state for incremental parsing
+        edit_state: usize 
+    },
 }
