@@ -1,4 +1,4 @@
-pub mod dispatch;
+pub mod event_dispatch;
 
 mod scanner;
 pub use scanner::Scanner;

@@ -1,4 +1,4 @@
-pub mod dispatcher;
+pub mod event_dispatcher;
 
 
 #[derive(PartialEq, Debug, thiserror::Error)]

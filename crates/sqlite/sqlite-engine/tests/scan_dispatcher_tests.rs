@@ -1,4 +1,4 @@
-use scanner_core::dispatch::ScanEventDispatcher;
+use scanner_core::event_dispatch::ScanEventDispatcher;
 use engine_core::scanner_engine::{AcceptableRegexSet, ScanEvent};
 
 #[cfg(test)]
