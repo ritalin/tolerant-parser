@@ -131,7 +131,7 @@ fn default_acceptable_regex_lookup(_regex_set: &AcceptableRegexSet) -> Option<&'
     None
 }
 
-fn default_symbol_lookup(_id: u32) -> &'static crate::SyntaxKind {
+pub fn default_symbol_lookup(_id: u32) -> &'static crate::SyntaxKind {
     &default_syntax_kind::DEFAULT
 }
 

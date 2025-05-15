@@ -5,8 +5,9 @@ pub fn main() -> Result<(), anyhow::Error> {
     let generated_dir = manifest_dir.join("src/_generated");
 
     let needles = std::collections::HashSet::<OsString>::from_iter([
-        "scan_rule.rs".into(),
         "symbol_set.rs".into(),
+        "scan_rule.rs".into(),
+        "parse_rule.rs".into(),
     ]);
 
     let generated = std::fs::read_dir(generated_dir)?
@@ -19,10 +20,10 @@ pub fn main() -> Result<(), anyhow::Error> {
         .all(|name| needles.contains(&name))
     ;
 
-    if generated {
-        println!("cargo:rustc-cfg=engine_generated");
+    if ! generated {
+        println!("cargo:rustc-cfg=engine_ungenerated");
     }
-    println!("cargo::rustc-check-cfg=cfg(engine_generated)");
+    println!("cargo::rustc-check-cfg=cfg(engine_ungenerated)");
 
     Ok(())
 }

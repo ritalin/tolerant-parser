@@ -81,6 +81,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cactus"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acbc26382d871df4b7442e3df10a9402bf3cf5e55cbd66f12be38861425f0564"
+
+[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -176,6 +182,7 @@ dependencies = [
  "clap",
  "engine-core",
  "grammar-types-core",
+ "lalry",
  "proc-macro2",
  "quote",
  "serde",
@@ -221,6 +228,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
+name = "lalry"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82b5cf5d262f1b646b4b4fc864c6026753dab5ba0ea9d94ec1589509d12175ea"
+
+[[package]]
 name = "libc"
 version = "0.2.172"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -247,6 +260,12 @@ checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 [[package]]
 name = "parser-core"
 version = "0.1.0"
+dependencies = [
+ "cactus",
+ "engine-core",
+ "scanner-core",
+ "thiserror",
+]
 
 [[package]]
 name = "phf"
@@ -429,6 +448,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "engine-core",
+ "parser-core",
  "phf",
  "scanner-core",
 ]
