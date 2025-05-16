@@ -1,5 +1,6 @@
 use crate::SyntaxKind;
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Debug)]
 pub struct ParsingRuleSet {
     lookahead_translation: fn(kind_id: u32, state: usize) -> Option<&'static Transition>,
     goto_translation: fn(kind_id: u32, state: usize) -> Option<&'static usize>,

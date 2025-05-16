@@ -1,4 +1,4 @@
-use parser_core::dispatcher::{ParseEventDispatcher, ParseEvent};
+use parser_core::event_dispatcher::{ParseEventDispatcher, ParseEvent};
 use engine_core::Engine;
 
 #[cfg(test)]

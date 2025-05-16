@@ -1,0 +1,343 @@
+use std::collections::HashMap;
+use engine_core::{parser_engine::ParsingRuleSet, scanner_engine::ScanEvent, SyntaxKind};
+use rowan::GreenNode;
+use scanner_core::Token;
+
+use crate::{event_dispatcher::ParseEvent, syntax_tree::{NodeType, RowanLangageImpl, SyntaxTree}, NodeId};
+
+pub struct SyntaxTreeBuilder {
+    element_stack: Vec<Option<(NodeId, StackEntry)>>,
+    metadata_map: HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>,
+    engine: ParsingRuleSet,
+}
+
+impl SyntaxTreeBuilder {
+    pub fn new(engine: ParsingRuleSet) -> Self {
+        Self {
+            element_stack: Default::default(),
+            metadata_map: Default::default(),
+            engine,
+        }
+    }
+
+    pub fn add_token_set(&mut self, event: ParseEvent, lookahead: Option<&Token>) -> Result<(), NodeBuildError> {
+        let Some(lookahead) = lookahead else {
+            return Err(NodeBuildError::EmptyLookahead);
+        };
+        let ParseEvent::Shift { edit_state, .. } = event else {
+            return Err(NodeBuildError::TokenSetFailed);
+        };
+        
+        let (id, node) = create_token_set(edit_state, lookahead, &self.element_stack, &mut self.metadata_map);
+        self.element_stack.push(Some((id, StackEntry::Node(node))));
+        Ok(())
+    }
+
+    pub fn add_kind_token(&mut self, event: ParseEvent) -> Result<(), NodeBuildError> {
+        let ParseEvent::Shift { kind, edit_state, .. } = event else {
+            return Err(NodeBuildError::TokenSetFailed);
+        };
+
+        let offset = match get_node_metadata_key(&self.metadata_map, self.element_stack.last()) {
+            Some(key) => key.offset + key.len,
+            None => 0,
+        };
+        let len = if kind.is_keyword { kind.text.len() } else { 0 };
+
+        let lookahead = Token{
+            leading_trivia: None,
+            main: ScanEvent{ kind, offset, len, value: None },
+            trailing_trivia: None,
+        };
+
+        let (id, node) = create_token_set(edit_state, &lookahead, &self.element_stack, &mut self.metadata_map);
+        self.element_stack.push(Some((id, StackEntry::Node(node))));
+        Ok(())
+    }
+
+    pub fn add_node(&mut self, event: ParseEvent) -> Result<(), NodeBuildError> {
+        match event {
+            ParseEvent::Reduce { pop_count, .. } if pop_count == 0 => {
+                self.element_stack.push(None);
+                Ok(())
+            }
+            ParseEvent::Reduce { kind, pop_count, edit_state, .. } => {
+                let (id, node) = create_node(kind, edit_state, pop_count, &mut self.element_stack, &mut self.metadata_map);
+                self.element_stack.push(Some((id, StackEntry::Node(node))));
+                Ok(())
+            }
+            ParseEvent::Accept { kind, edit_state, .. } => {
+                let (id, node) = create_node(kind, edit_state, self.element_stack.len(), &mut self.element_stack, &mut self.metadata_map);
+                self.element_stack.push(Some((id, StackEntry::Node(node))));
+                Ok(())
+            }
+            ParseEvent::Shift { .. } => {
+                Err(NodeBuildError::NodeFailed)
+            },
+        }
+    }
+
+    /// Build syntax tree
+    /// 
+    /// # Remarks
+    /// * `accept_event` must be ParseEvent::Accept variant.
+    /// * At least, it must be added child node/nodeset.
+    pub fn build(mut self, accept_event: ParseEvent) -> Result<SyntaxTree, NodeBuildError> {
+        let ParseEvent::Accept { kind, edit_state, .. } = accept_event else {
+            return Err(NodeBuildError::NodeFailed);
+        };
+        if self.element_stack.is_empty() {
+            return Err(NodeBuildError::EmptyTree);
+        }
+
+        let (_, root) = create_node(kind, edit_state, self.element_stack.len(), &mut self.element_stack, &mut self.metadata_map);
+
+        let metadata_map = HashMap::<NodeMetadataKey, (NodeId, NodeMetadata)>::from_iter(
+            self.metadata_map.into_iter().map(|(id, (metadata, key))| (key, (id, metadata)))
+        );
+        Ok(SyntaxTree::new(root, metadata_map, self.engine))
+    }
+}
+
+
+thread_local! {
+    static ID_GENERATOR: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+}
+
+fn next_node_id() -> NodeId {
+    let ts = std::time::Instant::now();
+    let id = ID_GENERATOR.with(|g| g.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+    (ts, id)
+}
+
+type NodeElement = rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>;
+fn create_token_set(
+    state: usize, lookahead: &Token, 
+    element_stack: &[Option<(NodeId, StackEntry)>],
+    metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenNode)
+{
+    let mut children: Vec<(NodeId, NodeElement)> = vec![];
+    let id = next_node_id();
+    let kind = lookahead.main.kind;
+    
+    // main token item
+    let (child_id, child_node) = create_token_item(state, &lookahead.main, element_stack, metadata_map);
+    children.push((child_id, NodeElement::Token(child_node)));
+
+    let (child_ids, child_nodes): (Vec<NodeId>, Vec<NodeElement>) = children.into_iter().unzip();
+    // resolve offset & len
+    let ((offset, len), (char_offset, char_len)) = resolve_token_items_range(child_ids, metadata_map);
+
+    // add metadata
+    let element = GreenNode::new(rowan::SyntaxKind(kind.id as u16), child_nodes);
+    let key = NodeMetadataKey{ kind, offset, len, is_leaf: false };
+    let metadata = NodeMetadata{ 
+        edit_state: state, node_type: NodeType::TokenSet, recovery: None, 
+        char_offset, char_len
+    };
+    metadata_map.insert(id, (metadata, key));
+
+    (id, element)
+}
+
+fn resolve_token_items_range<'a>(
+    child_ids: Vec<NodeId>,
+    metadata_map: &HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> ((usize, usize), (usize, usize)) 
+{
+    let (offset, char_offset) = child_ids.first()
+        .and_then(|id| metadata_map.get(id))
+        .map(|(metadata, key)| (key.offset, metadata.char_offset))
+        .unwrap_or((0, 0))
+    ;
+
+    let (len, char_len) = child_ids.into_iter()
+        .filter_map(|id| metadata_map.get(&id))
+        .fold((0, 0), |(len, char_len), (metadata, key)| (len + key.len, char_len + metadata.char_len))
+    ;
+
+    ((offset, len), (char_offset, char_len))
+}
+
+fn create_token_item(
+    state: usize, lookahead: &ScanEvent,
+    element_stack: &[Option<(NodeId, StackEntry)>],
+    metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenToken) 
+{
+    let id = next_node_id();
+    let node = rowan::GreenToken::new(
+        rowan::SyntaxKind(lookahead.kind.id as u16), 
+        &lookahead.value.clone().unwrap_or_else (|| "".into())
+    );
+
+    let (char_offset, char_len) = get_token_item_char_range(lookahead.value.as_ref(), &element_stack, metadata_map);
+
+    let key = NodeMetadataKey{ kind: lookahead.kind, offset: lookahead.offset, len: lookahead.len, is_leaf: true };
+    let metadata = NodeMetadata{ 
+        edit_state: state, node_type: NodeType::TokenItem, recovery: None,
+        char_offset, char_len,
+    };
+    metadata_map.insert(id, (metadata, key));
+    (id, node)
+}
+
+fn get_token_item_char_range(
+    lookahead: Option<&String>, 
+    element_stack: &[Option<(NodeId, StackEntry)>],
+    metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> (usize, usize) 
+{
+    let top = element_stack.iter().rev()
+        .filter_map(|x| match x {
+            Some((id, _)) => Some(id),
+            None => None,
+        })
+        .next()
+    ;
+
+    match (top, lookahead) {
+        (None, None) => (0, 0),
+        (None, Some(s)) => (0, s.chars().count()),
+        (Some(id), None) => {
+            let offset = metadata_map.get(id).map(|(metadata, _)| metadata.char_offset + metadata.char_len).unwrap_or(0);
+            (offset, 0)
+        }
+        (Some(id), Some(s)) => {
+            let offset = metadata_map.get(id).map(|(metadata, _)| metadata.char_offset + metadata.char_len).unwrap_or(0);
+            (offset, s.chars().count())
+        }
+    }
+}
+
+fn create_node(
+    kind: SyntaxKind, state: usize, pop_count: usize, 
+    element_stack: &mut Vec<Option<(NodeId, StackEntry)>>,
+    metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenNode)
+{
+    let id = next_node_id();
+    let (child_ids, child_nodes) = pop_node_from_stack(element_stack, pop_count);
+    
+    // resolve offset & len
+    let ((offset, len), (char_offset, char_len)) = resolve_token_items_range(child_ids, metadata_map);
+
+    let node = rowan::GreenNode::new(rowan::SyntaxKind(kind.id as u16), child_nodes);
+    let key = NodeMetadataKey{ kind, offset, len, is_leaf: false };
+    let metadata = NodeMetadata{ 
+        edit_state: state, node_type: NodeType::Node, recovery: None,
+        char_offset, char_len,
+    };
+    metadata_map.insert(id, (metadata, key));
+    
+    (id, node)
+}
+
+fn pop_node_from_stack(element_stack: &mut Vec<Option<(NodeId, StackEntry)>>, mut pop_count: usize) -> (Vec<NodeId>, Vec<NodeElement>) {
+    assert!(pop_count <= element_stack.len(), "pop_count: {}, stack/len: {}", pop_count, element_stack.len());
+    let mut elements = Vec::with_capacity(pop_count + 1);
+
+    while pop_count > 0 {
+        match element_stack.pop() {
+            Some(Some((id, StackEntry::Node(element)))) => {
+                elements.push((id, NodeElement::Node(element)));
+                pop_count -= 1;
+            }
+            Some(None) => {
+                pop_count -= 1;
+            }
+            Some(Some((id, StackEntry::DeleteRecovery(element)))) => {
+                elements.push((id, NodeElement::Node(element) ));
+            }
+            _ => {}
+        }
+        if pop_count == 0 { break }
+    }
+
+
+    if let Some(Some((id, StackEntry::DeleteRecovery(element)))) = element_stack.last() {
+        elements.push((id.clone(), NodeElement::Node(element.clone())));
+        element_stack.pop();
+    }
+
+    elements.into_iter().rev().unzip()
+}
+
+fn get_node_metadata_key<'a>(
+    metadata_map: &'a HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>, 
+    node_entry: Option<&'a Option<(NodeId, StackEntry)>>) -> Option<&'a NodeMetadataKey> 
+{
+    if let Some(Some((id, _))) = node_entry {
+        return metadata_map.get(id).map(|(_, key)| key);
+    }
+    
+    None
+}
+
+enum StackEntry {
+    Node(rowan::GreenNode),
+    DeleteRecovery(rowan::GreenNode),
+}
+
+#[derive(PartialEq, Debug)]
+pub enum Recovery {
+    Delete,
+    Shift,
+}
+
+#[derive(PartialEq, Debug)]
+pub struct NodeMetadata {
+    pub edit_state: usize,
+    pub node_type: NodeType,
+    pub recovery: Option<Recovery>,
+    pub char_offset: usize,
+    pub char_len: usize,
+}
+
+#[derive(PartialEq, Eq, Hash, Debug)]
+pub struct NodeMetadataKey {
+    pub kind: SyntaxKind,
+    pub offset: usize,
+    pub len: usize,
+    pub is_leaf: bool,
+}
+
+impl NodeMetadataKey {
+    pub(crate) fn from_node(
+        node: &rowan::SyntaxNode<RowanLangageImpl>, 
+        engine: ParsingRuleSet) -> Self 
+    {
+        let range = node.text_range();
+        Self{ 
+            kind: engine.from_kind_id(node.kind() as u32), 
+            offset: range.start().into(), 
+            len: range.len().into(), 
+            is_leaf: false 
+        }
+    }
+
+    pub(crate) fn from_token(
+        node: &rowan::SyntaxToken<RowanLangageImpl>, 
+        engine: ParsingRuleSet) -> Self 
+    {
+        let range = node.text_range();
+        Self{ 
+            kind: engine.from_kind_id(node.kind() as u32), 
+            offset: range.start().into(), 
+            len: range.len().into(), 
+            is_leaf: true 
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, thiserror::Error)]
+pub enum NodeBuildError {
+    /// TokenSet needs lookahead
+    #[error("TokenSet needs lookahead")]
+    EmptyLookahead,
+    /// At least, It needs node or node set
+    #[error("At least, It needs node or node set")]
+    EmptyTree,
+    /// TokenSet is only acceped Shift event
+    #[error("TokenSet is only acceped Shift event")]
+    TokenSetFailed,
+    /// Node is accepted Reduce or Accept event
+    #[error("Node is accepted Reduce or Accept event")]
+    NodeFailed,
+}
