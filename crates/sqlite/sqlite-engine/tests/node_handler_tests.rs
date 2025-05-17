@@ -4,51 +4,77 @@ use parser_core::{event_dispatcher::ParseEvent, node_handler::{NodeBuildError, S
 use sqlite_engine::syntax_kind;
 
 mod build_tree_tests {
-    use std::f32::consts::E;
-
-    use parser_core::{node_handler::{NodeMetadata, NodeMetadataKey}, syntax_tree::{MetadataAccess, NodeType, SyntaxNode}};
+    use parser_core::{syntax_tree::{MetadataAccess, SyntaxElement, SyntaxNode, SyntaxTokenItem, SyntaxTokenSet, SyntaxTriviaItems}, NodeMetadata, NodeMetadataKey, NodeType};
 
     use super::*;
 
-    struct ExpectNode<'a> {
-        key: NodeMetadataKey,
-        metadata: NodeMetadata,
-        children: &'a [ExpectNode<'a>]
+    #[derive(Debug)]
+    enum ActualNode {
+        Node(SyntaxNode),
+        TokenSet(SyntaxTokenSet),
+        TokenItem(SyntaxTokenItem),
     }
 
-    fn verify<'a>(actual: &SyntaxNode, expect_node: &ExpectNode<'a>, depth: usize) {
-        'verify_member: {
-            verify_member(actual, expect_node);
-            break 'verify_member;
-        }
-        'verify_children: {
-            assert_eq!(expect_node.children.len(), actual.children().count());
+    #[derive(Debug)]
+    enum ExpectNode<'a> {
+        Node { metadata: ExpectMetadata, children: &'a [ExpectNode<'a>] },
+        TokenSet { metadata: ExpectMetadata, leading: &'a [ExpectNode<'a>], token: Box<ExpectNode<'a>>, trailing: &'a [ExpectNode<'a>] },
+        TokenItem { metadata: ExpectMetadata, value: &'a str },
+    }
 
-            for (child, expect_child) in actual.children().zip(expect_node.children) {
-                match &child {
-                    parser_core::syntax_tree::SyntaxElement::Node(child_node) => {
-                        verify(child_node, expect_child, depth+1);
-                    }
-                    parser_core::syntax_tree::SyntaxElement::TokenSet(token_set) => {
-                        verify_member(token_set, expect_child);
-                    }
-                    parser_core::syntax_tree::SyntaxElement::TokenItem(item) => {
-                        verify_member(item, expect_child);
+
+    #[derive(Debug)]
+    struct ExpectMetadata(NodeMetadataKey, NodeMetadata);
+
+    fn verify<'a>(actual: &ActualNode, expect_node: &ExpectNode<'a>, depth: usize) {
+        match (actual, expect_node) {
+            (ActualNode::Node(actual), ExpectNode::Node { metadata, children }) => {
+                verify_member(actual, metadata);
+                assert_eq!(children.len(), actual.children().count());
+
+                for (child, expect_child) in actual.children().zip(*children) {
+                    match &child {
+                        SyntaxElement::Node(child_node) => {
+                            verify(&ActualNode::Node(child_node.clone()), expect_child, depth+1);
+                        }
+                        SyntaxElement::TokenSet(token_set) => {
+                            verify(&ActualNode::TokenSet(token_set.clone()), expect_child, depth+1);
+                        }
                     }
                 }
             }
-            break 'verify_children;
+            (ActualNode::TokenSet(actual), ExpectNode::TokenSet { metadata, leading, token, trailing }) => {
+                verify_member(actual, metadata);
+                verify(&ActualNode::TokenItem(actual.token()), token, depth+1);
+                verify_trivia(actual.leading_trivia(), actual.leading_trivia().count(), leading, depth+1);
+                verify_trivia(actual.trailing_trivia(), actual.trailing_trivia().count(), trailing, depth+1);
+            }
+            (ActualNode::TokenItem(actual), ExpectNode::TokenItem { metadata, value }) => {
+                verify_member(actual, metadata);
+                assert_eq!(*value, actual.value());
+            }
+            (lhs, rhs) => {
+                panic!("Unexpected convination (lhs: {lhs:?}, rhs: {rhs:?})");
+            }
         }
     }
 
-    fn verify_member<'a>(member: &'a impl MetadataAccess, expect_node: &'a ExpectNode<'a>) {
+    fn verify_member<'a>(member: &'a impl MetadataAccess, ExpectMetadata(key, metadata): &ExpectMetadata) {
         'verify_key: {
-            assert_eq!(expect_node.key, member.metadata_key());
+            assert_eq!(*key, member.metadata_key());
             break 'verify_key;
         }
         'verify_metadata: {
-            assert_eq!(&expect_node.metadata, member.metadata());
+            assert_eq!(metadata, member.metadata());
             break 'verify_metadata;
+        }
+    }
+
+    fn verify_trivia(trivia_items: SyntaxTriviaItems, actual_count: usize, expect: &[ExpectNode], depth: usize) {
+        assert_eq!(expect.len(), actual_count);
+
+        for (item, expect_item) in trivia_items.zip(expect) {
+            verify(&ActualNode::TokenItem(item), expect_item, depth+1);
         }
     }
 
@@ -74,24 +100,30 @@ mod build_tree_tests {
 
         let tree = tree.unwrap();
 
-        let expect_tree = ExpectNode{
-            key: NodeMetadataKey{ kind: syntax_kind::input, offset: 0, len: 0, is_leaf: false },
-            metadata: NodeMetadata{ edit_state: 0, node_type: NodeType::Node, recovery: None, char_offset: 0, char_len: 0 },
+        let expect_tree = ExpectNode::Node{
+            metadata: ExpectMetadata(
+                NodeMetadataKey{ kind: syntax_kind::input, offset: 0, len: 0, is_leaf: false },
+                NodeMetadata{ edit_state: 0, node_type: NodeType::Node, recovery: None, char_offset: 0, char_len: 0 }
+            ),
             children: &[
-                ExpectNode{
-                    key: NodeMetadataKey { kind: syntax_kind::r#EOF, offset: 0, len: 0, is_leaf: false },
-                    metadata: NodeMetadata { edit_state: 0, node_type: NodeType::TokenSet, recovery: None, char_offset: 0, char_len: 0 },
-                    children: &[
-                        ExpectNode{
-                            key: NodeMetadataKey { kind: syntax_kind::r#EOF, offset: 0, len: 0, is_leaf: false },
-                            metadata: NodeMetadata { edit_state: 0, node_type: NodeType::TokenItem, recovery: None, char_offset: 0, char_len: 0 },
-                            children: &[]
-                        }
-                    ]
+                ExpectNode::TokenSet { 
+                    metadata: ExpectMetadata(
+                        NodeMetadataKey { kind: syntax_kind::r#EOF, offset: 0, len: 0, is_leaf: false },
+                        NodeMetadata { edit_state: 0, node_type: NodeType::TokenSet, recovery: None, char_offset: 0, char_len: 0 }
+                    ),
+                    leading: &[],
+                    token: Box::new(ExpectNode::TokenItem { 
+                        metadata: ExpectMetadata(
+                            NodeMetadataKey { kind: syntax_kind::r#EOF, offset: 0, len: 0, is_leaf: true },
+                            NodeMetadata { edit_state: 0, node_type: NodeType::TokenItem, recovery: None, char_offset: 0, char_len: 0 }
+                        ),
+                        value: "",
+                    }),
+                    trailing: &[],
                 }
             ]
         };
-        verify(&tree.root(), &expect_tree, 0);
+        verify(&&ActualNode::Node(tree.root()), &expect_tree, 0);
         // 'root_node: {
         //     let root = tree.root();
         //     // assert_eq!(syntax_kind::r#input, root.kind());

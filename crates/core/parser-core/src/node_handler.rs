@@ -3,7 +3,7 @@ use engine_core::{parser_engine::ParsingRuleSet, scanner_engine::ScanEvent, Synt
 use rowan::GreenNode;
 use scanner_core::Token;
 
-use crate::{event_dispatcher::ParseEvent, syntax_tree::{NodeType, RowanLangageImpl, SyntaxTree}, NodeId};
+use crate::{event_dispatcher::ParseEvent, syntax_tree::SyntaxTree, NodeId, NodeMetadata, NodeMetadataKey, NodeType};
 
 pub struct SyntaxTreeBuilder {
     element_stack: Vec<Option<(NodeId, StackEntry)>>,
@@ -273,57 +273,6 @@ fn get_node_metadata_key<'a>(
 enum StackEntry {
     Node(rowan::GreenNode),
     DeleteRecovery(rowan::GreenNode),
-}
-
-#[derive(PartialEq, Debug)]
-pub enum Recovery {
-    Delete,
-    Shift,
-}
-
-#[derive(PartialEq, Debug)]
-pub struct NodeMetadata {
-    pub edit_state: usize,
-    pub node_type: NodeType,
-    pub recovery: Option<Recovery>,
-    pub char_offset: usize,
-    pub char_len: usize,
-}
-
-#[derive(PartialEq, Eq, Hash, Debug)]
-pub struct NodeMetadataKey {
-    pub kind: SyntaxKind,
-    pub offset: usize,
-    pub len: usize,
-    pub is_leaf: bool,
-}
-
-impl NodeMetadataKey {
-    pub(crate) fn from_node(
-        node: &rowan::SyntaxNode<RowanLangageImpl>, 
-        engine: ParsingRuleSet) -> Self 
-    {
-        let range = node.text_range();
-        Self{ 
-            kind: engine.from_kind_id(node.kind() as u32), 
-            offset: range.start().into(), 
-            len: range.len().into(), 
-            is_leaf: false 
-        }
-    }
-
-    pub(crate) fn from_token(
-        node: &rowan::SyntaxToken<RowanLangageImpl>, 
-        engine: ParsingRuleSet) -> Self 
-    {
-        let range = node.text_range();
-        Self{ 
-            kind: engine.from_kind_id(node.kind() as u32), 
-            offset: range.start().into(), 
-            len: range.len().into(), 
-            is_leaf: true 
-        }
-    }
 }
 
 #[derive(PartialEq, Debug, thiserror::Error)]

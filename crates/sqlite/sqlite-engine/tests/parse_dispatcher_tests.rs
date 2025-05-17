@@ -21,7 +21,7 @@ mod default_scanner_engine_tests {
 #[cfg(test)]
 #[cfg(not(engine_ungenerated))]
 mod scanner_engine_tests {
-    use parser_core::ParseError;
+    use parser_core::event_dispatcher::ParseError;
     use sqlite_engine::syntax_kind;
     use super::*;
 

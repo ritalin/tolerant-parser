@@ -14,9 +14,9 @@ impl ParseEventDispatcher {
         }
     }
 
-    pub fn next(&mut self, lookahead_kind: Option<SyntaxKind>) -> Result<ParseEvent, crate::ParseError> {
+    pub fn next(&mut self, lookahead_kind: Option<SyntaxKind>) -> Result<ParseEvent, ParseError> {
         let Some(state) = self.state_stack.peek_state().cloned() else {
-            return Err(crate::ParseError::NoMoreState{ context: "Shift".into() });
+            return Err(ParseError::NoMoreState{ context: "Shift".into() });
         };
 
         let Some(lookahead_kind) = lookahead_kind else {
@@ -27,7 +27,7 @@ impl ParseEventDispatcher {
                     Ok(ParseEvent::Accept { kind: last_kind, last_state: *last_state, edit_state: 0 })
                 }
                 _ => {
-                    Err(crate::ParseError::NotAccept)
+                    Err(ParseError::NotAccept)
                 }
             };
         };
@@ -41,12 +41,12 @@ impl ParseEventDispatcher {
             }
             Some(Transition::Reduce { pop_count, lhs: goto_kind_id }) => {
                 let Some(peek_state) = self.state_stack.pop_n_state(*pop_count) else {
-                    return Err(crate::ParseError::NoMoreState{ context: "Reduce".into() });
+                    return Err(ParseError::NoMoreState{ context: "Reduce".into() });
                 };
 
                 let lhs_kind = self.engine.from_kind_id(*goto_kind_id);
                 let Some(goto_state) = self.engine.next_goto_state(*goto_kind_id, *peek_state) else {
-                    return Err(crate::ParseError::NoGotoCandidate { state: *peek_state, lhs: lhs_kind.text.into() })
+                    return Err(ParseError::NoGotoCandidate { state: *peek_state, lhs: lhs_kind.text.into() })
                 };
                 self.state_stack.push_state(*goto_state);
                 let edit_state = self.state_stack
@@ -66,7 +66,7 @@ impl ParseEventDispatcher {
                 return Ok(ParseEvent::Shift { kind: lookahead_kind, current_state: state, next_state: 0, edit_state: 0 });
             }
             None => {
-                return Err(crate::ParseError::RequestRecovery);
+                return Err(ParseError::RequestRecovery);
             }
         }
     }
@@ -183,4 +183,21 @@ pub enum ParseEvent {
         /// edit state for incremental parsing
         edit_state: usize 
     },
+}
+
+#[derive(PartialEq, Debug, thiserror::Error)]
+pub enum ParseError {
+    /// no more entry in state stack
+    #[error("no more entry in state stack (context: {context})")]
+    NoMoreState { context: String },
+    /// no more entry in state stack
+    #[error("no more entry in goto candidate (state: {state}, lhs: {lhs})")]
+    NoGotoCandidate {state: usize, lhs: String},
+    /// request to recover parsing state
+    #[error("request to recover parsing state")]
+    RequestRecovery,
+    /// unmatch accept state
+    #[error("unmatch accept state")]
+    NotAccept,
+
 }
