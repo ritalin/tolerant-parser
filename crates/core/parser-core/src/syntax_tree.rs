@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 use engine_core::parser_engine::ParsingRuleSet;
-use crate::{NodeId, NodeMetadata, NodeMetadataKey, NodeType};
+use crate::{NodeId, NodeMetadata, NodeMetadataKey};
 
 mod tree;
 mod node;
@@ -8,7 +8,7 @@ mod token;
 
 pub use tree::SyntaxTree;
 pub use node::SyntaxNode;
-pub use token::{SyntaxTokenSet, SyntaxTokenItem, SyntaxTriviaItems};
+pub use token::{SyntaxTokenSet, SyntaxTokenItem, SyntaxTokenItems};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RowanLangageImpl;

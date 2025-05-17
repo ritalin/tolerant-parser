@@ -9,14 +9,16 @@ pub struct SyntaxTreeBuilder {
     element_stack: Vec<Option<(NodeId, StackEntry)>>,
     metadata_map: HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>,
     engine: ParsingRuleSet,
+    prev_id: Option<NodeId>,
 }
 
 impl SyntaxTreeBuilder {
-    pub fn new(engine: ParsingRuleSet) -> Self {
+    pub fn new(engine: ParsingRuleSet, prev_id: Option<NodeId>) -> Self {
         Self {
             element_stack: Default::default(),
             metadata_map: Default::default(),
             engine,
+            prev_id,
         }
     }
 
@@ -28,8 +30,9 @@ impl SyntaxTreeBuilder {
             return Err(NodeBuildError::TokenSetFailed);
         };
         
-        let (id, node) = create_token_set(edit_state, lookahead, &self.element_stack, &mut self.metadata_map);
+        let (id, node) = create_token_set(edit_state, lookahead, self.prev_id.clone(), &mut self.metadata_map);
         self.element_stack.push(Some((id, StackEntry::Node(node))));
+        self.prev_id = Some(id);
         Ok(())
     }
 
@@ -50,8 +53,9 @@ impl SyntaxTreeBuilder {
             trailing_trivia: None,
         };
 
-        let (id, node) = create_token_set(edit_state, &lookahead, &self.element_stack, &mut self.metadata_map);
+        let (id, node) = create_token_set(edit_state, &lookahead, self.prev_id.clone(), &mut self.metadata_map);
         self.element_stack.push(Some((id, StackEntry::Node(node))));
+        self.prev_id = Some(id);
         Ok(())
     }
 
@@ -64,11 +68,13 @@ impl SyntaxTreeBuilder {
             ParseEvent::Reduce { kind, pop_count, edit_state, .. } => {
                 let (id, node) = create_node(kind, edit_state, pop_count, &mut self.element_stack, &mut self.metadata_map);
                 self.element_stack.push(Some((id, StackEntry::Node(node))));
+                self.prev_id = Some(id);
                 Ok(())
             }
             ParseEvent::Accept { kind, edit_state, .. } => {
                 let (id, node) = create_node(kind, edit_state, self.element_stack.len(), &mut self.element_stack, &mut self.metadata_map);
                 self.element_stack.push(Some((id, StackEntry::Node(node))));
+                self.prev_id = Some(id);
                 Ok(())
             }
             ParseEvent::Shift { .. } => {
@@ -112,32 +118,58 @@ fn next_node_id() -> NodeId {
 
 type NodeElement = rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>;
 fn create_token_set(
-    state: usize, lookahead: &Token, 
-    element_stack: &[Option<(NodeId, StackEntry)>],
+    state: usize, lookahead: &Token, mut last_id: Option<NodeId>,
     metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenNode)
 {
     let mut children: Vec<(NodeId, NodeElement)> = vec![];
     let id = next_node_id();
     let kind = lookahead.main.kind;
     
-    // main token item
-    let (child_id, child_node) = create_token_item(state, &lookahead.main, element_stack, metadata_map);
-    children.push((child_id, NodeElement::Token(child_node)));
+    'leading_trivia: {
+        if let Some(leadings) = lookahead.leading_trivia.as_ref() {
+            for trivia in leadings {
+                let (child_id, child_node) = create_token_item(state, trivia, NodeType::LeadingToken, last_id.as_ref(), metadata_map);
+                children.push((child_id, NodeElement::Token(child_node)));
+                last_id = Some(child_id);
+            }
+        }
+        break 'leading_trivia;
+    }
+    'main_token_item: {
+        let (child_id, child_node) = create_token_item(state, &lookahead.main, NodeType::TokenItem, last_id.as_ref(), metadata_map);
+        children.push((child_id, NodeElement::Token(child_node)));
+        last_id = Some(child_id);
+        break 'main_token_item;
+    }
+    'trailing_irivia: {
+        if let Some(trailings) = lookahead.trailing_trivia.as_ref() {
+            for trivia in trailings {
+                let (child_id, child_node) = create_token_item(state, trivia, NodeType::TrailingToken, last_id.as_ref(), metadata_map);
+                children.push((child_id, NodeElement::Token(child_node)));
+                last_id = Some(child_id);
+            }
+        }
+        break 'trailing_irivia;
+    }
 
-    let (child_ids, child_nodes): (Vec<NodeId>, Vec<NodeElement>) = children.into_iter().unzip();
-    // resolve offset & len
-    let ((offset, len), (char_offset, char_len)) = resolve_token_items_range(child_ids, metadata_map);
+    'node_set: {
+        let (child_ids, child_nodes): (Vec<NodeId>, Vec<NodeElement>) = children.into_iter().unzip();
 
-    // add metadata
-    let element = GreenNode::new(rowan::SyntaxKind(kind.id as u16), child_nodes);
-    let key = NodeMetadataKey{ kind, offset, len, is_leaf: false };
-    let metadata = NodeMetadata{ 
-        edit_state: state, node_type: NodeType::TokenSet, recovery: None, 
-        char_offset, char_len
-    };
-    metadata_map.insert(id, (metadata, key));
+        let element = GreenNode::new(rowan::SyntaxKind(kind.id as u16), child_nodes);
+        
+        // // resolve offset & len
+        let ((offset, len), (char_offset, char_len)) = resolve_token_items_range(child_ids, metadata_map);
 
-    (id, element)
+        // add metadata
+        let metadata_key = NodeMetadataKey{ kind, offset, len, is_leaf: false };
+        let metadata = NodeMetadata{ 
+            edit_state: state, node_type: NodeType::TokenSet, recovery: None, 
+            char_offset, char_len
+        };
+        metadata_map.insert(id, (metadata, metadata_key));
+
+        break 'node_set (id, element)
+    }
 }
 
 fn resolve_token_items_range<'a>(
@@ -145,7 +177,7 @@ fn resolve_token_items_range<'a>(
     metadata_map: &HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> ((usize, usize), (usize, usize)) 
 {
     let (offset, char_offset) = child_ids.first()
-        .and_then(|id| metadata_map.get(id))
+        .and_then(|id| metadata_map.get(&id))
         .map(|(metadata, key)| (key.offset, metadata.char_offset))
         .unwrap_or((0, 0))
     ;
@@ -159,8 +191,8 @@ fn resolve_token_items_range<'a>(
 }
 
 fn create_token_item(
-    state: usize, lookahead: &ScanEvent,
-    element_stack: &[Option<(NodeId, StackEntry)>],
+    state: usize, lookahead: &ScanEvent, node_type: NodeType,
+    last_id: Option<&NodeId>,
     metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenToken) 
 {
     let id = next_node_id();
@@ -169,42 +201,28 @@ fn create_token_item(
         &lookahead.value.clone().unwrap_or_else (|| "".into())
     );
 
-    let (char_offset, char_len) = get_token_item_char_range(lookahead.value.as_ref(), &element_stack, metadata_map);
+    let (metadata_key, metadata) = create_token_metadata_pair(lookahead, state, node_type, last_id.and_then(|id| metadata_map.get(&id)));
+    metadata_map.insert(id, (metadata, metadata_key));
 
-    let key = NodeMetadataKey{ kind: lookahead.kind, offset: lookahead.offset, len: lookahead.len, is_leaf: true };
-    let metadata = NodeMetadata{ 
-        edit_state: state, node_type: NodeType::TokenItem, recovery: None,
-        char_offset, char_len,
-    };
-    metadata_map.insert(id, (metadata, key));
     (id, node)
 }
 
-fn get_token_item_char_range(
-    lookahead: Option<&String>, 
-    element_stack: &[Option<(NodeId, StackEntry)>],
-    metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> (usize, usize) 
-{
-    let top = element_stack.iter().rev()
-        .filter_map(|x| match x {
-            Some((id, _)) => Some(id),
-            None => None,
-        })
-        .next()
-    ;
+fn create_token_metadata_pair(event: &ScanEvent, state: usize, node_type: NodeType, last_metadata: Option<&(NodeMetadata, NodeMetadataKey)>) -> (NodeMetadataKey, NodeMetadata) {
+    let char_len = event.value.as_ref().map(|s| s.chars().count()).unwrap_or(0);
 
-    match (top, lookahead) {
-        (None, None) => (0, 0),
-        (None, Some(s)) => (0, s.chars().count()),
-        (Some(id), None) => {
-            let offset = metadata_map.get(id).map(|(metadata, _)| metadata.char_offset + metadata.char_len).unwrap_or(0);
-            (offset, 0)
-        }
-        (Some(id), Some(s)) => {
-            let offset = metadata_map.get(id).map(|(metadata, _)| metadata.char_offset + metadata.char_len).unwrap_or(0);
-            (offset, s.chars().count())
-        }
-    }
+    let char_offset = match last_metadata {
+        Some((metadata, _)) => metadata.char_offset + metadata.char_len,
+        None => 0,
+    };
+    
+    // add metadata
+    let key = NodeMetadataKey{ kind: event.kind, offset: event.offset, len: event.len, is_leaf: true };
+    let metadata = NodeMetadata{ 
+        edit_state: state, node_type, recovery: None, 
+        char_offset, char_len
+    };
+
+    (key, metadata)
 }
 
 fn create_node(

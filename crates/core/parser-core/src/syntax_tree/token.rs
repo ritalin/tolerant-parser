@@ -9,14 +9,14 @@ pub struct SyntaxTokenSet {
 }
 
 impl SyntaxTokenSet {
-    pub fn leading_trivia(&self) -> SyntaxTriviaItems {
-        SyntaxTriviaItems::new(&self.data, NodeType::LeadingToken)
+    pub fn leading_trivia(&self) -> SyntaxTokenItems {
+        SyntaxTokenItems::new(&self.data, NodeType::LeadingToken)
     }
-    pub fn trailing_trivia(&self) -> SyntaxTriviaItems {
-        SyntaxTriviaItems::new(&self.data, NodeType::TrailingToken)
+    pub fn trailing_trivia(&self) -> SyntaxTokenItems {
+        SyntaxTokenItems::new(&self.data, NodeType::TrailingToken)
     }
     pub fn token(&self) -> SyntaxTokenItem {
-        SyntaxTriviaItems::new(&self.data, NodeType::TokenItem).next().expect("Missing Main token item in token set")
+        SyntaxTokenItems::new(&self.data, NodeType::TokenItem).next().expect("Missing Main token item in token set")
     }
 }
 
@@ -95,21 +95,22 @@ impl NodeOperation for SyntaxTokenItem {
     }
 }
 
-pub struct SyntaxTriviaItems {
+pub struct SyntaxTokenItems {
     children: rowan::SyntaxElementChildren<RowanLangageImpl>,
     metadata_map: Rc<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>,
     engine: ParsingRuleSet,
     node_type: NodeType,
 }
 
-impl Iterator for SyntaxTriviaItems {
+impl Iterator for SyntaxTokenItems {
     type Item = SyntaxTokenItem;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(rowan::NodeOrToken::Token(item)) = self.children.next() {
             let data = SyntaxTokenData::new(item, self.metadata_map.clone(), self.engine);
+            let metadata = data.metadata();
 
-            if data.metadata().node_type == self.node_type {
+            if metadata.node_type == self.node_type {
                 return Some(SyntaxTokenItem::from_raw(data));
             }
         }
@@ -118,7 +119,7 @@ impl Iterator for SyntaxTriviaItems {
     }
 }
 
-impl SyntaxTriviaItems {
+impl SyntaxTokenItems {
     pub(crate) fn new(data: &SyntaxNodeData, node_type: NodeType) -> Self {
         Self {
             children: data.raw.children_with_tokens(),

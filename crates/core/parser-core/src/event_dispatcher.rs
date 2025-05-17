@@ -154,7 +154,7 @@ impl StateStack {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum ParseEvent {
     Shift { 
         kind: SyntaxKind, 
