@@ -7,6 +7,7 @@ use crate::{event_dispatcher::ParseEvent, syntax_tree::SyntaxTree, NodeId, NodeM
 
 pub struct SyntaxTreeBuilder {
     element_stack: Vec<Option<(NodeId, StackEntry)>>,
+    water_mark: usize,
     metadata_map: HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>,
     engine: ParsingRuleSet,
     prev_id: Option<NodeId>,
@@ -16,6 +17,7 @@ impl SyntaxTreeBuilder {
     pub fn new(engine: ParsingRuleSet, prev_id: Option<NodeId>) -> Self {
         Self {
             element_stack: Default::default(),
+            water_mark: 0,
             metadata_map: Default::default(),
             engine,
             prev_id,
@@ -23,10 +25,10 @@ impl SyntaxTreeBuilder {
     }
 
     pub fn add_token_set(&mut self, event: ParseEvent, lookahead: Option<&Token>) -> Result<(), NodeBuildError> {
-        let Some(lookahead) = lookahead else {
-            return Err(NodeBuildError::EmptyLookahead);
-        };
         let ParseEvent::Shift { edit_state, .. } = event else {
+            return Err(NodeBuildError::TokenSetFailed);
+        };
+        let Some(lookahead) = lookahead else {
             return Err(NodeBuildError::TokenSetFailed);
         };
         
@@ -77,10 +79,22 @@ impl SyntaxTreeBuilder {
                 self.prev_id = Some(id);
                 Ok(())
             }
-            ParseEvent::Shift { .. } => {
+            ParseEvent::Shift { .. } | ParseEvent::Emit { .. } => {
                 Err(NodeBuildError::NodeFailed)
             },
         }
+    }
+
+    pub fn emit_statement(&mut self, event: ParseEvent) -> Result<(), NodeBuildError> {
+        let ParseEvent::Emit { kind, edit_state, .. } = event else {
+            return Err(NodeBuildError::NodeFailed);
+        };
+        let pop_count = self.element_stack.len() - self.water_mark;
+        let (id, node) = create_node(kind, edit_state, pop_count, &mut self.element_stack, &mut self.metadata_map);
+        self.element_stack.push(Some((id, StackEntry::Node(node))));
+        self.water_mark = self.element_stack.len();
+
+        Ok(())
     }
 
     /// Build syntax tree
@@ -295,9 +309,6 @@ enum StackEntry {
 
 #[derive(PartialEq, Debug, thiserror::Error)]
 pub enum NodeBuildError {
-    /// TokenSet needs lookahead
-    #[error("TokenSet needs lookahead")]
-    EmptyLookahead,
     /// At least, It needs node or node set
     #[error("At least, It needs node or node set")]
     EmptyTree,

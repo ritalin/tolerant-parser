@@ -8,12 +8,12 @@ mod default_scanner_engine_tests {
     #[test]
     fn test_next_event() -> Result<(), anyhow::Error> {
         let engine = Engine::default().parsing_rules;
-        let eof_kind = engine.eof();
+        let eof_kind = engine.full_emit_config().to_symbol;
         let mut dispatcher = ParseEventDispatcher::new(0, engine);
 
         let expect_event = ParseEvent::Shift { kind: eof_kind, current_state: 0, next_state: 0, edit_state: 0 };
         assert_eq!(Ok(expect_event), dispatcher.next(Some(eof_kind)));
-        assert_eq!(true, dispatcher.state_values().is_empty());
+        assert_eq!(vec![0], dispatcher.state_values());
         Ok(())
     }
 }
@@ -21,7 +21,7 @@ mod default_scanner_engine_tests {
 #[cfg(test)]
 #[cfg(not(engine_ungenerated))]
 mod scanner_engine_tests {
-    use parser_core::event_dispatcher::ParseError;
+    use parser_core::event_dispatcher::ParseEventError;
     use sqlite_engine::syntax_kind;
     use super::*;
 
@@ -32,7 +32,7 @@ mod scanner_engine_tests {
 
         let expect_event = ParseEvent::Shift { kind: syntax_kind::r#EOF, current_state: 0, next_state: 0, edit_state: 0 };
         assert_eq!(Ok(expect_event), dispatcher.next(Some(syntax_kind::r#EOF)));
-        assert_eq!(true, dispatcher.state_values().is_empty());
+        assert_eq!(vec![0], dispatcher.state_values());
         Ok(())
     }
 
@@ -113,9 +113,15 @@ mod scanner_engine_tests {
             break 'next_state;
         }
         'next_state: {
-            let expected_event = ParseEvent::Accept{ kind: syntax_kind::r#input, last_state: 74, edit_state: 0 };
+            let expected_event = ParseEvent::Emit{ kind: syntax_kind::r#ecmd, edit_state: 22 };
             assert_eq!(Ok(expected_event), dispatcher.next(None));
-            assert_eq!(Vec::<usize>::new(), dispatcher.state_values());
+            assert_eq!(vec![74, 22], dispatcher.state_values());
+            break 'next_state;
+        }
+        'next_state: {
+            let expected_event = ParseEvent::Accept{ kind: syntax_kind::r#input, last_state: 22, edit_state: 22 };
+            assert_eq!(Ok(expected_event), dispatcher.next(None));
+            assert_eq!(vec![74, 22], dispatcher.state_values());
             break 'next_state;
         }
 
@@ -134,7 +140,7 @@ mod scanner_engine_tests {
             break 'next_state;
         }
         'next_state: {
-            assert_eq!(Err(ParseError::NoMoreState { context: "Shift".into() }), dispatcher.next(None));
+            assert_eq!(Err(ParseEventError::NoMoreState { context: "Shift".into() }), dispatcher.next(None));
             assert_eq!(Vec::<usize>::new(), dispatcher.state_values());
             break 'next_state;
         }
@@ -148,7 +154,7 @@ mod scanner_engine_tests {
         let mut dispatcher = ParseEventDispatcher::new(0, engine);
             
         'next_state: {
-            assert_eq!(Err(ParseError::NotAccept), dispatcher.next(None));
+            assert_eq!(Err(ParseEventError::NotAccept), dispatcher.next(None));
             assert_eq!(vec![0], dispatcher.state_values());
             break 'next_state;
         }
@@ -168,13 +174,13 @@ mod scanner_engine_tests {
                 next_goto_translation,
                 get_accept_transition,
                 lookup_symbol,
-                0,
+                (0, 0), None,
             );
             sqlite_engine::create()?.parsing_rules;
             let mut dispatcher = ParseEventDispatcher::new(1, engine);
 
             'next_state: {
-                assert_eq!(Err(ParseError::NoGotoCandidate { state: 1, lhs: "EOF".into() }), dispatcher.next(Some(syntax_kind::r#SEMI)));
+                assert_eq!(Err(ParseEventError::NoGotoCandidate { state: 1, lhs: "EOF".into() }), dispatcher.next(Some(syntax_kind::r#SEMI)));
                 assert_eq!(vec![1], dispatcher.state_values());
                 break 'next_state;
             }

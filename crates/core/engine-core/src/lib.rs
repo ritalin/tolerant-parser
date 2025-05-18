@@ -4,7 +4,7 @@ pub mod parser_engine;
 pub use scanner_engine::default_syntax_kind;
 
 /// Grammar symbol
-#[derive(Eq, Ord, Debug, Clone, Copy)]
+#[derive(Eq, Ord, Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct SyntaxKind {
     pub id: u32,
     pub text: &'static str,

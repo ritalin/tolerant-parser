@@ -17,13 +17,13 @@ pub struct NodeMetadata {
     pub char_len: usize,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Recovery {
     Delete,
     Shift,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum NodeType {
     Node,
     TokenSet,

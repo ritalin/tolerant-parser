@@ -6,7 +6,8 @@ pub struct ParsingRuleSet {
     goto_translation: fn(kind_id: u32, state: usize) -> Option<&'static usize>,
     accept_transition: fn() -> Option<&'static Transition>,
     symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
-    eof_id: u32,
+    full_emit_config: (u32, u32),
+    statement_emit_config: Option<(u32, u32)>,
 }
 
 impl ParsingRuleSet {
@@ -15,14 +16,16 @@ impl ParsingRuleSet {
         goto_translation: fn(kind_id: u32, state: usize) -> Option<&'static usize>,
         accept_transition: fn() -> Option<&'static Transition>,
         symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
-        eof_id: u32) -> Self 
+        full_emit_config: (u32, u32),
+        statement_emit_config: Option<(u32, u32)>) -> Self 
     {
         Self {
             lookahead_translation,
             goto_translation,
             accept_transition,
             symbol_lookup,
-            eof_id,
+            full_emit_config,
+            statement_emit_config,
         }
     }
 
@@ -49,8 +52,24 @@ impl ParsingRuleSet {
         (self.symbol_lookup)(id).clone()
     }
 
-    pub fn eof(&self) -> SyntaxKind {
-        self.from_kind_id(self.eof_id)
+    pub fn statement_emit_config(&self) -> Option<EmitConfig> {
+        match self.statement_emit_config {
+            Some((from, to)) => {
+                Some(EmitConfig{
+                    from_symbol: self.from_kind_id(from),
+                    to_symbol: self.from_kind_id(to),
+                })
+            }
+            None => None,
+        }
+    }
+
+    pub fn full_emit_config(&self) -> EmitConfig {
+        let (from, to) = self.full_emit_config;
+        EmitConfig{
+            from_symbol: self.from_kind_id(from),
+            to_symbol: self.from_kind_id(to),
+        }
     }
 }
 
@@ -61,7 +80,8 @@ impl Default for ParsingRuleSet {
             goto_translation: default_next_goto_translation,
             accept_transition: default_accept_translation,
             symbol_lookup: crate::scanner_engine::default_symbol_lookup,
-            eof_id: crate::default_syntax_kind::DEFAULT.id,
+            statement_emit_config: None,
+            full_emit_config: (crate::default_syntax_kind::DEFAULT.id, crate::default_syntax_kind::DEFAULT.id),
         }
     }
 }
@@ -82,4 +102,9 @@ pub enum Transition {
     Shift { next_state: usize },
     Reduce{ pop_count: usize, lhs: u32 },
     Accept{ last_state: usize, lhs: u32 },
+}
+
+pub struct EmitConfig {
+    pub from_symbol: SyntaxKind,
+    pub to_symbol: SyntaxKind,
 }

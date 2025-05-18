@@ -1,0 +1,158 @@
+    let expect_node = ExpectNode::Node{ 
+        metadata: ExpectMetadata(
+            NodeMetadataKey{ kind: syntax_kind::input, offset: 0, len: 10, is_leaf: false }, 
+            NodeMetadata{ edit_state: 0, node_type: NodeType::Node, recovery: None, char_offset: 0, char_len: 10 },
+        ), 
+        children: vec![
+            ExpectNode::Node{
+                metadata: ExpectMetadata(
+                    NodeMetadataKey{ kind: syntax_kind::ecmd, offset: 0, len: 10, is_leaf: false }, 
+                    NodeMetadata{ edit_state: 0, node_type: NodeType::Node, recovery: None, char_offset: 0, char_len: 10 },
+                ), 
+                children: vec![
+                    ExpectNode::Node{
+                        metadata: ExpectMetadata(
+                            NodeMetadataKey{ kind: syntax_kind::cmdx, offset: 0, len: 9, is_leaf: false }, 
+                            NodeMetadata{ edit_state: 0, node_type: NodeType::Node, recovery: None, char_offset: 0, char_len: 9 },
+                        ),
+                        children: vec![
+                            ExpectNode::Node{
+                                metadata: ExpectMetadata(
+                                    NodeMetadataKey{ kind: syntax_kind::cmd, offset: 0, len: 9, is_leaf: false }, 
+                                    NodeMetadata{ edit_state: 0, node_type: NodeType::Node, recovery: None, char_offset: 0, char_len: 9 },
+                                ),
+                                children: vec![
+                                    ExpectNode::Node{
+                                        metadata: ExpectMetadata(
+                                            NodeMetadataKey{ kind: syntax_kind::select, offset: 0, len: 9, is_leaf: false }, 
+                                            NodeMetadata{ edit_state: 0, node_type: NodeType::Node, recovery: None, char_offset: 0, char_len: 9 },
+                                        ),
+                                        children: vec![
+                                            ExpectNode::Node{
+                                                metadata: ExpectMetadata(
+                                                    NodeMetadataKey{ kind: syntax_kind::selectnowith, offset: 0, len: 9, is_leaf: false }, 
+                                                    NodeMetadata{ edit_state: 0, node_type: NodeType::Node, recovery: None, char_offset: 0, char_len: 9 },
+                                                ),
+                                                children: vec![
+                                                    ExpectNode::Node{
+                                                        metadata: ExpectMetadata(
+                                                            NodeMetadataKey{ kind: syntax_kind::oneselect, offset: 0, len: 9, is_leaf: false }, 
+                                                            NodeMetadata{ edit_state: 0, node_type: NodeType::Node, recovery: None, char_offset: 0, char_len: 9 },
+                                                        ),
+                                                        children: vec![
+                                                            ExpectNode::TokenSet{
+                                                                metadata: ExpectMetadata(
+                                                                    NodeMetadataKey{ kind: syntax_kind::SELECT, offset: 0, len: 7, is_leaf: false }, 
+                                                                    NodeMetadata{ edit_state: 0, node_type: NodeType::TokenSet, recovery: None, char_offset: 0, char_len: 7 },
+                                                                ),
+                                                                leading: vec![],
+                                                                token: Box::new(ExpectNode::TokenItem {
+                                                                    metadata: ExpectMetadata(
+                                                                        NodeMetadataKey{ kind: syntax_kind::SELECT, offset: 0, len: 6, is_leaf: true }, 
+                                                                        NodeMetadata{ edit_state: 0, node_type: NodeType::TokenItem, recovery: None, char_offset: 0, char_len: 6 },
+                                                                    ),
+                                                                    value: "SELECT".into(),
+                                                                }),
+                                                                trailing: vec![
+                                                                    ExpectNode::TokenItem { 
+                                                                        metadata: ExpectMetadata(
+                                                                            NodeMetadataKey{ kind: syntax_kind::SPACE, offset: 6, len: 1, is_leaf: true }, 
+                                                                            NodeMetadata{ edit_state: 0, node_type: NodeType::TrailingToken, recovery: None, char_offset: 6, char_len: 1 },
+                                                                        ),
+                                                                        value: " ".into()
+                                                                    }
+                                                                ], 
+                                                            },
+                                                            ExpectNode::Node{
+                                                                metadata: ExpectMetadata(
+                                                                    NodeMetadataKey{ kind: syntax_kind::selcollist, offset: 7, len: 2, is_leaf: false }, 
+                                                                    NodeMetadata{ edit_state: 71, node_type: NodeType::Node, recovery: None, char_offset: 7, char_len: 2 },
+                                                                ),
+                                                                children: vec![
+                                                                    ExpectNode::Node{
+                                                                        metadata: ExpectMetadata(
+                                                                            NodeMetadataKey{ kind: syntax_kind::expr, offset: 7, len: 2, is_leaf: false }, 
+                                                                            NodeMetadata{ edit_state: 238, node_type: NodeType::Node, recovery: None, char_offset: 7, char_len: 2 },
+                                                                        ),
+                                                                        children: vec![
+                                                                            ExpectNode::Node{
+                                                                                metadata: ExpectMetadata(
+                                                                                    NodeMetadataKey{ kind: syntax_kind::term, offset: 7, len: 2, is_leaf: false }, 
+                                                                                    NodeMetadata{ edit_state: 238, node_type: NodeType::Node, recovery: None, char_offset: 7, char_len: 2 },
+                                                                                ),
+                                                                                children: vec![
+                                                                                    ExpectNode::TokenSet{
+                                                                                        metadata: ExpectMetadata(
+                                                                                            NodeMetadataKey{ kind: syntax_kind::INTEGER, offset: 7, len: 2, is_leaf: false }, 
+                                                                                            NodeMetadata{ edit_state: 238, node_type: NodeType::TokenSet, recovery: None, char_offset: 7, char_len: 2 },
+                                                                                        ),
+                                                                                        leading: vec![],
+                                                                                        token: Box::new(ExpectNode::TokenItem {
+                                                                                            metadata: ExpectMetadata(
+                                                                                                NodeMetadataKey{ kind: syntax_kind::INTEGER, offset: 7, len: 2, is_leaf: true }, 
+                                                                                                NodeMetadata{ edit_state: 238, node_type: NodeType::TokenItem, recovery: None, char_offset: 7, char_len: 2 },
+                                                                                            ),
+                                                                                            value: "42".into()
+                                                                                        }),
+                                                                                        trailing: vec![],
+                                                                                    }
+                                                                                ],
+                                                                            }                                                                    
+                                                                        ],
+                                                                    }                                                                    
+                                                                ],
+                                                            }
+                                                        ], 
+                                                    },                                                    
+                                                ], 
+                                            },                                            
+                                        ], 
+                                    },                                    
+                                ], 
+                            },                            
+                        ], 
+                    },
+                    ExpectNode::TokenSet{
+                        metadata: ExpectMetadata(
+                            NodeMetadataKey{ kind: syntax_kind::SEMI, offset: 9, len: 1, is_leaf: false }, 
+                            NodeMetadata{ edit_state: 23, node_type: NodeType::TokenSet, recovery: None, char_offset: 9, char_len: 1 },
+                        ), 
+                        leading: vec![],
+                        token: Box::new(ExpectNode::TokenItem { 
+                            metadata: ExpectMetadata(
+                                NodeMetadataKey{ kind: syntax_kind::SEMI, offset: 9, len: 1, is_leaf: true }, 
+                                NodeMetadata{ edit_state: 23, node_type: NodeType::TokenItem, recovery: None, char_offset: 9, char_len: 1 },
+                            ), 
+                            value: ";".into(
+
+                            )
+                        }),
+                        trailing: vec![],
+                    },
+                ]
+            },
+            ExpectNode::Node{
+                metadata: ExpectMetadata(
+                    NodeMetadataKey{ kind: syntax_kind::ecmd, offset: 10, len: 0, is_leaf: false }, 
+                    NodeMetadata{ edit_state: 0, node_type: NodeType::Node, recovery: None, char_offset: 10, char_len: 0 },
+                ), 
+                children: vec![
+                    ExpectNode::TokenSet { 
+                        metadata: ExpectMetadata(
+                            NodeMetadataKey{ kind: syntax_kind::EOF, offset: 10, len: 0, is_leaf: false }, 
+                            NodeMetadata{ edit_state: 0, node_type: NodeType::TokenSet, recovery: None, char_offset: 10, char_len: 0 },
+                        ),
+                        leading: vec![],
+                        token: Box::new(ExpectNode::TokenItem { 
+                            metadata: ExpectMetadata(
+                                NodeMetadataKey{ kind: syntax_kind::EOF, offset: 10, len: 0, is_leaf: true }, 
+                                NodeMetadata{ edit_state: 0, node_type: NodeType::TokenItem, recovery: None, char_offset: 10, char_len: 0 },
+                            ),
+                            value: "".into()
+                        }),
+                        trailing: vec![],
+                    }
+                ]
+            }
+        ],
+    };

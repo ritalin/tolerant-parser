@@ -62,7 +62,8 @@ pub fn create() -> Result<engine_core::Engine, engine_core::EngineError> {
             generated::next_goto_state, 
             generated::get_accept_state,
             generated::get_symbol,
-            syntax_kind::r#EOF.id,
+            (syntax_kind::r#input.id, syntax_kind::r#EOF.id),
+            Some((syntax_kind::r#ecmd.id, syntax_kind::r#SEMI.id)),
         ),
     })
 }
