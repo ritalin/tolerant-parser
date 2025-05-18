@@ -79,9 +79,10 @@ impl MetadataAccess for SyntaxNodeData {
     }
     
     fn metadata(&self) -> &NodeMetadata {
-        self.metadata_map.get(&self.metadata_key())
+        let key = self.metadata_key();
+        self.metadata_map.get(&key)
         .map(|(_, metadata)| metadata)
-        .expect("All node/token must contain a metadata")
+        .expect(&format!("All node/token must contain a metadata (key: {key:?})"))
     }
 }
 

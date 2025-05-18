@@ -68,13 +68,13 @@ impl SyntaxTreeBuilder {
                 Ok(())
             }
             ParseEvent::Reduce { kind, pop_count, edit_state, .. } => {
-                let (id, node) = create_node(kind, edit_state, pop_count, &mut self.element_stack, &mut self.metadata_map);
+                let (id, node) = create_node(kind, edit_state, pop_count, self.engine, &mut self.element_stack, &mut self.metadata_map);
                 self.element_stack.push(Some((id, StackEntry::Node(node))));
                 self.prev_id = Some(id);
                 Ok(())
             }
             ParseEvent::Accept { kind, edit_state, .. } => {
-                let (id, node) = create_node(kind, edit_state, self.element_stack.len(), &mut self.element_stack, &mut self.metadata_map);
+                let (id, node) = create_node(kind, edit_state, self.element_stack.len(), self.engine, &mut self.element_stack, &mut self.metadata_map);
                 self.element_stack.push(Some((id, StackEntry::Node(node))));
                 self.prev_id = Some(id);
                 Ok(())
@@ -90,7 +90,7 @@ impl SyntaxTreeBuilder {
             return Err(NodeBuildError::NodeFailed);
         };
         let pop_count = self.element_stack.len() - self.water_mark;
-        let (id, node) = create_node(kind, edit_state, pop_count, &mut self.element_stack, &mut self.metadata_map);
+        let (id, node) = create_node(kind, edit_state, pop_count, self.engine, &mut self.element_stack, &mut self.metadata_map);
         self.element_stack.push(Some((id, StackEntry::Node(node))));
         self.water_mark = self.element_stack.len();
 
@@ -110,7 +110,7 @@ impl SyntaxTreeBuilder {
             return Err(NodeBuildError::EmptyTree);
         }
 
-        let (_, root) = create_node(kind, edit_state, self.element_stack.len(), &mut self.element_stack, &mut self.metadata_map);
+        let (_, root) = create_node(kind, edit_state, self.element_stack.len(), self.engine, &mut self.element_stack, &mut self.metadata_map);
 
         let metadata_map = HashMap::<NodeMetadataKey, (NodeId, NodeMetadata)>::from_iter(
             self.metadata_map.into_iter().map(|(id, (metadata, key))| (key, (id, metadata)))
@@ -240,13 +240,15 @@ fn create_token_metadata_pair(event: &ScanEvent, state: usize, node_type: NodeTy
 }
 
 fn create_node(
-    kind: SyntaxKind, state: usize, pop_count: usize, 
+    kind: SyntaxKind, state: usize, pop_count: usize, engine: ParsingRuleSet,
     element_stack: &mut Vec<Option<(NodeId, StackEntry)>>,
     metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenNode)
 {
     let id = next_node_id();
-    let (child_ids, child_nodes) = pop_node_from_stack(element_stack, pop_count);
+    let (child_ids, mut child_nodes) = pop_node_from_stack(element_stack, pop_count);
     
+    remap_alternative_symbol(&mut child_nodes, metadata_map, &child_ids, kind, engine);
+
     // resolve offset & len
     let ((offset, len), (char_offset, char_len)) = resolve_token_items_range(child_ids, metadata_map);
 
@@ -300,6 +302,31 @@ fn get_node_metadata_key<'a>(
     }
     
     None
+}
+
+fn remap_alternative_symbol(
+    child_nodes: &mut Vec<rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>>, 
+    metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>,
+    child_ids: &[NodeId], 
+    parent_kind: SyntaxKind, 
+    engine: ParsingRuleSet) 
+{
+    for i in 0..child_nodes.len() {
+        let child_kind = engine.from_kind_id(child_nodes[i].kind().0 as u32);
+
+        if let (Some(alt), rowan::NodeOrToken::Node(node)) = (engine.from_alt_symbol(parent_kind, child_kind), child_nodes[i].clone()) {
+            if let Some((metadata, key)) = metadata_map.remove(&child_ids[i]) {
+                let grand_children = node.children()
+                    .map(|node| node.to_owned())
+                    .collect::<Vec<_>>()
+                ;
+                let new_key = NodeMetadataKey{kind: *alt, ..key};
+
+                child_nodes[i] = rowan::NodeOrToken::Node(rowan::GreenNode::new(rowan::SyntaxKind(alt.id as u16), grand_children));
+                metadata_map.insert(child_ids[i], (metadata, new_key));
+            }
+        }
+    }
 }
 
 enum StackEntry {

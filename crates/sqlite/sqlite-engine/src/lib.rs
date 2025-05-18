@@ -43,6 +43,12 @@ mod generated {
     pub fn get_accept_state() -> Option<&'static Transition> {
         lookahead_transition::ACCEPT.as_ref()
     }
+
+    pub fn get_alternative_symbol(parent_kind_id: u32, child_kind_id: u32) -> Option<&'static engine_core::SyntaxKind> {
+        let key = ((parent_kind_id as u64) << 32) + (child_kind_id as u64);
+        scan_rule_map::ALTERNATIVE_SYMBOL_TABLE.get(&key)
+        .map(|id| get_symbol(*id))
+    }
 }
 
 #[cfg(not(engine_ungenerated))]
@@ -62,6 +68,7 @@ pub fn create() -> Result<engine_core::Engine, engine_core::EngineError> {
             generated::next_goto_state, 
             generated::get_accept_state,
             generated::get_symbol,
+            generated::get_alternative_symbol,
             (syntax_kind::r#input.id, syntax_kind::r#EOF.id),
             Some((syntax_kind::r#ecmd.id, syntax_kind::r#SEMI.id)),
         ),

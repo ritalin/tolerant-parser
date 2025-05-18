@@ -53,7 +53,7 @@ pub fn verify<'a>(actual: &ActualNode, expect_node: &ExpectNode, engine: Parsing
     }
 }
 
-fn verify_member<'a>(member: &'a impl MetadataAccess, ExpectMetadata(key, metadata): &ExpectMetadata, engine: ParsingRuleSet, actual_depth: usize) {
+fn verify_member<'a>(member: &'a impl MetadataAccess, ExpectMetadata(key, metadata): &ExpectMetadata, engine: ParsingRuleSet, _actual_depth: usize) {
     'verify_key: {
         assert_eq!(key.of(engine), member.metadata_key());
         break 'verify_key;
@@ -106,7 +106,7 @@ impl<'de> serde::Deserialize<'de> for ExpectMetadata {
     where D: serde::Deserializer<'de> 
     {
         #[derive(serde::Deserialize)]
-        struct DeserValue { key: ExpectMetadataKey, value: ExpectMetadataValue };
+        struct DeserValue { key: ExpectMetadataKey, value: ExpectMetadataValue }
 
         let DeserValue { key, value } = DeserValue::deserialize(deserializer)?;
         Ok(ExpectMetadata(key, value))

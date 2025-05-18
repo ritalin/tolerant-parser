@@ -165,7 +165,7 @@
                                                                                                     "Node": {
                                                                                                         "metadata": {
                                                                                                             "key": {"kind_id": 218,"kind_name": "seltablist","byte_offset": 19,"byte_len": 3,"is_leaf": false},
-                                                                                                            "value": {"edit_state": 240,"node_type": "Node","recovery": null,"char_offset": 14,"char_len": 3}
+                                                                                                            "value": {"edit_state": 240,"node_type": "Node","recovery": null,"char_offset": 19,"char_len": 3}
                                                                                                         },
                                                                                                         "children": [
                                                                                                             {
@@ -221,8 +221,8 @@
                         {
                             "TokenSet": {
                                 "metadata": {
-                                    "key": {"kind_id": 4,"kind_name": "SEMI","byte_offset": 22,"byte_len": 1,"is_leaf": false},
-                                    "value": {"edit_state": 23,"node_type": "TokenSet","recovery": null,"char_offset": 22,"char_len": 1}
+                                    "key": {"kind_id": 4,"kind_name": "SEMI","byte_offset": 22,"byte_len": 6,"is_leaf": false},
+                                    "value": {"edit_state": 23,"node_type": "TokenSet","recovery": null,"char_offset": 22,"char_len": 6}
                                 },
                                 "leading": [],
                                 "token": {
@@ -234,7 +234,17 @@
                                         "value": ";"
                                     }
                                 },
-                                "trailing": []
+                                "trailing": [
+                                    {
+                                        "TokenItem": {
+                                            "metadata": {
+                                                "key": {"kind_id": 324,"kind_name": "SPACE","byte_offset": 23,"byte_len": 5,"is_leaf": true},
+                                                "value": {"edit_state": 23,"node_type": "TrailingToken","recovery": null,"char_offset": 23,"char_len": 5}
+                                            },
+                                            "value": "\n    "
+                                        }
+                                    }
+                                ]
                             }
                         }
                     ]
@@ -243,43 +253,43 @@
             {
                 "Node": {
                     "metadata": {
-                        "key": {"kind_id": 3,"kind_name": "ecmd","byte_offset": 28,"byte_len": 10,"is_leaf": false},
-                        "value": {"edit_state": 0,"node_type": "Node","recovery": null,"char_offset": 28,"char_len": 10}
+                        "key": {"kind_id": 3,"kind_name": "ecmd","byte_offset": 28,"byte_len": 16,"is_leaf": false},
+                        "value": {"edit_state": 0,"node_type": "Node","recovery": null,"char_offset": 28,"char_len": 16}
                     },
                     "children": [
                         {
                             "Node": {
                                 "metadata": {
-                                "key": {"kind_id": 5,"kind_name": "cmdx","byte_offset": 28,"byte_len": 9,"is_leaf": false},
-                                "value": {"edit_state": 0,"node_type": "Node","recovery": null,"char_offset": 0,"char_len": 9}
+                                "key": {"kind_id": 5,"kind_name": "cmdx","byte_offset": 28,"byte_len": 10,"is_leaf": false},
+                                "value": {"edit_state": 0,"node_type": "Node","recovery": null,"char_offset": 28,"char_len": 10}
                                 },
                                 "children": [
                                     {
                                         "Node": {
                                             "metadata": {
-                                                "key": {"kind_id": 10,"kind_name": "cmd","byte_offset": 28,"byte_len": 9,"is_leaf": false},
-                                                "value": {"edit_state": 0,"node_type": "Node","recovery": null,"char_offset": 28,"char_len": 9}
+                                                "key": {"kind_id": 10,"kind_name": "cmd","byte_offset": 28,"byte_len": 10,"is_leaf": false},
+                                                "value": {"edit_state": 0,"node_type": "Node","recovery": null,"char_offset": 28,"char_len": 10}
                                             },
                                             "children": [
                                                 {
                                                     "Node": {
                                                         "metadata": {
-                                                        "key": {"kind_id": 44,"kind_name": "select","byte_offset": 28,"byte_len": 9,"is_leaf": false},
-                                                        "value": {"edit_state": 0,"node_type": "Node","recovery": null,"char_offset": 28,"char_len": 9}
+                                                        "key": {"kind_id": 44,"kind_name": "select","byte_offset": 28,"byte_len": 10,"is_leaf": false},
+                                                        "value": {"edit_state": 0,"node_type": "Node","recovery": null,"char_offset": 28,"char_len": 10}
                                                         },
                                                         "children": [
                                                             {
                                                                 "Node": {
                                                                     "metadata": {
-                                                                        "key": {"kind_id": 192,"kind_name": "selectnowith","byte_offset": 28,"byte_len": 9,"is_leaf": false},
-                                                                        "value": {"edit_state": 0,"node_type": "Node","recovery": null,"char_offset": 28,"char_len": 9}
+                                                                        "key": {"kind_id": 192,"kind_name": "selectnowith","byte_offset": 28,"byte_len": 10,"is_leaf": false},
+                                                                        "value": {"edit_state": 0,"node_type": "Node","recovery": null,"char_offset": 28,"char_len": 10}
                                                                     },
                                                                     "children": [
                                                                         {
                                                                             "Node": {
                                                                                 "metadata": {
-                                                                                "key": {"kind_id": 193,"kind_name": "oneselect","byte_offset": 28,"byte_len": 9,"is_leaf": false},
-                                                                                "value": {"edit_state": 0,"node_type": "Node","recovery": null,"char_offset": 28,"char_len": 9}
+                                                                                "key": {"kind_id": 193,"kind_name": "oneselect","byte_offset": 28,"byte_len": 10,"is_leaf": false},
+                                                                                "value": {"edit_state": 0,"node_type": "Node","recovery": null,"char_offset": 28,"char_len": 10}
                                                                                 },
                                                                                 "children": [
                                                                                     {
@@ -314,38 +324,38 @@
                                                                                     {
                                                                                         "Node": {
                                                                                             "metadata": {
-                                                                                                "key": {"kind_id": 202,"kind_name": "selcollist","byte_offset": 35,"byte_len": 2,"is_leaf": false},
-                                                                                                "value": {"edit_state": 71,"node_type": "Node","recovery": null,"char_offset": 35,"char_len": 2}
+                                                                                                "key": {"kind_id": 202,"kind_name": "selcollist","byte_offset": 35,"byte_len": 3,"is_leaf": false},
+                                                                                                "value": {"edit_state": 71,"node_type": "Node","recovery": null,"char_offset": 35,"char_len": 3}
                                                                                             },
                                                                                             "children": [
                                                                                                 {
                                                                                                     "Node": {
                                                                                                         "metadata": {
-                                                                                                            "key": {"kind_id": 157,"kind_name": "expr","byte_offset": 35,"byte_len": 2,"is_leaf": false},
-                                                                                                            "value": {"edit_state": 238,"node_type": "Node","recovery": null,"char_offset": 35,"char_len": 2}
+                                                                                                            "key": {"kind_id": 157,"kind_name": "expr","byte_offset": 35,"byte_len": 3,"is_leaf": false},
+                                                                                                            "value": {"edit_state": 238,"node_type": "Node","recovery": null,"char_offset": 35,"char_len": 3}
                                                                                                         },
                                                                                                         "children": [
                                                                                                             {
                                                                                                                 "Node": {
                                                                                                                     "metadata": {
-                                                                                                                        "key": {"kind_id": 156,"kind_name": "term","byte_offset": 35,"byte_len": 2,"is_leaf": false},
-                                                                                                                        "value": {"edit_state": 238,"node_type": "Node","recovery": null,"char_offset": 35,"char_len": 2}
+                                                                                                                        "key": {"kind_id": 156,"kind_name": "term","byte_offset": 35,"byte_len": 3,"is_leaf": false},
+                                                                                                                        "value": {"edit_state": 238,"node_type": "Node","recovery": null,"char_offset": 35,"char_len": 3}
                                                                                                                     },
                                                                                                                     "children": [
                                                                                                                         {
                                                                                                                             "TokenSet": {
                                                                                                                                 "metadata": {
-                                                                                                                                    "key": {"kind_id": 248,"kind_name": "INTEGER","byte_offset": 35,"byte_len": 2,"is_leaf": false},
-                                                                                                                                    "value": {"edit_state": 238,"node_type": "TokenSet","recovery": null,"char_offset": 35,"char_len": 2}
+                                                                                                                                    "key": {"kind_id": 248,"kind_name": "INTEGER","byte_offset": 35,"byte_len": 3,"is_leaf": false},
+                                                                                                                                    "value": {"edit_state": 238,"node_type": "TokenSet","recovery": null,"char_offset": 35,"char_len": 3}
                                                                                                                                 },
                                                                                                                                 "leading": [],
                                                                                                                                 "token": {
                                                                                                                                     "TokenItem": {
                                                                                                                                         "metadata": {
-                                                                                                                                            "key": {"kind_id": 248,"kind_name": "INTEGER","byte_offset": 35,"byte_len": 2,"is_leaf": true},
-                                                                                                                                            "value": {"edit_state": 238,"node_type": "TokenItem","recovery": null,"char_offset": 35,"char_len": 2}
+                                                                                                                                            "key": {"kind_id": 248,"kind_name": "INTEGER","byte_offset": 35,"byte_len": 3,"is_leaf": true},
+                                                                                                                                            "value": {"edit_state": 238,"node_type": "TokenItem","recovery": null,"char_offset": 35,"char_len": 3}
                                                                                                                                         },
-                                                                                                                                        "value": "42"
+                                                                                                                                        "value": "101"
                                                                                                                                     }
                                                                                                                                 },
                                                                                                                                 "trailing": []
@@ -378,20 +388,30 @@
                         {
                             "TokenSet": {
                                 "metadata": {
-                                    "key": {"kind_id": 4,"kind_name": "SEMI","byte_offset": 37,"byte_len": 1,"is_leaf": false},
-                                    "value": {"edit_state": 23,"node_type": "TokenSet","recovery": null,"char_offset": 37,"char_len": 1}
+                                    "key": {"kind_id": 4,"kind_name": "SEMI","byte_offset": 38,"byte_len": 6,"is_leaf": false},
+                                    "value": {"edit_state": 23,"node_type": "TokenSet","recovery": null,"char_offset": 38,"char_len": 6}
                                 },
                                 "leading": [],
                                 "token": {
                                     "TokenItem": {
                                         "metadata": {
-                                            "key": {"kind_id": 4,"kind_name": "SEMI","byte_offset": 37,"byte_len": 1,"is_leaf": true},
-                                            "value": {"edit_state": 23,"node_type": "TokenItem","recovery": null,"char_offset": 37,"char_len": 1}
+                                            "key": {"kind_id": 4,"kind_name": "SEMI","byte_offset": 38,"byte_len": 1,"is_leaf": true},
+                                            "value": {"edit_state": 23,"node_type": "TokenItem","recovery": null,"char_offset": 38,"char_len": 1}
                                         },
                                         "value": ";"
                                     }
                                 },
-                                "trailing": []
+                                "trailing": [
+                                    {
+                                        "TokenItem": {
+                                            "metadata": {
+                                                "key": {"kind_id": 324,"kind_name": "SPACE","byte_offset": 39,"byte_len": 5,"is_leaf": true},
+                                                "value": {"edit_state": 23,"node_type": "TrailingToken","recovery": null,"char_offset": 39,"char_len": 5}
+                                            },
+                                            "value": "\n    "
+                                        }
+                                    }
+                                ]
                             }
                         }
                     ]
@@ -400,22 +420,22 @@
             {
                 "Node": {
                     "metadata": {
-                        "key": {"kind_id": 3,"kind_name": "ecmd","byte_offset": 51,"byte_len": 0,"is_leaf": false},
-                        "value": {"edit_state": 0,"node_type": "Node","recovery": null,"char_offset": 51,"char_len": 0}
+                        "key": {"kind_id": 3,"kind_name": "ecmd","byte_offset": 44,"byte_len": 0,"is_leaf": false},
+                        "value": {"edit_state": 0,"node_type": "Node","recovery": null,"char_offset": 44,"char_len": 0}
                     },
                     "children": [
                         {
                             "TokenSet": {
                                 "metadata": {
-                                    "key": {"kind_id": 327,"kind_name": "EOF","byte_offset": 51,"byte_len": 0,"is_leaf": false},
-                                    "value": {"edit_state": 0,"node_type": "TokenSet","recovery": null,"char_offset": 51,"char_len": 0}
+                                    "key": {"kind_id": 327,"kind_name": "EOF","byte_offset": 44,"byte_len": 0,"is_leaf": false},
+                                    "value": {"edit_state": 0,"node_type": "TokenSet","recovery": null,"char_offset": 44,"char_len": 0}
                                 },
                                 "leading": [],
                                 "token": {
                                     "TokenItem": {
                                         "metadata": {
-                                            "key": {"kind_id": 327,"kind_name": "EOF","byte_offset": 51,"byte_len": 0,"is_leaf": true},
-                                            "value": {"edit_state": 0,"node_type": "TokenItem","recovery": null,"char_offset": 51,"char_len": 0}
+                                            "key": {"kind_id": 327,"kind_name": "EOF","byte_offset": 44,"byte_len": 0,"is_leaf": true},
+                                            "value": {"edit_state": 0,"node_type": "TokenItem","recovery": null,"char_offset": 44,"char_len": 0}
                                         },
                                         "value": ""
                                     }

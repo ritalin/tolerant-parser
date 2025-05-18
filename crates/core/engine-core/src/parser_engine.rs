@@ -6,6 +6,7 @@ pub struct ParsingRuleSet {
     goto_translation: fn(kind_id: u32, state: usize) -> Option<&'static usize>,
     accept_transition: fn() -> Option<&'static Transition>,
     symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
+    alternative_symbol_lookup: fn(parent_kind_id: u32, child_kind_id: u32) -> Option<&'static crate::SyntaxKind>,
     full_emit_config: (u32, u32),
     statement_emit_config: Option<(u32, u32)>,
 }
@@ -16,6 +17,7 @@ impl ParsingRuleSet {
         goto_translation: fn(kind_id: u32, state: usize) -> Option<&'static usize>,
         accept_transition: fn() -> Option<&'static Transition>,
         symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
+        alternative_symbol_lookup: fn(parent_kind_id: u32, child_kind_id: u32) -> Option<&'static crate::SyntaxKind>,
         full_emit_config: (u32, u32),
         statement_emit_config: Option<(u32, u32)>) -> Self 
     {
@@ -24,6 +26,7 @@ impl ParsingRuleSet {
             goto_translation,
             accept_transition,
             symbol_lookup,
+            alternative_symbol_lookup,
             full_emit_config,
             statement_emit_config,
         }
@@ -50,6 +53,10 @@ impl ParsingRuleSet {
 
     pub fn from_kind_id(&self, id: u32) -> SyntaxKind {
         (self.symbol_lookup)(id).clone()
+    }
+
+    pub fn from_alt_symbol(&self, parent_kind: SyntaxKind, child_kind: SyntaxKind) -> Option<&'static SyntaxKind> {
+        (self.alternative_symbol_lookup)(parent_kind.id, child_kind.id)
     }
 
     pub fn statement_emit_config(&self) -> Option<EmitConfig> {
@@ -80,6 +87,7 @@ impl Default for ParsingRuleSet {
             goto_translation: default_next_goto_translation,
             accept_transition: default_accept_translation,
             symbol_lookup: crate::scanner_engine::default_symbol_lookup,
+            alternative_symbol_lookup: default_alternative_symbol_lookup,
             statement_emit_config: None,
             full_emit_config: (crate::default_syntax_kind::DEFAULT.id, crate::default_syntax_kind::DEFAULT.id),
         }
@@ -95,6 +103,10 @@ fn default_next_goto_translation(_kind_id: u32, _state: usize) -> Option<&'stati
 }
 
 fn default_accept_translation() -> Option<&'static Transition> {
+    None
+}
+
+fn default_alternative_symbol_lookup(_parent_kind_id: u32, _child_kind_id: u32) -> Option<&'static SyntaxKind> {
     None
 }
 

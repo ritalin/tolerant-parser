@@ -171,9 +171,10 @@ mod scanner_engine_tests {
         fn test_goto_failed() -> Result<(), anyhow::Error> {
             let engine = ParsingRuleSet::new(
                 next_lookahead_translation,
-                next_goto_translation,
-                get_accept_transition,
-                lookup_symbol,
+                |_kind, _state| None,
+                || None,
+                |_| &syntax_kind::r#EOF,
+                |_p, _c| None,
                 (0, 0), None,
             );
             sqlite_engine::create()?.parsing_rules;
@@ -191,15 +192,6 @@ mod scanner_engine_tests {
         static DUMMY_LA_TRANSITION: Transition = Transition::Reduce { pop_count: 0, lhs: 1 };
         fn next_lookahead_translation(_kind: u32, _state: usize) -> Option<&'static Transition> {
             Some(&DUMMY_LA_TRANSITION)
-        }
-        fn next_goto_translation(_kind: u32, _state: usize) -> Option<&'static usize> {
-            None
-        }
-        fn get_accept_transition() -> Option<&'static Transition> {
-            None
-        }
-        fn lookup_symbol(_id: u32) -> &'static engine_core::SyntaxKind {
-            &syntax_kind::r#EOF
         }
     }
 

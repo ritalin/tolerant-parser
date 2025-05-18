@@ -88,6 +88,8 @@
         ]
     },
     "alternatives": {
-        "STAR": ["STAR", "ASTERISK"]
+        "ASTERISK": [
+            {"parent": "selcollist", "child": "STAR"}
+        ]
     }
 }

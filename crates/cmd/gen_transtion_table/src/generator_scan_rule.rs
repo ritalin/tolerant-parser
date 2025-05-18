@@ -1,6 +1,6 @@
 use std::{collections::{BTreeMap, HashMap}, path::PathBuf};
 use std::io::{Write, BufWriter};
-use grammar_types_core::{scan_rule::{GrammarScanRule, RegexGrammarScanRule}, symbol::GrammarSymbol, SymbolType};
+use grammar_types_core::{scan_rule::{AltPattern, GrammarScanRule, RegexGrammarScanRule}, symbol::GrammarSymbol, SymbolType};
 use quote::quote;
 
 use crate::export_support::{tokens_to_string, with_indent};
@@ -147,14 +147,14 @@ fn generate_regex_scan_rule(
 }
 
 fn generate_alternative_token(
-    alternatives: &HashMap<String, Vec<String>>, 
+    alternatives: &HashMap<String, Vec<AltPattern>>, 
     symbol_lookup: &HashMap<String, u32>,
     writer: &mut impl Write) -> Result<(), anyhow::Error> 
 {
-    writeln!(writer, "{}", with_indent("pub static ALTERNATIVE_SYMBOL_TABLE: phf::Map<u32, &[u32]> = phf::phf_map!{", 1))?;
+    writeln!(writer, "{}", with_indent("pub static ALTERNATIVE_SYMBOL_TABLE: phf::Map<u64, u32> = phf::phf_map!{", 1))?;
 
-    for (symbol, values) in alternatives {
-        export_alternative_pattern(symbol, values, symbol_lookup, writer)?;
+    for (alt, pair) in alternatives {
+        export_alternative_pattern(alt, pair, symbol_lookup, writer)?;
     }
     writeln!(writer, "{}", with_indent("};", 1))?;
 
@@ -169,17 +169,17 @@ fn export_rule_support<V: std::fmt::Display>(i: V, pattern: &str) -> String {
     format!("{i}, // {pattern}")
 }
 
-fn export_alternative_pattern(symbol: &str, alternatives: &[String], lookup: &HashMap<String, u32>, writer: &mut impl Write) -> Result<(), anyhow::Error> {
-    let key = lookup.get(symbol).expect(&format!("Not found alternative key (`{symbol}`)"));
+fn export_alternative_pattern(alt_symbol: &str, pairs: &[AltPattern], lookup: &HashMap<String, u32>, writer: &mut impl Write) -> Result<(), anyhow::Error> {
+    let alt_id = lookup.get(alt_symbol).expect(&format!("Not found alternative key (`{alt_symbol}`)"));
 
-    writeln!(writer, "{}", with_indent(&format!("{key}u32 => &["), 2))?;
+    for AltPattern{ parent, child } in pairs {
+        let parent_id = lookup.get(parent).expect(&format!("Not found alternative parent key (`{parent}`)"));
+        let child_id = lookup.get(child).expect(&format!("Not found alternative child key (`{child}`)"));
+        let key = ((*parent_id as u64) << 32) + (*child_id as u64);
+        let comment = format!("{parent} |> {child} => {parent} |> {alt_symbol}");
 
-    for alt in alternatives {
-        let id = lookup.get(alt).expect(&format!("Not found alternative value (`{alt}`)"));
-        writeln!(writer, "{}", with_indent(&export_rule_support(*id, &alt), 3))?;
+        writeln!(writer, "{}", with_indent(&export_rule_support(format!("{key}u64 => {alt_id}u32"), &comment), 2))?;
     }
-
-    writeln!(writer, "{}", with_indent("],", 2))?;
 
     Ok(())
 }
