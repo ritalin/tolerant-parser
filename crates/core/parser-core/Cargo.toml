@@ -1,0 +1,12 @@
+[package]
+name = "parser-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+engine-core = { path = "../engine-core" }
+scanner-core = { path = "../scanner-core" }
+thiserror = { workspace = true }
+serde = { workspace = true }
+cactus = "1.0.7"
+rowan = "0.16.1"

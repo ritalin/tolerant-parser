@@ -9,7 +9,10 @@ phf = { version = "0.11.3", features = ["macros"] }
 
 [dev-dependencies]
 scanner-core = { path = "../../core/scanner-core" }
+parser-core = { path = "../../core/parser-core" }
 anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [build-dependencies]
 anyhow = { workspace = true }

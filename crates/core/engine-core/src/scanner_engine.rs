@@ -1,13 +1,14 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::SyntaxKind;
 
+#[derive(Clone)]
 pub struct ScanningRuleSet {
     lexme_rule: fn(prefix: char) -> Option<&'static [ScanPattern]>,
     acceptable_regex: fn(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]>,
     symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
     eof_id: u32,
-    regex_cache: HashMap<usize, RegexScanPattern>,
+    regex_cache: Rc<HashMap<usize, RegexScanPattern>>,
 }
 
 impl ScanningRuleSet {
@@ -22,7 +23,7 @@ impl ScanningRuleSet {
 
         Self { 
             lexme_rule, acceptable_regex, symbol_lookup, eof_id,
-            regex_cache
+            regex_cache: Rc::new(regex_cache),
         }
     }
 
@@ -131,7 +132,7 @@ fn default_acceptable_regex_lookup(_regex_set: &AcceptableRegexSet) -> Option<&'
     None
 }
 
-fn default_symbol_lookup(_id: u32) -> &'static crate::SyntaxKind {
+pub fn default_symbol_lookup(_id: u32) -> &'static crate::SyntaxKind {
     &default_syntax_kind::DEFAULT
 }
 

@@ -1,11 +1,13 @@
 mod configs;
-mod generator_scan_rule;
+mod translation_table;
 mod generator_symbol_set;
+mod generator_scan_rule;
+mod generate_parse_rule;
 mod export_support;
 mod storage_support;
 
 use std::{collections::HashMap, path::{Path, PathBuf}};
-use grammar_types_core::{scan_rule::GrammarScanRule, symbol::GrammarSymbol};
+use grammar_types_core::{parse_rule::GrammarParseRule, scan_rule::GrammarScanRule, symbol::GrammarSymbol};
 
 pub use configs::CmdConfig;
 
@@ -17,11 +19,17 @@ pub fn generate(config: CmdConfig) -> Result<(), anyhow::Error> {
 
     let symbols = read_json_file::<Vec<GrammarSymbol>>(base_dir.join(config.grammar_symbol))?;
     let scan_rules = read_json_file::<GrammarScanRule>(base_dir.join(config.grammar_scan_rule))?;
+    let parse_rules = read_json_file::<Vec<GrammarParseRule>>(base_dir.join(config.grammar_parse_rule))?;
 
     let symbol_map = symbols.iter().map(|x| (x.name.to_string(), x.id)).collect::<HashMap<_, _>>();
-    
+
+    let builder = translation_table::ParseTableBuilder::create(&parse_rules, &symbols, &scan_rules.combination_symbols);
+    let parse_table = builder.build()?;
+    let start_symbol = parse_rules[0].lhs.as_str();
+
     generator_symbol_set::generate(&symbols, temp_dir.path().to_path_buf())?;
     generator_scan_rule::generate(&scan_rules, &symbols, &symbol_map, temp_dir.path().to_path_buf())?;
+    generate_parse_rule::generate(&parse_table, &symbol_map, start_symbol, temp_dir.path().to_path_buf())?;
 
     swap_folder(&output_dir, temp_dir.path(), &backup_dir.path().join("backup"))?;
 

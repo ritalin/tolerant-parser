@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use engine_core::scanner_engine::{self, AcceptableRegexSet, ScanEvent};
 use crate::Token;
-use crate::dispatch::ScanEventDispatcher;
+use crate::event_dispatch::ScanEventDispatcher;
 
 pub struct Scanner {
     lookaheads: VecDeque<Token>,
