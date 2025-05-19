@@ -1,3 +1,4 @@
 /target
 /build
 _generated
+.DS_Store
