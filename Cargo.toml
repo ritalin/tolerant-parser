@@ -6,7 +6,6 @@ members = [
     "crates/tool/*", 
     "crates/sqlite/*", 
 ]
-exclude = ["crates/cmd/print_parse_result"]
 resolver = "3"
 
 [workspace.dependencies]

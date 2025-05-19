@@ -529,6 +529,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "syntax_tree_viewer"
+version = "0.1.0"
+dependencies = [
+ "ansi_term",
+ "anyhow",
+ "clap",
+ "engine-core",
+ "parser-core",
+ "sqlite-engine",
+]
+
+[[package]]
 name = "tempfile"
 version = "3.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
