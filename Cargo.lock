@@ -279,6 +279,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
+name = "parse_event_viewer"
+version = "0.1.0"
+dependencies = [
+ "ansi_term",
+ "anyhow",
+ "clap",
+ "engine-core",
+ "parser-core",
+ "scanner-core",
+ "serde",
+ "serde_json",
+ "sqlite-engine",
+]
+
+[[package]]
 name = "parser-core"
 version = "0.1.0"
 dependencies = [
@@ -330,21 +345,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67eabc2ef2a60eb7faa00097bd1ffdb5bd28e62bf39990626a582201b7a754e5"
 dependencies = [
  "siphasher",
-]
-
-[[package]]
-name = "print_event_viewer"
-version = "0.1.0"
-dependencies = [
- "ansi_term",
- "anyhow",
- "clap",
- "engine-core",
- "parser-core",
- "scanner-core",
- "serde",
- "serde_json",
- "sqlite-engine",
 ]
 
 [[package]]
