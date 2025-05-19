@@ -2,6 +2,7 @@
 pub mod event_dispatcher;
 pub mod node_handler;
 pub mod syntax_tree;
+pub mod capture;
 
 mod metadata;
 pub use metadata::{NodeMetadataKey, NodeMetadata, NodeType, Recovery};
