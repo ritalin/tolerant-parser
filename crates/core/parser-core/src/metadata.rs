@@ -32,3 +32,18 @@ pub enum NodeType {
     TrailingToken,
     Error,
 }
+
+impl std::fmt::Display for NodeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            NodeType::Node => "Node",
+            NodeType::TokenSet => "TokenSet",
+            NodeType::TokenItem => "TokenItem",
+            NodeType::LeadingToken => "LeadingToken",
+            NodeType::TrailingToken => "TrailingToken",
+            NodeType::Error => "Error",
+        };
+
+        write!(f, "{name}")
+    }
+}
