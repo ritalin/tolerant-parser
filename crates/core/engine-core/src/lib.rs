@@ -30,6 +30,7 @@ impl std::hash::Hash for SyntaxKind {
     }
 }
 
+#[derive(Clone)]
 pub struct Engine {
     pub scanning_rules: scanner_engine::ScanningRuleSet,
     pub parsing_rules: parser_engine::ParsingRuleSet,

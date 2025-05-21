@@ -125,6 +125,7 @@ impl SyntaxTokenData {
     }
 }
 
+#[derive(Clone)]
 pub enum SyntaxElementDef<N, S> {
     Node(N),
     TokenSet(S),
