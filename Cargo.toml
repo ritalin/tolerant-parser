@@ -7,7 +7,7 @@ members = [
     "crates/sqlite/*", 
     "crates/sqlite-wasi/*", 
 ]
-exclude = ["crates/sdk/scan-type-wasi"]
+exclude = ["crates/sdk/scan-type-wasi", "crates/sqlite-wasi/sqlite-engine-wasi", "crates/sdk/engine-wasi"]
 resolver = "3"
 
 [workspace.dependencies]
