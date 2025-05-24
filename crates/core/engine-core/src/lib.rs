@@ -58,6 +58,8 @@ impl Default for Engine {
 
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
-    #[error("Can not initialize parser/scanner engine")]
-    CreateFailed
+    #[error("Can not initialize scanner engine (cause: {0})")]
+    ScanningRuleCreateFailed(String),
+    #[error("Can not initialize parser engine (cause: {0})")]
+    PrsingRuleCreateFailed(String)
 }

@@ -1,6 +1,6 @@
 use crate::SyntaxKind;
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Debug, derive_builder::Builder)]
 pub struct ParsingRuleSet {
     lookahead_translation: fn(kind_id: u32, state: usize) -> Option<&'static Transition>,
     goto_translation: fn(kind_id: u32, state: usize) -> Option<&'static usize>,
@@ -8,8 +8,22 @@ pub struct ParsingRuleSet {
     symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
     alternative_symbol_lookup: fn(parent_kind_id: u32, child_kind_id: u32) -> Option<&'static crate::SyntaxKind>,
     candidate_symbols: fn(state: usize) -> Vec<&'static SyntaxKind>,
+    #[builder(setter(custom))]
     full_emit_config: (u32, u32),
+    #[builder(default = None, setter(custom))]
     statement_emit_config: Option<(u32, u32)>,
+}
+
+impl ParsingRuleSetBuilder {
+    pub fn full_emit_config(&mut self, from_kind_id: u32, to_kind_id: u32) -> &mut Self {
+        self.full_emit_config = Some((from_kind_id, to_kind_id));
+        self
+    }
+
+    pub fn statement_emit_config(&mut self, from_kind_id: u32, to_kind_id: u32) -> &mut Self {
+        self.statement_emit_config = Some(Some((from_kind_id, to_kind_id)));
+        self
+    }
 }
 
 impl ParsingRuleSet {
