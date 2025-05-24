@@ -17,7 +17,7 @@ pub(crate) mod generated {
     }
 
     pub fn get_symbol(symbol_id: u32) -> &'static engine_core::SyntaxKind {
-        syntax_map::SYNTAX_KIND_MAP.get(&symbol_id).cloned().unwrap_or(&syntax_kind::r#ILLEGAL)
+        super::generated::syntax_map::SYNTAX_KIND_MAP.get(&symbol_id).cloned().unwrap_or(&super::syntax_kind::r#ILLEGAL)
     }
 
     pub fn get_acceptable_regex_indexes(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]> {
@@ -55,21 +55,49 @@ pub(crate) mod generated {
         scan_rule_map::ALTERNATIVE_SYMBOL_TABLE.get(&key)
         .map(|id| get_symbol(*id))
     }
+}
 
-    pub(crate) fn scan_rule_builder() -> engine_core::scanner_engine::ScanningRuleSetBuilder {
+#[cfg(not(engine_ungenerated))]
+pub fn create() -> Result<engine_core::Engine, engine_core::EngineError> {
+    Ok(engine_core::Engine {
+        scanning_rules: 
+            builder::scan_rule_builder()
+            .build()
+            .map_err(|err| engine_core::EngineError::ScanningRuleCreateFailed(err.to_string()))?,
+        parsing_rules: 
+            builder::parse_rule_builder()
+            .build()
+            .map_err(|err| engine_core::EngineError::PrsingRuleCreateFailed(err.to_string()))?
+    })
+}
+#[cfg(not(engine_ungenerated))]
+pub mod builder {
+    pub use super::generated::{
+        get_lexme_pattern,
+        get_regex_pattern,
+        get_symbol,
+        get_acceptable_regex_indexes,
+        get_candidate_symbols,
+        next_lookahead_state,
+        next_goto_state,
+        get_accept_state,
+        get_alternative_symbol
+    };
+
+    pub fn scan_rule_builder() -> engine_core::scanner_engine::ScanningRuleSetBuilder {
         let mut builder = engine_core::scanner_engine::ScanningRuleSetBuilder::default();
 
         builder
             .lexme_rule(get_lexme_pattern)
             .regex_rule(get_regex_pattern, get_acceptable_regex_indexes)
             .symbol_lookup(get_symbol)
-            .eof_id(syntax_kind::r#EOF.id)
+            .eof_id(super::syntax_kind::r#EOF.id)
         ;
 
         builder
     }
 
-    pub(crate) fn parse_rule_builder() -> engine_core::parser_engine::ParsingRuleSetBuilder {
+    pub fn parse_rule_builder() -> engine_core::parser_engine::ParsingRuleSetBuilder {
         let mut builder = engine_core::parser_engine::ParsingRuleSetBuilder::default();
 
         builder
@@ -79,26 +107,13 @@ pub(crate) mod generated {
             .alternative_symbol_lookup(get_alternative_symbol)
             .symbol_lookup(get_symbol)
             .candidate_symbols(get_candidate_symbols)
-            .full_emit_config(syntax_kind::r#input.id, syntax_kind::r#EOF.id)
-            .statement_emit_config(syntax_kind::r#ecmd.id, syntax_kind::r#SEMI.id)
+            .full_emit_config(super::syntax_kind::r#input.id, super::syntax_kind::r#EOF.id)
+            .statement_emit_config(super::syntax_kind::r#ecmd.id, super::syntax_kind::r#SEMI.id)
         ;
         builder
     }
 }
 
-#[cfg(not(engine_ungenerated))]
-pub fn create() -> Result<engine_core::Engine, engine_core::EngineError> {
-    Ok(engine_core::Engine {
-        scanning_rules: 
-            generated::scan_rule_builder()
-            .build()
-            .map_err(|err| engine_core::EngineError::ScanningRuleCreateFailed(err.to_string()))?,
-        parsing_rules: 
-            generated::parse_rule_builder()
-            .build()
-            .map_err(|err| engine_core::EngineError::PrsingRuleCreateFailed(err.to_string()))?
-    })
-}
 #[cfg(not(engine_ungenerated))]
 pub use generated::syntax_kind;
 

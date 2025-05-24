@@ -116,7 +116,16 @@ mod shift_recovery_tests {
 
     #[test]
     fn test_patch_shift() -> Result<(), anyhow::Error> {
-        let engine = sqlite_engine::create()?;
+        let engine = engine_core::Engine {
+            scanning_rules: sqlite_engine::builder::scan_rule_builder().build()?,
+            parsing_rules: sqlite_engine::builder::parse_rule_builder()
+                .candidate_symbols(|state| {
+                    let mut symbols = sqlite_engine::builder::get_candidate_symbols(state);
+                    symbols.sort_by(|lhs, rhs| lhs.cmp(rhs));
+                    symbols
+                })
+                .build()?,
+        };
         let penalty = RecoveryPenalty{
             delete_slot: 0,
             shift_limit: 4, shift_decay: 0, next_shift_decay: 1, max_shift_packet_size: 10,
@@ -135,16 +144,34 @@ mod shift_recovery_tests {
         };
 
         let expect_events: Vec<RecoveryEvent> = vec![
-            // RecoveryEvent::Patch { kind: (), state: (), next_state: (), method: () },
-            // RecoveryEvent::Patch { kind: (), state: (), next_state: (), method: () },
-            // RecoveryEvent::Patch { kind: (), state: (), next_state: (), method: () },
-            // RecoveryEvent::Patch { kind: (), state: (), next_state: (), method: () },
-            // RecoveryEvent::Patch { kind: (), state: (), next_state: (), method: () },
+            RecoveryEvent::Patch { kind: syntax_kind::ID, state: 212, next_state: 110, method: Recovery::Shift },
         ];
 
         assert_eq!(Recovery::Shift, report.method());
         assert_eq!(1, report.score());
-        assert_eq!(true, report.events().len() > 0);
+        assert_eq!(expect_events, report.events());
+        Ok(())
+    }
+
+    #[test]
+    fn test_patch_shift_for_penalty_violation() -> Result<(), anyhow::Error> {
+        let engine = sqlite_engine::create()?;
+        let penalty = RecoveryPenalty{
+            delete_slot: 0,
+            shift_limit: 0, shift_decay: 0, next_shift_decay: 1, max_shift_packet_size: 10,
+        };
+
+        let state_histories = &[128, 361, 212];
+        let failed_state = 212;
+        let lookahead = Token{
+            leading_trivia: None,
+            main: ScanEvent{ kind: syntax_kind::r#AS, offset: 16, len: 1, value: Some("AS".into()) },
+            trailing_trivia: None,
+        };
+
+        let mut handler = ShiftErrorRecovery::new(failed_state, state_histories, penalty, engine.parsing_rules);
+        let report = handler.handle(&lookahead);
+        assert_eq!(None, report);
         Ok(())
     }
 }
