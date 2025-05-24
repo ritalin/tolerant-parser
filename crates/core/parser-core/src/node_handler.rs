@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use engine_core::{parser_engine::ParsingRuleSet, scanner_engine::ScanEvent, SyntaxKind};
+use engine_core::{parser_engine::ParsingRuleSet, scanner_engine::ScanEvent, SymbolGroup, SyntaxKind};
 use rowan::GreenNode;
 use scanner_core::Token;
 
@@ -47,7 +47,7 @@ impl SyntaxTreeBuilder {
             Some(key) => key.offset + key.len,
             None => 0,
         };
-        let len = if kind.is_keyword { kind.text.len() } else { 0 };
+        let len = if kind.group == SymbolGroup::Keyword { kind.text.len() } else { 0 };
 
         let lookahead = Token{
             leading_trivia: None,

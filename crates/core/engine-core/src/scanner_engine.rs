@@ -121,7 +121,9 @@ impl Default for ScanningRuleSet {
 }
 
 pub mod default_syntax_kind {
-    pub static DEFAULT: crate::SyntaxKind = crate::SyntaxKind { id: 0, text: "EOF", is_keyword: false, is_terminal: true };
+    use crate::SymbolGroup;
+
+    pub static DEFAULT: crate::SyntaxKind = crate::SyntaxKind { id: 0, text: "EOF", group: SymbolGroup::NonKeyword };
 }
 
 fn default_lexme_rule_lookup(_sprefix: char) -> Option<&'static [ScanPattern]> {

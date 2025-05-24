@@ -175,6 +175,7 @@ mod scanner_engine_tests {
                 || None,
                 |_| &syntax_kind::r#EOF,
                 |_p, _c| None,
+                |_| vec![],
                 (0, 0), None,
             );
             sqlite_engine::create()?.parsing_rules;
@@ -194,26 +195,4 @@ mod scanner_engine_tests {
             Some(&DUMMY_LA_TRANSITION)
         }
     }
-
-// [DEBUG] Shift/kind: SELECT, push: [18, 0]
-// [DEBUG] Reduce/kind: distinct, pop(0)&push: [72, 18, 0]
-// [DEBUG] Reduce/kind: sclp, pop(0)&push: [145, 72, 18, 0]
-// [DEBUG] Reduce/kind: scanpt, pop(0)&push: [239, 145, 72, 18, 0]
-// [DEBUG] Shift/kind: INTEGER, push: [123, 239, 145, 72, 18, 0]
-// [DEBUG] Reduce/kind: term, pop(1)&push: [129, 239, 145, 72, 18, 0]
-// [DEBUG] Reduce/kind: expr, pop(1)&push: [362, 239, 145, 72, 18, 0]
-// [DEBUG] Reduce/kind: scanpt, pop(0)&push: [468, 362, 239, 145, 72, 18, 0]
-// [DEBUG] Reduce/kind: as, pop(0)&push: [580, 468, 362, 239, 145, 72, 18, 0]
-// [DEBUG] Reduce/kind: selcollist, pop(5)&push: [146, 72, 18, 0]
-// [DEBUG] Reduce/kind: from, pop(0)&push: [242, 146, 72, 18, 0]
-// [DEBUG] Reduce/kind: where_opt, pop(0)&push: [367, 242, 146, 72, 18, 0]
-// [DEBUG] Reduce/kind: groupby_opt, pop(0)&push: [478, 367, 242, 146, 72, 18, 0]
-// [DEBUG] Reduce/kind: having_opt, pop(0)&push: [589, 478, 367, 242, 146, 72, 18, 0]
-// [DEBUG] Reduce/kind: orderby_opt, pop(0)&push: [673, 589, 478, 367, 242, 146, 72, 18, 0]
-// [DEBUG] Reduce/kind: limit_opt, pop(0)&push: [747, 673, 589, 478, 367, 242, 146, 72, 18, 0]
-// [DEBUG] Reduce/kind: oneselect, pop(9)&push: [31, 0]
-// [DEBUG] Reduce/kind: selectnowith, pop(1)&push: [33, 0]
-// [DEBUG] Reduce/kind: select, pop(1)&push: [32, 0]
-// [DEBUG] Reduce/kind: cmd, pop(1)&push: [21, 0]
-// [DEBUG] Reduce/kind: cmdx, pop(1)&push: [23, 0]
 }

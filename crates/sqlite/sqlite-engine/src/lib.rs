@@ -1,8 +1,8 @@
 
 
 #[cfg(not(engine_ungenerated))]
-mod generated {
-    use engine_core::{parser_engine::Transition, scanner_engine::AcceptableRegexSet};
+pub(crate) mod generated {
+    use engine_core::{parser_engine::Transition, scanner_engine::AcceptableRegexSet, SyntaxKind};
     
     include!("_generated/symbol_set.rs");
     include!("_generated/scan_rule.rs");
@@ -26,6 +26,12 @@ mod generated {
             AcceptableRegexSet::Main => Some(scan_rule_map::SUPPORT_MAIN),
             AcceptableRegexSet::Trailing => Some(scan_rule_map::SUPPORT_TRAILING),
         }
+    }
+
+    pub fn get_candidate_symbols(state: usize) -> Vec<&'static SyntaxKind> {
+        lookahead_transition::TABLES[state].keys()
+        .map(|&id| get_symbol(id))
+        .collect()
     }
 
     pub fn next_lookahead_state(kind_id: u32, state: usize) -> Option<&'static Transition> {
@@ -69,6 +75,7 @@ pub fn create() -> Result<engine_core::Engine, engine_core::EngineError> {
             generated::get_accept_state,
             generated::get_symbol,
             generated::get_alternative_symbol,
+            generated::get_candidate_symbols,
             (syntax_kind::r#input.id, syntax_kind::r#EOF.id),
             Some((syntax_kind::r#ecmd.id, syntax_kind::r#SEMI.id)),
         ),

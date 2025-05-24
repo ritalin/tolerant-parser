@@ -8,8 +8,7 @@ pub use scanner_engine::default_syntax_kind;
 pub struct SyntaxKind {
     pub id: u32,
     pub text: &'static str,
-    pub is_keyword: bool,
-    pub is_terminal: bool,
+    pub group: SymbolGroup,
 }
 
 impl PartialEq for SyntaxKind {
@@ -28,6 +27,18 @@ impl std::hash::Hash for SyntaxKind {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+pub enum SymbolGroup {
+    /// Terminal symbol of keyword scanned by lexme
+    Keyword,
+    /// Terminal symbol of non keyword scanned by lexme
+    NonKeyword,
+    /// Terminal symbol scanned by regex
+    Pattern,
+    /// Non-Terminal symbol
+    NonTerminal,
 }
 
 #[derive(Clone)]
