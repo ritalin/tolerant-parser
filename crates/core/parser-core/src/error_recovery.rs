@@ -1,11 +1,11 @@
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
 use scanner_core::Token;
+use stitch_handler::StitchRecoveryHandler;
 use crate::{state_stack::StateStack, Recovery};
 
 pub mod delete_recovery;
 pub mod shift_recovery;
-
-pub use delete_recovery::DeleteErrorRecovery;
+pub mod stitch_handler;
 
 pub struct PatchEventDispatcher {
     engine: ParsingRuleSet,
@@ -25,15 +25,16 @@ impl PatchEventDispatcher {
 
         let mut delete_recovery = delete_recovery::DeleteErrorRecovery::new_with_stack(failed_state, state_stack.clone(), self.penalty.clone(), self.engine);
         let mut shift_recovery = shift_recovery::ShiftErrorRecovery::new_with_stack(failed_state, state_stack.clone(), self.penalty.clone(), self.engine);
+        let stitch_handler = StitchRecoveryHandler::new(self.engine);
 
         // try deleting error recovery
         let mut report = delete_recovery.handle(lookaheads.clone()).and_then(|candidate| {
-            try_stitch_recovery(candidate, lookaheads.clone().skip(self.penalty.delete_slot - delete_recovery.left_slot()))
+            stitch_handler.try_recovery(candidate, lookaheads.clone().skip(self.penalty.delete_slot - delete_recovery.left_slot()))
         });
 
         // try shifting error recovery
         while let Some(candidate) = shift_recovery.handle(lookahead) {
-            let next_report = try_stitch_recovery(candidate, lookaheads.clone());
+            let next_report = stitch_handler.try_recovery(candidate, lookaheads.clone());
             match (report.as_ref(), next_report.as_ref()) {
                 (None, Some(_)) => {
                     report = next_report;
@@ -71,10 +72,6 @@ pub(crate) fn make_stack(state_histories: &[usize]) -> StateStack {
     }
 
     stack
-}
-
-fn try_stitch_recovery<'a>(report: RecoveryReport, lookahead_iter: impl Iterator<Item = &'a Token>) -> Option<RecoveryReport> {
-    todo!()
 }
 
 #[derive(Clone)]
@@ -116,7 +113,7 @@ impl RecoveryReport {
         Self::new_with_stack(failed_state, make_stack(state_histories), recovery_method)
     }
 
-    pub(crate) fn new_with_stack(failed_state: usize, mut state_stack: StateStack, recovery_method: Recovery) -> Self {
+    pub(crate) fn new_with_stack(failed_state: usize, state_stack: StateStack, recovery_method: Recovery) -> Self {
         Self {
             recovery_method,
             events: cactus::Cactus::new(),
@@ -162,6 +159,11 @@ impl RecoveryReport {
     }
 
     #[inline]
+    pub fn reset_score(&mut self, new_score: usize) {
+        self.score = new_score;
+    }
+
+    #[inline]
     pub fn method(&self) -> Recovery {
         self.recovery_method.clone()
     }
@@ -169,18 +171,20 @@ impl RecoveryReport {
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum RecoveryEvent {
-    /// A patch action (e.g. token deletion, empty insertion) that was accepted during recovery.
-    Patch{ kind: SyntaxKind, state: usize, next_state: usize, method: Recovery },
+    /// A patch deleting action that was accepted during recovery.
+    PatchDelete{ kind: SyntaxKind, state: usize },
+    /// A patch shifting action that was accepted during recovery.
+    PatchShift(RecoveryEventPayload),
     /// A normal parsing transition that occurred after patching
-    Stitch(StitchPayload),
+    Stitch(RecoveryEventPayload),
 }
 
 #[derive(PartialEq, Clone, Debug)]
-pub enum StitchPayload {
-    /// A Shift action performed during re-synchronization.
+pub enum RecoveryEventPayload {
+    /// A Shift action performed during patch/stitch phase.
     Shift { kind: SyntaxKind, state: usize, next_state: usize },
-    /// A Reduce action performed during re-synchronization.
+    /// A Reduce action performed during patch/stitch phase.
     Reduce{ kind: SyntaxKind, state: usize, next_state: usize, pop_count: usize, },
-    /// A Accept action performed during re-synchronization.
+    /// A Accept action performed during patch/stitch phase.
     Accept{ kind: SyntaxKind, state: usize, last_state: usize },
 }

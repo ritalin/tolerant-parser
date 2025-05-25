@@ -45,11 +45,9 @@ impl DeleteErrorRecovery {
         while let (Some(lookahead), Some(next_lookahad))= (lookaheads.next(), lookaheads.peek()) {
             self.penalty.delete_slot -= 1;
             report.score += 1;
-            report.push_event(lookahead.main.kind.id, RecoveryEvent::Patch { 
-                kind: lookahead.main.kind, 
+            report.push_event(lookahead.main.kind.id, RecoveryEvent::PatchDelete { 
+                kind: lookahead.main.kind,
                 state: *top_state, 
-                next_state: *top_state, 
-                method: Recovery::Delete 
             });
 
             match self.engine.next_lookahead_state(next_lookahad.main.kind.id, *top_state) {

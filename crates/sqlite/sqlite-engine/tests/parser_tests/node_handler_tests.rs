@@ -1,10 +1,8 @@
-#![cfg(not(engine_ungenerated))]
-
 use parser_core::{event_dispatcher::ParseEvent, node_handler::{NodeBuildError, SyntaxTreeBuilder}};
 use sqlite_engine::syntax_kind;
 
-mod test_support;
-use test_support::*;
+// mod test_support;
+use crate::test_support::*;
 
 mod build_tree_tests {
     use engine_core::scanner_engine::ScanEvent;

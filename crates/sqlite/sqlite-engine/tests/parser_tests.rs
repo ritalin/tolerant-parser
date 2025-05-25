@@ -5,6 +5,20 @@ use parser_core::Parser;
 mod test_support;
 use test_support::*;
 
+mod parse_dispatcher_tests {
+    include!("parser_tests/parse_dispatcher_tests_.rs");
+}
+
+#[cfg(not(engine_ungenerated))]
+mod node_handler_tests {
+    include!("parser_tests/node_handler_tests.rs");
+}
+
+#[cfg(not(engine_ungenerated))]
+mod parse_recovery_tests {
+    include!("parser_tests/parse_recovery_tests.rs");
+}
+
 #[test]
 fn test_const_select() -> Result<(), anyhow::Error> {
     let source = "SELECT 42;";

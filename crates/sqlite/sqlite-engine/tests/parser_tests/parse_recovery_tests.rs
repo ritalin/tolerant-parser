@@ -2,7 +2,7 @@
 #[cfg(test)]
 mod delete_recovery_tests {
     use engine_core::scanner_engine::ScanEvent;
-    use parser_core::{error_recovery::{DeleteErrorRecovery, RecoveryEvent, RecoveryPenalty}, Recovery};
+    use parser_core::{error_recovery::{delete_recovery::DeleteErrorRecovery, stitch_handler::StitchRecoveryHandler, RecoveryEvent, RecoveryEventPayload, RecoveryPenalty, RecoveryReport}, Recovery};
     use scanner_core::Token;
     use sqlite_engine::syntax_kind;
 
@@ -57,11 +57,11 @@ mod delete_recovery_tests {
         };
 
         let expect_events = vec![
-            RecoveryEvent::Patch { 
-                kind: syntax_kind::INTEGER, state: 23, next_state: 23, method: Recovery::Delete,
+            RecoveryEvent::PatchDelete { 
+                kind: syntax_kind::INTEGER, state: 23, 
             },
-            RecoveryEvent::Patch { 
-                kind: syntax_kind::STRING, state: 23, next_state: 23, method: Recovery::Delete,
+            RecoveryEvent::PatchDelete { 
+                kind: syntax_kind::STRING, state: 23, 
             },
         ];
         assert_eq!(Recovery::Delete, report.method());
@@ -105,12 +105,67 @@ mod delete_recovery_tests {
         Ok(())
     }
 
+    #[test]
+    fn test_stitch_delete_recovery_report() -> Result<(), anyhow::Error> {
+        let engine = sqlite_engine::create()?;
+        let state_histories = &[0, 238, 122];
+        let failed_state = 122;
+
+        let lookaheads = [
+            Token{
+                leading_trivia: None,
+                main: ScanEvent{ kind: syntax_kind::COMMA, offset: 8, len: 2, value: Some(",".into()) },
+                trailing_trivia: None,
+            },
+            Token{
+                leading_trivia: None,
+                main: ScanEvent{ kind: syntax_kind::STRING, offset: 12, len: 3, value: Some("'xyz'".into()) },
+                trailing_trivia: None,
+            },
+            Token{
+                leading_trivia: None,
+                main: ScanEvent{ kind: syntax_kind::SEMI, offset: 15, len: 1, value: Some(";".into()) },
+                trailing_trivia: None,
+            },
+        ];
+
+        let mut report = RecoveryReport::new(failed_state, state_histories, Recovery::Delete);
+        report.push_event(syntax_kind::INTEGER.id, RecoveryEvent::PatchDelete { 
+            kind: syntax_kind::INTEGER, state: 122,  
+        });
+        report.push_event(syntax_kind::STRING.id, RecoveryEvent::PatchDelete { 
+            kind: syntax_kind::STRING, state: 122, 
+        });
+        report.reset_score(2);
+
+        let handler = StitchRecoveryHandler::new(engine.parsing_rules);
+        let Some(stitch_report) = handler.try_recovery(report, lookaheads.iter()) else {
+            panic!("Actual value must be returned");
+        };
+
+        let expect_events = vec![
+            RecoveryEvent::PatchDelete{ 
+                kind: syntax_kind::INTEGER, state: 122, 
+            },
+            RecoveryEvent::PatchDelete{ 
+                kind: syntax_kind::STRING, state: 122, 
+            },
+            RecoveryEvent::Stitch(RecoveryEventPayload::Reduce{ 
+                kind: syntax_kind::term, state: 122, next_state: 128, pop_count: 1
+            })
+        ];
+
+        assert_eq!(Recovery::Delete, stitch_report.method());
+        assert_eq!(3, stitch_report.score());
+        assert_eq!(expect_events, stitch_report.events());
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod shift_recovery_tests {
     use engine_core::scanner_engine::ScanEvent;
-    use parser_core::{error_recovery::{shift_recovery::ShiftErrorRecovery, RecoveryEvent, RecoveryPenalty}, Recovery};
+    use parser_core::{error_recovery::{shift_recovery::ShiftErrorRecovery, RecoveryEvent, RecoveryEventPayload, RecoveryPenalty}, Recovery};
     use scanner_core::Token;
     use sqlite_engine::syntax_kind;
 
@@ -144,7 +199,9 @@ mod shift_recovery_tests {
         };
 
         let expect_events: Vec<RecoveryEvent> = vec![
-            RecoveryEvent::Patch { kind: syntax_kind::ID, state: 212, next_state: 110, method: Recovery::Shift },
+            RecoveryEvent::PatchShift(
+                RecoveryEventPayload::Shift { kind: syntax_kind::ID, state: 212, next_state: 110 }
+            ),
         ];
 
         assert_eq!(Recovery::Shift, report.method());

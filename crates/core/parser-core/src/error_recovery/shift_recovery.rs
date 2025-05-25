@@ -4,10 +4,7 @@ use engine_core::{parser_engine::{ParsingRuleSet, Transition}, SymbolGroup, Synt
 use scanner_core::Token;
 use crate::{state_stack::StateStack, Recovery};
 
-use super::{RecoveryEvent, RecoveryPenalty, RecoveryReport};
-
-
-
+use super::{RecoveryEvent, RecoveryEventPayload, RecoveryPenalty, RecoveryReport};
 
 pub struct ShiftErrorRecovery {
     candidates: VecDeque<RecoveryReport>,
@@ -102,12 +99,13 @@ fn next_candidates_internal(report: RecoveryReport, lookahead_kind: Option<Synta
                 let mut next_report = report.next_report();
                 
                 next_report.state_stack.push_state(*next_state);
-                next_report.push_event(kind.id, RecoveryEvent::Patch { 
-                    kind,
-                    state: report.last_state, 
-                    next_state: *next_state, 
-                    method: Recovery::Shift 
-                });
+                next_report.push_event(kind.id, 
+                    RecoveryEvent::PatchShift(RecoveryEventPayload::Shift { 
+                        kind,
+                        state: report.last_state, 
+                        next_state: *next_state 
+                    })
+                );
                 next_report.last_state = *next_state;
                 next_report.score += 1;
 
@@ -120,12 +118,14 @@ fn next_candidates_internal(report: RecoveryReport, lookahead_kind: Option<Synta
                 let Some(next_state) = engine.next_goto_state(*lhs, *goto_state) else { continue };
 
                 next_report.state_stack.push_state(*next_state);
-                next_report.push_event(kind.id, RecoveryEvent::Patch{ 
-                    kind, 
-                    state: report.last_state,
-                    next_state: *next_state, 
-                    method: Recovery::Shift 
-                });
+                next_report.push_event(kind.id, 
+                    RecoveryEvent::PatchShift(super::RecoveryEventPayload::Reduce { 
+                        kind: engine.from_kind_id(*lhs),
+                        state: report.last_state, 
+                        next_state: *next_state, 
+                        pop_count: *pop_count 
+                    })
+                );
                 next_report.last_state = *next_state;
                 next_report.score += 1;
  
@@ -138,12 +138,14 @@ fn next_candidates_internal(report: RecoveryReport, lookahead_kind: Option<Synta
                 let Some(next_state) = engine.next_goto_state(*lhs, *goto_state) else { continue };
 
                 next_report.state_stack.push_state(*next_state);
-                next_report.push_event(kind.id, RecoveryEvent::Patch{ 
-                    kind, 
-                    state: report.last_state,
-                    next_state: *next_state, 
-                    method: Recovery::Shift 
-                });
+                next_report.push_event(kind.id, 
+                    RecoveryEvent::PatchShift(super::RecoveryEventPayload::Reduce { 
+                        kind: engine.from_kind_id(*lhs), 
+                        state: report.last_state, 
+                        next_state:  *next_state, 
+                        pop_count: *pop_count
+                    })
+                );
                 next_report.last_state = *next_state;
 
                 packets[col + N_SYMBOL * 2] = Some(Packet{ kind_id: symbol.id, report: report.next_report() })
