@@ -1,7 +1,7 @@
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
 use scanner_core::Token;
 use stitch_handler::StitchRecoveryHandler;
-use crate::{state_stack::StateStack, Recovery};
+use crate::state_stack::StateStack;
 
 pub mod delete_recovery;
 pub mod shift_recovery;
@@ -17,20 +17,17 @@ impl PatchEventDispatcher {
         Self { penalty, engine }
     }
 
-    pub(crate) fn handle(&mut self, failed_state: usize, state_stack: StateStack, lookaheads: std::slice::Iter<Token>) -> Option<Vec<RecoveryEvent>> {
+    pub(crate) fn handle(&mut self, state_stack: StateStack, lookaheads: std::slice::Iter<Token>) -> Option<Vec<RecoveryEvent>> {
         let mut peekable = lookaheads.clone().peekable();
         let Some(lookahead) = peekable.peek() else {
             return None;
         };
 
-        let mut delete_recovery = delete_recovery::DeleteErrorRecovery::new_with_stack(failed_state, state_stack.clone(), self.penalty.clone(), self.engine);
-        let mut shift_recovery = shift_recovery::ShiftErrorRecovery::new_with_stack(failed_state, state_stack.clone(), self.penalty.clone(), self.engine);
+        let mut delete_recovery = delete_recovery::DeleteErrorRecovery::new_with_stack(state_stack.clone(), self.penalty.clone(), self.engine);
+        let mut shift_recovery = shift_recovery::ShiftErrorRecovery::new_with_stack(state_stack.clone(), self.penalty.clone(), self.engine);
         let stitch_handler = StitchRecoveryHandler::new(self.engine);
 
-        // try deleting error recovery
-        let mut report = delete_recovery.handle(lookaheads.clone()).and_then(|candidate| {
-            stitch_handler.try_recovery(candidate, lookaheads.clone().skip(self.penalty.delete_slot - delete_recovery.left_slot()))
-        });
+        let mut report = None;
 
         // try shifting error recovery
         while let Some(candidate) = shift_recovery.handle(lookahead) {
@@ -46,19 +43,22 @@ impl PatchEventDispatcher {
             }
         }
 
-        match report.as_ref() {
-            Some(x) if x.recovery_method == Recovery::Delete => {
-                self.penalty.accept_delete(x.score);
-                Some(x.events())
-            }
-            Some(x) if x.recovery_method == Recovery::Shift => {
-                self.penalty.accept_shift();
-                Some(x.events())
-            }
-            _ => {
-                None
-            }
+        if let Some(report) = report.as_ref() {
+            self.penalty.accept_shift();
+            return Some(report.events());
         }
+
+        // try deleting error recovery
+        report = delete_recovery.handle(lookaheads.clone()).and_then(|candidate| {
+            stitch_handler.try_recovery(candidate, lookaheads.clone().skip(self.penalty.delete_slot - delete_recovery.left_slot()))
+        });
+
+        if let Some(report) = report.as_ref() {
+            self.penalty.accept_delete(report.score);
+            return Some(report.events());
+        }
+
+        None
     }
 }
 
@@ -100,25 +100,23 @@ impl RecoveryPenalty {
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct RecoveryReport {
-    recovery_method: Recovery,
     events: cactus::Cactus<(u32, RecoveryEvent)>,
     state_stack: StateStack,
-    last_state: usize,
     score: usize,
     depth: usize,
 }
 
 impl RecoveryReport {
-    pub fn new(failed_state: usize, state_histories: &[usize], recovery_method: Recovery) -> Self {
-        Self::new_with_stack(failed_state, make_stack(state_histories), recovery_method)
+    #[cfg(feature = "test_support")]
+    #[doc(hidden)]
+    pub fn new(state_histories: &[usize]) -> Self {
+        Self::new_with_stack(make_stack(state_histories))
     }
 
-    pub(crate) fn new_with_stack(failed_state: usize, state_stack: StateStack, recovery_method: Recovery) -> Self {
+    pub(crate) fn new_with_stack(state_stack: StateStack) -> Self {
         Self {
-            recovery_method,
             events: cactus::Cactus::new(),
             state_stack,
-            last_state: failed_state,
             score: 0,
             depth: 0,
         }
@@ -159,13 +157,10 @@ impl RecoveryReport {
     }
 
     #[inline]
+    #[cfg(feature = "test_support")]
+    #[doc(hidden)]
     pub fn reset_score(&mut self, new_score: usize) {
         self.score = new_score;
-    }
-
-    #[inline]
-    pub fn method(&self) -> Recovery {
-        self.recovery_method.clone()
     }
 }
 

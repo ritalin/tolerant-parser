@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use engine_core::{parser_engine::{ParsingRuleSet, Transition}, SymbolGroup, SyntaxKind};
 use scanner_core::Token;
-use crate::{state_stack::StateStack, Recovery};
+use crate::state_stack::StateStack;
 
 use super::{RecoveryEvent, RecoveryEventPayload, RecoveryPenalty, RecoveryReport};
 
@@ -14,16 +14,16 @@ pub struct ShiftErrorRecovery {
 }
 
 impl ShiftErrorRecovery {
-    pub fn new(failed_state: usize, state_histories: &[usize], penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
-        Self::new_with_stack(failed_state, super::make_stack(state_histories), penalty, engine)
+    pub fn new(state_histories: &[usize], penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
+        Self::new_with_stack(super::make_stack(state_histories), penalty, engine)
     }
 
-    pub(crate) fn new_with_stack(failed_state: usize, state_stack: StateStack, penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
-        let report = RecoveryReport::new_with_stack(failed_state, state_stack, Recovery::Shift);
+    pub(crate) fn new_with_stack(state_stack: StateStack, penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
+        let report = RecoveryReport::new_with_stack(state_stack);
 
         Self {
             candidates: VecDeque::with_capacity(0),
-            wait_list: next_candidates_internal(report, None, engine).collect(),
+            wait_list: next_candidates_internal(report, None, None, engine).collect(),
             penalty, 
             engine,
         }
@@ -50,7 +50,9 @@ impl ShiftErrorRecovery {
 
 #[derive(Clone)]
 struct Packet {
+    // Picked up the lookahead kind
     kind_id: u32,
+    is_reduce: bool,
     report: RecoveryReport,
 }
 
@@ -71,86 +73,108 @@ fn next_candidates(prev_candidates: impl Iterator<Item = Packet>, lookahead: &To
             continue;
         }
         if next_wait_list.len() >= limit { continue }
-        if prev.report.contains_kind(lookahead.main.kind) { continue }
 
         if prev.report.depth < penalty.shift_limit - penalty.shift_decay {
             // make next wait list
-            next_wait_list.extend(next_candidates_internal(prev.report, Some(lookahead.main.kind), engine));
+
+            let prev_kind = match prev.is_reduce {
+                true => {
+                    // If preceding action is Recuce, the parser must use the same lookahead
+                    Some(engine.from_kind_id(prev.kind_id))
+                }
+                false => None,
+            };
+
+            next_wait_list.extend(next_candidates_internal(
+                prev.report, prev_kind.as_ref(), 
+                Some(lookahead.main.kind), engine));
         }
     }
 
     (next_candidate, next_wait_list)
 }
 
-fn next_candidates_internal(report: RecoveryReport, lookahead_kind: Option<SyntaxKind>, engine: ParsingRuleSet) -> impl Iterator<Item = Packet> {
+fn next_candidates_internal(report: RecoveryReport, prev_kind: Option<&SyntaxKind>, lookahead_kind: Option<SyntaxKind>, engine: ParsingRuleSet) -> impl Iterator<Item = Packet> {
     let mut packets: [Option<Packet>; N_ACTION * (N_SYMBOL + 1)] = std::array::from_fn(|_| None);
 
-    for symbol in engine.candidate_terminal_symbols(report.last_state) {
-        let col = lookahead_kind
-            .and_then(|k| (symbol.id == k.id).then(|| 0))
-            .or_else(|| find_packet_group_column(symbol))
-        ;
-        let Some(col) = col else { continue };
+    if let Some(last_state) = report.state_stack.peek_state().cloned() {
+        let candidates = match prev_kind {
+            None => engine.candidate_terminal_symbols(last_state),
+            Some(kind) => vec![kind],
+        };
+    
+        for symbol in candidates {
+            if report.contains_kind(*symbol) { continue }
 
-        let kind = symbol.clone();
-
-        match engine.next_lookahead_state(symbol.id, report.last_state) {
-            Some(Transition::Shift { next_state }) if packets[col].is_none() => {
-                let mut next_report = report.next_report();
-                
-                next_report.state_stack.push_state(*next_state);
-                next_report.push_event(kind.id, 
-                    RecoveryEvent::PatchShift(RecoveryEventPayload::Shift { 
-                        kind,
-                        state: report.last_state, 
-                        next_state: *next_state 
-                    })
-                );
-                next_report.last_state = *next_state;
-                next_report.score += 1;
-
-                packets[col] = Some(Packet{ kind_id: symbol.id, report: next_report });
+            match lookahead_kind {
+                Some(kind) if symbol.id == kind.id => {
+                    // Candidate found
+                    packets[0] = Some(Packet{ kind_id: symbol.id, is_reduce: false, report: report.clone() });
+                    continue;
+                }
+                _ => {}
             }
-            Some(Transition::Reduce { pop_count, lhs }) if (*pop_count > 0) && packets[col + N_SYMBOL].is_none() => {
-                let mut next_report = report.next_report();
+            let Some(col) = find_packet_group_column(symbol) else { continue };
 
-                let Some(goto_state) = next_report.state_stack.pop_n_state(*pop_count) else { continue };
-                let Some(next_state) = engine.next_goto_state(*lhs, *goto_state) else { continue };
+            let kind = symbol.clone();
 
-                next_report.state_stack.push_state(*next_state);
-                next_report.push_event(kind.id, 
-                    RecoveryEvent::PatchShift(super::RecoveryEventPayload::Reduce { 
-                        kind: engine.from_kind_id(*lhs),
-                        state: report.last_state, 
-                        next_state: *next_state, 
-                        pop_count: *pop_count 
-                    })
-                );
-                next_report.last_state = *next_state;
-                next_report.score += 1;
- 
-                packets[col + N_SYMBOL] = Some(Packet{ kind_id: symbol.id, report: report.next_report() })
-            }
-            Some(Transition::Reduce { pop_count, lhs }) if packets[col + N_SYMBOL * 2].is_none() => {
-                let mut next_report = report.next_report();
+            match engine.next_lookahead_state(symbol.id, last_state) {
+                Some(Transition::Shift { next_state }) if packets[col].is_none() => {
+                    let mut next_report = report.next_report();
+                    
+                    next_report.state_stack.push_state(*next_state);
+                    next_report.push_event(kind.id, 
+                        RecoveryEvent::PatchShift(RecoveryEventPayload::Shift { 
+                            kind,
+                            state: last_state, 
+                            next_state: *next_state 
+                        })
+                    );
+                    next_report.score += 1;
 
-                let Some(goto_state) = next_report.state_stack.pop_n_state(*pop_count) else { continue };
-                let Some(next_state) = engine.next_goto_state(*lhs, *goto_state) else { continue };
+                    packets[col] = Some(Packet{ kind_id: symbol.id, is_reduce: false, report: next_report });
+                }
+                Some(Transition::Reduce { pop_count, lhs }) if (*pop_count > 0) && packets[col + N_SYMBOL].is_none() => {
+                    let mut next_report = report.next_report();
 
-                next_report.state_stack.push_state(*next_state);
-                next_report.push_event(kind.id, 
-                    RecoveryEvent::PatchShift(super::RecoveryEventPayload::Reduce { 
-                        kind: engine.from_kind_id(*lhs), 
-                        state: report.last_state, 
-                        next_state:  *next_state, 
-                        pop_count: *pop_count
-                    })
-                );
-                next_report.last_state = *next_state;
+                    let Some(goto_state) = next_report.state_stack.pop_n_state(*pop_count) else { continue };
+                    let Some(next_state) = engine.next_goto_state(*lhs, *goto_state) else { continue };
 
-                packets[col + N_SYMBOL * 2] = Some(Packet{ kind_id: symbol.id, report: report.next_report() })
-            }
-            _ => {
+                    let lhs_kind = engine.from_kind_id(*lhs);
+                    next_report.state_stack.push_state(*next_state);
+                    next_report.push_event(lhs_kind.id, 
+                        RecoveryEvent::PatchShift(super::RecoveryEventPayload::Reduce { 
+                            kind: lhs_kind,
+                            state: last_state, 
+                            next_state: *next_state, 
+                            pop_count: *pop_count 
+                        })
+                    );
+                    next_report.score += 1;
+    
+                    packets[col + N_SYMBOL] = Some(Packet{ kind_id: symbol.id, is_reduce: true, report: next_report })
+                }
+                Some(Transition::Reduce { pop_count, lhs }) if packets[col + N_SYMBOL * 2].is_none() => {
+                    let mut next_report = report.next_report();
+
+                    let Some(goto_state) = next_report.state_stack.pop_n_state(*pop_count) else { continue };
+                    let Some(next_state) = engine.next_goto_state(*lhs, *goto_state) else { continue };
+
+                    let lhs_kind = engine.from_kind_id(*lhs);
+                    next_report.state_stack.push_state(*next_state);
+                    next_report.push_event(lhs_kind.id, 
+                        RecoveryEvent::PatchShift(super::RecoveryEventPayload::Reduce { 
+                            kind: lhs_kind, 
+                            state: last_state, 
+                            next_state:  *next_state, 
+                            pop_count: *pop_count
+                        })
+                    );
+
+                    packets[col + N_SYMBOL * 2] = Some(Packet{ kind_id: symbol.id, is_reduce: true, report: next_report })
+                }
+                _ => {
+                }
             }
         }
     }

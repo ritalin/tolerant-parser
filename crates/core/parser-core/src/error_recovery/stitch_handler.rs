@@ -21,18 +21,18 @@ impl StitchRecoveryHandler {
     pub fn try_recovery<'a>(&self, mut report: RecoveryReport, lookaheads: impl Iterator<Item = &'a Token>) -> Option<RecoveryReport> {
         let mut lookaheads = lookaheads.peekable();
 
-        while let Some(lookahead) = lookaheads.peek() {
+        while let (Some(lookahead), Some(last_state)) = (lookaheads.peek(), report.state_stack.peek_state().cloned()) {
             let kind = lookahead.main.kind;
             if self.terminate_kinds.contains(&kind.id) { break }
         
-            match self.engine.next_lookahead_state(kind.id, report.last_state) {
+            match self.engine.next_lookahead_state(kind.id, last_state) {
                 Some(Transition::Shift { next_state }) => {
                     lookaheads.next();
                     report.state_stack.push_state(*next_state);
                     report.push_event(kind.id, 
                         RecoveryEvent::Stitch(RecoveryEventPayload::Shift { 
                             kind,
-                            state: report.last_state, 
+                            state: last_state, 
                             next_state: *next_state
                         })
                     );
@@ -48,7 +48,7 @@ impl StitchRecoveryHandler {
                     report.push_event(kind.id, 
                         RecoveryEvent::Stitch(RecoveryEventPayload::Reduce { 
                             kind: self.engine.from_kind_id(*lhs),
-                            state: report.last_state, 
+                            state: last_state, 
                             next_state: *next_state, 
                             pop_count: *pop_count
                         })
@@ -64,7 +64,7 @@ impl StitchRecoveryHandler {
                     report.push_event(kind.id, 
                         RecoveryEvent::Stitch(RecoveryEventPayload::Reduce { 
                             kind: self.engine.from_kind_id(*lhs),
-                            state: report.last_state, 
+                            state: last_state, 
                             next_state: *next_state, 
                             pop_count: *pop_count
                         })

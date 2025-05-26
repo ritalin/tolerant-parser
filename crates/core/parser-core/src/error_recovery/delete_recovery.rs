@@ -1,6 +1,6 @@
 use engine_core::parser_engine::ParsingRuleSet;
 use scanner_core::Token;
-use crate::{state_stack::StateStack, Recovery};
+use crate::state_stack::StateStack;
 
 use super::{RecoveryEvent, RecoveryPenalty, RecoveryReport};
 
@@ -8,20 +8,18 @@ use super::{RecoveryEvent, RecoveryPenalty, RecoveryReport};
 
 pub struct DeleteErrorRecovery {
     state_stack: StateStack,
-    last_state: usize,
     penalty: RecoveryPenalty,
     engine: ParsingRuleSet,
 }
 
 impl DeleteErrorRecovery {
-    pub fn new(failed_state: usize, state_histories: &[usize], penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
-        Self::new_with_stack(failed_state, super::make_stack(state_histories), penalty, engine)
+    pub fn new(state_histories: &[usize], penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
+        Self::new_with_stack(super::make_stack(state_histories), penalty, engine)
     }
 
-    pub(crate) fn new_with_stack(failed_state: usize, state_stack: StateStack, penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
+    pub(crate) fn new_with_stack(state_stack: StateStack, penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
         Self {
             state_stack,
-            last_state: failed_state,
             penalty,
             engine,
         }
@@ -40,7 +38,7 @@ impl DeleteErrorRecovery {
         let mut lookaheads = lookaheads.peekable();
 
         // drop lookahead
-        let mut report = RecoveryReport::new_with_stack(self.last_state, StateStack::new(*top_state), Recovery::Delete);
+        let mut report = RecoveryReport::new_with_stack(StateStack::new(*top_state));
 
         while let (Some(lookahead), Some(next_lookahad))= (lookaheads.next(), lookaheads.peek()) {
             self.penalty.delete_slot -= 1;
