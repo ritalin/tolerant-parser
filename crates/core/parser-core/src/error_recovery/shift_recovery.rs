@@ -14,6 +14,8 @@ pub struct ShiftErrorRecovery {
 }
 
 impl ShiftErrorRecovery {
+    #[cfg(feature = "test_support")]
+    #[doc(hidden)]
     pub fn new(state_histories: &[usize], penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
         Self::new_with_stack(super::make_stack(state_histories), penalty, engine)
     }
@@ -130,7 +132,7 @@ fn next_candidates_internal(report: RecoveryReport, prev_kind: Option<&SyntaxKin
                             next_state: *next_state 
                         })
                     );
-                    next_report.score += 1;
+                    next_report.patch_score += 1;
 
                     packets[col] = Some(Packet{ kind_id: symbol.id, is_reduce: false, report: next_report });
                 }
@@ -150,7 +152,7 @@ fn next_candidates_internal(report: RecoveryReport, prev_kind: Option<&SyntaxKin
                             pop_count: *pop_count 
                         })
                     );
-                    next_report.score += 1;
+                    next_report.patch_score += 1;
     
                     packets[col + N_SYMBOL] = Some(Packet{ kind_id: symbol.id, is_reduce: true, report: next_report })
                 }

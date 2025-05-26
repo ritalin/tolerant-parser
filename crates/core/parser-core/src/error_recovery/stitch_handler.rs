@@ -38,7 +38,7 @@ impl StitchRecoveryHandler {
                     );
 
                     // Contributed, but not reduce yet...
-                    report.score += 1;
+                    report.stitch_score += 1;
                 }
                 Some(Transition::Reduce { pop_count, lhs }) if *pop_count == 0 => {
                     let Some(goto_state) = report.state_stack.pop_n_state(*pop_count) else { continue };
@@ -71,7 +71,7 @@ impl StitchRecoveryHandler {
                     );
                     
                     // Contributed reduce transition
-                    report.score += 1;
+                    report.stitch_score += 1;
                     break;
                 }
                 Some(Transition::Accept { last_state, lhs }) => {
@@ -84,7 +84,7 @@ impl StitchRecoveryHandler {
                     ); 
 
                     // Contributed accept transition
-                    report.score += 1;
+                    report.stitch_score += 1;
                     break;
                 }
                 None => {

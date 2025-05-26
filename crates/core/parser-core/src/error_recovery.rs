@@ -7,36 +7,43 @@ pub mod delete_recovery;
 pub mod shift_recovery;
 pub mod stitch_handler;
 
-pub struct PatchEventDispatcher {
+pub struct RecoveryEventDispatcher {
+    state_stack: StateStack,
     engine: ParsingRuleSet,
     penalty: RecoveryPenalty,
 }
 
-impl PatchEventDispatcher {
-    pub fn new(penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
-        Self { penalty, engine }
+impl RecoveryEventDispatcher {
+    pub(crate) fn new_with_stack(state_stack: StateStack, penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
+        Self { state_stack, penalty, engine }
     }
 
-    pub(crate) fn handle(&mut self, state_stack: StateStack, lookaheads: std::slice::Iter<Token>) -> Option<Vec<RecoveryEvent>> {
+    #[cfg(feature = "test_support")]
+    #[doc(hidden)]
+    pub fn new(state_histories: &[usize], penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
+        Self::new_with_stack(make_stack(state_histories), penalty, engine)
+    }
+
+    pub fn handle(&mut self, lookaheads: std::slice::Iter<Token>) -> Option<Vec<RecoveryEvent>> {
         let mut peekable = lookaheads.clone().peekable();
         let Some(lookahead) = peekable.peek() else {
             return None;
         };
 
-        let mut delete_recovery = delete_recovery::DeleteErrorRecovery::new_with_stack(state_stack.clone(), self.penalty.clone(), self.engine);
-        let mut shift_recovery = shift_recovery::ShiftErrorRecovery::new_with_stack(state_stack.clone(), self.penalty.clone(), self.engine);
+        let mut delete_recovery = delete_recovery::DeleteErrorRecovery::new_with_stack(self.state_stack.clone(), self.penalty.clone(), self.engine);
+        let mut shift_recovery = shift_recovery::ShiftErrorRecovery::new_with_stack(self.state_stack.clone(), self.penalty.clone(), self.engine);
         let stitch_handler = StitchRecoveryHandler::new(self.engine);
 
         let mut report = None;
 
-        // try shifting error recovery
+        // try a shift error recovery
         while let Some(candidate) = shift_recovery.handle(lookahead) {
             let next_report = stitch_handler.try_recovery(candidate, lookaheads.clone());
             match (report.as_ref(), next_report.as_ref()) {
                 (None, Some(_)) => {
                     report = next_report;
                 }
-                (Some(lhs), Some(rhs)) if lhs.score < rhs.score => {
+                (Some(lhs), Some(rhs)) if rhs.judge_score(lhs) => {
                     report = next_report;
                 }
                 _ => {}
@@ -48,17 +55,21 @@ impl PatchEventDispatcher {
             return Some(report.events());
         }
 
-        // try deleting error recovery
+        // try a delete error recovery
         report = delete_recovery.handle(lookaheads.clone()).and_then(|candidate| {
             stitch_handler.try_recovery(candidate, lookaheads.clone().skip(self.penalty.delete_slot - delete_recovery.left_slot()))
         });
 
         if let Some(report) = report.as_ref() {
-            self.penalty.accept_delete(report.score);
+            self.penalty.accept_delete(delete_recovery.left_slot());
             return Some(report.events());
         }
 
         None
+    }
+
+    pub fn penalty(&self) -> RecoveryPenalty {
+        self.penalty.clone()
     }
 }
 
@@ -67,7 +78,7 @@ pub(crate) fn make_stack(state_histories: &[usize]) -> StateStack {
 
     let mut stack = StateStack::new(initial_state);
 
-    for state in state_histories.iter().skip(1) {
+    for state in state_histories.iter() {
         stack.push_state(*state);
     }
 
@@ -89,8 +100,8 @@ pub struct RecoveryPenalty {
 }
 
 impl RecoveryPenalty {
-    pub fn accept_delete(&mut self, used_slot: usize) {
-        self.delete_slot -= used_slot;
+    pub fn accept_delete(&mut self, left_slot: usize) {
+        self.delete_slot = left_slot;
     }
     pub fn accept_shift(&mut self) {
         self.shift_decay = self.next_shift_decay;
@@ -102,7 +113,8 @@ impl RecoveryPenalty {
 pub struct RecoveryReport {
     events: cactus::Cactus<(u32, RecoveryEvent)>,
     state_stack: StateStack,
-    score: usize,
+    patch_score: usize,
+    stitch_score: usize,
     depth: usize,
 }
 
@@ -117,7 +129,8 @@ impl RecoveryReport {
         Self {
             events: cactus::Cactus::new(),
             state_stack,
-            score: 0,
+            patch_score: 0,
+            stitch_score: 0,
             depth: 0,
         }
     }
@@ -152,15 +165,22 @@ impl RecoveryReport {
     }
 
     #[inline]
-    pub fn score(&self) -> usize {
-        self.score
+    pub fn patch_score(&self) -> usize {
+        self.patch_score
+    }
+    #[inline]
+    pub fn stitch_score(&self) -> usize {
+        self.stitch_score
     }
 
-    #[inline]
-    #[cfg(feature = "test_support")]
-    #[doc(hidden)]
-    pub fn reset_score(&mut self, new_score: usize) {
-        self.score = new_score;
+    pub fn judge_score(&self, other: &Self) -> bool {
+        match self.stitch_score.cmp(&other.stitch_score) {
+            std::cmp::Ordering::Greater => return true,
+            std::cmp::Ordering::Less => return false,
+            std::cmp::Ordering::Equal => {}
+        }
+
+        self.patch_score < other.patch_score
     }
 }
 

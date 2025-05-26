@@ -13,6 +13,8 @@ pub struct DeleteErrorRecovery {
 }
 
 impl DeleteErrorRecovery {
+    #[cfg(feature = "test_support")]
+    #[doc(hidden)]
     pub fn new(state_histories: &[usize], penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
         Self::new_with_stack(super::make_stack(state_histories), penalty, engine)
     }
@@ -38,11 +40,11 @@ impl DeleteErrorRecovery {
         let mut lookaheads = lookaheads.peekable();
 
         // drop lookahead
-        let mut report = RecoveryReport::new_with_stack(StateStack::new(*top_state));
+        let mut report = RecoveryReport::new_with_stack(self.state_stack.clone());
 
         while let (Some(lookahead), Some(next_lookahad))= (lookaheads.next(), lookaheads.peek()) {
             self.penalty.delete_slot -= 1;
-            report.score += 1;
+            report.patch_score += 1;
             report.push_event(lookahead.main.kind.id, RecoveryEvent::PatchDelete { 
                 kind: lookahead.main.kind,
                 state: *top_state, 
