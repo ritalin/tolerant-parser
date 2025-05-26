@@ -4,6 +4,11 @@ use engine_core::scanner_engine::ScanEvent;
 use scanner_core::{Scanner, Token};
 use sqlite_engine::syntax_kind;
 
+mod scanner_tests_members {
+    mod scan_dispatcher_tests;
+    mod prefetch_tests;
+}
+
 #[test]
 fn test_peek_lookahead() -> Result<(), anyhow::Error> {
     let source = "INSERT OR REPLACE  INTO";

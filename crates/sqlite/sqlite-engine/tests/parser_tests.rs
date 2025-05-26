@@ -2,6 +2,7 @@
 
 use parser_core::Parser;
 
+#[path = "supports/test_support.rs"]
 mod test_support;
 use test_support::*;
 

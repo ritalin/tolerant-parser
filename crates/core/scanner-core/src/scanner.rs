@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use engine_core::scanner_engine::{self, AcceptableRegexSet, ScanEvent};
+use engine_core::SyntaxKind;
 use crate::Token;
 use crate::event_dispatch::ScanEventDispatcher;
 
@@ -35,6 +36,22 @@ impl Scanner {
         lookahead
     }
 
+    pub fn prefetch(&mut self, terminate_synbol: SyntaxKind) -> LookaheadIterator {
+        while let Some(next_lookahead) = handle_scan_event(&mut self.dispatcher) {
+            match next_lookahead {
+                lookahead if lookahead.main.kind.id == terminate_synbol.id => {
+                    self.lookaheads.push_back(lookahead);
+                    break;
+                }
+                lookahead => {
+                    self.lookaheads.push_back(lookahead);
+                }
+            }
+        }
+        
+        LookaheadIterator::new(&self.lookaheads)
+    }
+
     pub fn save_scope(&self) -> ScannerScope {
         ScannerScope::new()
     }
@@ -43,6 +60,39 @@ impl Scanner {
         // restore cached lookaheads
         for token in scope.lookaheads.into_iter().rev() {
             self.lookaheads.push_front(token);
+        }
+    }
+}
+
+#[derive(PartialEq, Clone, Debug)]
+pub struct LookaheadIterator<'a> {
+    inner: &'a VecDeque<Token>,
+    index: usize,
+}
+
+impl<'a> LookaheadIterator<'a> {
+    pub fn new(lookaheads: &'a VecDeque<Token>) -> Self {
+        Self {
+            inner: lookaheads,
+            index: 0,
+        }
+    }
+
+    pub fn peek(&self) -> Option<&'a Token> {
+        self.inner.get(self.index)
+    }
+}
+
+impl<'a> Iterator for LookaheadIterator<'a> {
+    type Item = &'a Token;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.inner.get(self.index).as_ref() {
+            Some(token) => {
+                self.index += 1;
+                Some(token)
+            }
+            None => None,
         }
     }
 }
