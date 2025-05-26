@@ -8,30 +8,29 @@ pub mod shift_recovery;
 pub mod stitch_handler;
 
 pub struct RecoveryEventDispatcher {
-    state_stack: StateStack,
     engine: ParsingRuleSet,
     penalty: RecoveryPenalty,
 }
 
 impl RecoveryEventDispatcher {
-    pub(crate) fn new_with_stack(state_stack: StateStack, penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
-        Self { state_stack, penalty, engine }
+    pub fn new(penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
+        Self { penalty, engine }
     }
 
     #[cfg(feature = "test_support")]
     #[doc(hidden)]
-    pub fn new(state_histories: &[usize], penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
-        Self::new_with_stack(make_stack(state_histories), penalty, engine)
+    pub fn handle_from_history(&mut self, state_histories: &[usize], lookaheads: std::slice::Iter<Token>) -> Option<Vec<RecoveryEvent>> {
+        self.handle(make_stack(state_histories), lookaheads)
     }
 
-    pub fn handle(&mut self, lookaheads: std::slice::Iter<Token>) -> Option<Vec<RecoveryEvent>> {
+    pub(crate) fn handle(&mut self, state_stack: StateStack, lookaheads: std::slice::Iter<Token>) -> Option<Vec<RecoveryEvent>> {
         let mut peekable = lookaheads.clone().peekable();
         let Some(lookahead) = peekable.peek() else {
             return None;
         };
 
-        let mut delete_recovery = delete_recovery::DeleteErrorRecovery::new_with_stack(self.state_stack.clone(), self.penalty.clone(), self.engine);
-        let mut shift_recovery = shift_recovery::ShiftErrorRecovery::new_with_stack(self.state_stack.clone(), self.penalty.clone(), self.engine);
+        let mut delete_recovery = delete_recovery::DeleteErrorRecovery::new_with_stack(state_stack.clone(), self.penalty.clone(), self.engine);
+        let mut shift_recovery = shift_recovery::ShiftErrorRecovery::new_with_stack(state_stack.clone(), self.penalty.clone(), self.engine);
         let stitch_handler = StitchRecoveryHandler::new(self.engine);
 
         let mut report = None;

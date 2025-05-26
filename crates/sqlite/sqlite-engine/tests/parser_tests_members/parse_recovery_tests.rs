@@ -366,8 +366,8 @@ mod recovery_tests {
             },
         ];
 
-        let mut handler = RecoveryEventDispatcher::new(state_histories, penalty, engine.parsing_rules);
-        let Some(events) = handler.handle(lookaheads.iter()) else {
+        let mut handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
+        let Some(events) = handler.handle_from_history(state_histories, lookaheads.iter()) else {
             panic!("Actual value must be returned");
         };
 
@@ -430,8 +430,8 @@ mod recovery_tests {
             },
         ];
 
-        let mut handler = RecoveryEventDispatcher::new(state_histories, penalty, engine.parsing_rules);
-        let Some(events) = handler.handle(lookaheads.iter()) else {
+        let mut handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
+        let Some(events) = handler.handle_from_history(state_histories, lookaheads.iter()) else {
             panic!("Actual value must be returned");
         };
 
@@ -490,8 +490,8 @@ mod recovery_tests {
             },
         ];
 
-        let mut handler = RecoveryEventDispatcher::new(state_histories, penalty, engine.parsing_rules);
-        let events = handler.handle(lookaheads.iter());
+        let mut handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
+        let events = handler.handle_from_history(state_histories, lookaheads.iter());
 
         assert_eq!(None, events);
 
