@@ -37,6 +37,11 @@ impl Scanner {
     }
 
     pub fn prefetch(&mut self, terminate_synbol: SyntaxKind) -> LookaheadIterator {
+        // Find prefetch queue
+        if let Some(p) = self.lookaheads.iter().position(|tk| tk.main.kind == terminate_synbol) {
+            return LookaheadIterator::new(&self.lookaheads, p+1);
+        }
+
         while let Some(next_lookahead) = handle_scan_event(&mut self.dispatcher) {
             match next_lookahead {
                 lookahead if lookahead.main.kind.id == terminate_synbol.id => {
@@ -49,7 +54,7 @@ impl Scanner {
             }
         }
         
-        LookaheadIterator::new(&self.lookaheads)
+        LookaheadIterator::new(&self.lookaheads, self.lookaheads.len())
     }
 
     pub fn save_scope(&self) -> ScannerScope {
@@ -68,13 +73,15 @@ impl Scanner {
 pub struct LookaheadIterator<'a> {
     inner: &'a VecDeque<Token>,
     index: usize,
+    size: usize,
 }
 
 impl<'a> LookaheadIterator<'a> {
-    pub fn new(lookaheads: &'a VecDeque<Token>) -> Self {
+    pub fn new(lookaheads: &'a VecDeque<Token>, size: usize) -> Self {
         Self {
             inner: lookaheads,
             index: 0,
+            size,
         }
     }
 
@@ -87,13 +94,14 @@ impl<'a> Iterator for LookaheadIterator<'a> {
     type Item = &'a Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.inner.get(self.index).as_ref() {
-            Some(token) => {
-                self.index += 1;
-                Some(token)
-            }
-            None => None,
+        if self.index >= self.size {
+            return None;
         }
+
+        let token = self.inner.get(self.index);
+        self.index += 1;
+
+        token
     }
 }
 
