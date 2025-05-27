@@ -505,4 +505,49 @@ mod recovery_tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_handle_event_as_invalid() -> Result<(), anyhow::Error> {
+        let engine = sqlite_engine::create()?;
+        let penalty = RecoveryPenalty{
+            delete_slot: 2,
+            shift_limit: 1, shift_decay: 0, next_shift_decay: 1, max_shift_packet_size: 10,
+        };
+
+        let lookaheads = VecDeque::from([
+            Token{
+                leading_trivia: Some(vec![
+                    ScanEvent{ kind: syntax_kind::SPACE, offset: 0, len: 2, value: Some("  ".into()) }
+                ]),
+                main: ScanEvent { kind: syntax_kind::SELECT, offset: 2, len: 6, value: Some("SELECT".into()) },
+                trailing_trivia: Some(vec![
+                    ScanEvent{ kind: syntax_kind::SPACE, offset: 8, len: 1, value: Some(" ".into()) }
+                ])
+            },
+            Token{
+                leading_trivia: None,
+                main: ScanEvent { kind: syntax_kind::INTEGER, offset: 9, len: 1, value: Some("9".into()) },
+                trailing_trivia: Some(vec![
+                    ScanEvent{ kind: syntax_kind::SPACE, offset: 10, len: 1, value: Some(" ".into()) }
+                ])
+            },
+            Token{
+                leading_trivia: None,
+                main: ScanEvent { kind: syntax_kind::FROM, offset: 11, len: 4, value: Some("FROM".into()) },
+                trailing_trivia: None
+            },
+        ]);
+
+        let handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
+        let events = handler.handle_as_invalid(LookaheadIterator::new(&lookaheads, lookaheads.len()), true);
+
+        let expect_events = vec![
+            RecoveryEvent::Invalid { kind: syntax_kind::SELECT, need_emit: false },
+            RecoveryEvent::Invalid { kind: syntax_kind::INTEGER, need_emit: false },
+            RecoveryEvent::Invalid { kind: syntax_kind::FROM, need_emit: true }
+        ];
+
+        assert_eq!(expect_events, events);
+        Ok(())
+    }
 }

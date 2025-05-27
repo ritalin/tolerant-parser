@@ -198,8 +198,11 @@ mod dispatcher_tests {
 }
 
 mod dispatcher_support_tests {
+    use std::collections::VecDeque;
+
     use engine_core::{scanner_engine::ScanEvent, SyntaxKind};
-    use parser_core::{error_recovery::{RecoveryEvent, RecoveryEventPayload}, event_dispatcher::{ParseEvent, ParseEventDispatcher}};
+    use parser_core::{error_recovery::{RecoveryEvent, RecoveryEventDispatcher, RecoveryEventPayload, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher}};
+    use scanner_core::{LookaheadIterator, Token};
     use sqlite_engine::syntax_kind;
 
     fn prepare_dispatcher_state(dispatcher: &mut ParseEventDispatcher, requests: &[(SyntaxKind, usize)]) -> Result<(), anyhow::Error> {
@@ -406,6 +409,74 @@ mod dispatcher_support_tests {
             lookaheads.next();
             let event = dispatcher.next(lookahead)?;
             let expect_event = ParseEvent::Shift { kind: syntax_kind::AS, current_state: 467, next_state: 576, edit_state: 467 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_post_invalid_recovery_event() -> Result<(), anyhow::Error> {
+        let engine = sqlite_engine::create()?.parsing_rules;
+        let mut dispatcher = ParseEventDispatcher::new(0, engine);
+        let penalty = RecoveryPenalty{ delete_slot: 0, shift_limit: 0, shift_decay: 0, next_shift_decay: 0, max_shift_packet_size: 0 };
+        let recovery_handler = RecoveryEventDispatcher::new(penalty, engine);
+
+        prepare_dispatcher_state(&mut dispatcher, &[
+            (syntax_kind::SELECT, 1),
+            (syntax_kind::INTEGER, 3),
+        ])?;
+
+        let lookaheads = VecDeque::from([
+            Token{   
+                main: ScanEvent{ kind:syntax_kind::INTEGER, offset: 10, len: 3, value: Some("101".into()) }, 
+                leading_trivia: None, trailing_trivia: None,
+            },
+            Token{   
+                main: ScanEvent{ kind:syntax_kind::AS, offset: 15, len: 2, value: Some("AS".into()) }, 
+                leading_trivia: None, trailing_trivia: None,
+            },
+            Token{   
+                main: ScanEvent{ kind:syntax_kind::ID, offset: 18, len: 1, value: Some("x".into()) }, 
+                leading_trivia: None, trailing_trivia: None,
+            },
+            Token{   
+                main: ScanEvent{ kind:syntax_kind::SEMI, offset: 19, len: 1, value: Some(";".into()) }, 
+                leading_trivia: None, trailing_trivia: None,
+            },
+        ]);
+
+        let recover_events = recovery_handler.handle_as_invalid(LookaheadIterator::new(&lookaheads, lookaheads.len()), true);
+        dispatcher.post_recovery_event(&recover_events);
+
+        'next_state: {
+            let event = dispatcher.next(None)?;
+            let expect_event = ParseEvent::Invalid { kind: syntax_kind::INTEGER, current_state: 238, edit_state: 0 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let event = dispatcher.next(None)?;
+            let expect_event = ParseEvent::Invalid { kind: syntax_kind::AS, current_state: 238, edit_state: 0 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let event = dispatcher.next( None)?;
+            let expect_event = ParseEvent::Invalid { kind: syntax_kind::ID, current_state: 238, edit_state: 0 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let event = dispatcher.next(None)?;
+            let expect_event = ParseEvent::Invalid { kind: syntax_kind::SEMI, current_state: 238, edit_state: 0 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let event = dispatcher.next(None)?;
+            let expect_event = ParseEvent::Emit { kind: syntax_kind::ecmd, edit_state: 0 };
             assert_eq!(expect_event, event);
             break 'next_state;
         }

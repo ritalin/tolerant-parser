@@ -67,6 +67,13 @@ impl RecoveryEventDispatcher {
         None
     }
 
+    pub fn handle_as_invalid(&self, lookaheads: LookaheadIterator, need_emit: bool) -> Vec<RecoveryEvent> {
+        let len = lookaheads.len();
+
+        lookaheads.enumerate()
+        .map(|(i, la)| RecoveryEvent::Invalid { kind: la.main.kind, need_emit: need_emit && (i + 1 == len) }).collect()
+    }
+
     pub fn penalty(&self) -> RecoveryPenalty {
         self.penalty.clone()
     }
@@ -189,8 +196,10 @@ pub enum RecoveryEvent {
     PatchDelete{ kind: SyntaxKind, state: usize },
     /// A patch shifting action that was accepted during recovery.
     PatchShift(RecoveryEventPayload),
-    /// A normal parsing transition that occurred after patching
+    /// A normal parsing transition that occurred after patching.
     Stitch(RecoveryEventPayload),
+    /// A fallback event indicating recovery failed with no viable path.
+    Invalid { kind: SyntaxKind, need_emit: bool },
 }
 
 #[derive(PartialEq, Clone, Debug)]

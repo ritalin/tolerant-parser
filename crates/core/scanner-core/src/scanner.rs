@@ -88,6 +88,10 @@ impl<'a> LookaheadIterator<'a> {
     pub fn peek(&self) -> Option<&'a Token> {
         self.inner.get(self.index)
     }
+
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
 }
 
 impl<'a> Iterator for LookaheadIterator<'a> {

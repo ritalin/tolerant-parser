@@ -80,6 +80,7 @@ impl SyntaxTreeBuilder {
                 Ok(())
             }
             ParseEvent::Shift { .. } | ParseEvent::Emit { .. } | 
+            ParseEvent::Invalid { .. } |
             ParseEvent::RecoverDrop { .. } | ParseEvent::RecoverShift { .. } | ParseEvent::RecoverReduce { .. } => {
                 Err(NodeBuildError::NodeFailed)
             },
@@ -156,7 +157,7 @@ fn create_token_set(
         last_id = Some(child_id);
         break 'main_token_item;
     }
-    'trailing_irivia: {
+    'trailing_trivia: {
         if let Some(trailings) = lookahead.trailing_trivia.as_ref() {
             for trivia in trailings {
                 let (child_id, child_node) = create_token_item(state, trivia, NodeType::TrailingToken, last_id.as_ref(), metadata_map);
@@ -164,7 +165,7 @@ fn create_token_set(
                 last_id = Some(child_id);
             }
         }
-        break 'trailing_irivia;
+        break 'trailing_trivia;
     }
 
     'node_set: {

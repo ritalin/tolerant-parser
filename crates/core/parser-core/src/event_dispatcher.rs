@@ -22,6 +22,7 @@ impl ParseEventDispatcher {
             return Ok(self.event_queue.pop_front().unwrap());
         }
 
+        // peek event
         let event = self.next_internal(lookahead_kind)?;
 
         if let Some(config) = self.engine.statement_emit_config() {
@@ -105,15 +106,22 @@ impl ParseEventDispatcher {
     }
 
     pub fn post_recovery_event(&mut self, events: &[RecoveryEvent]) {
+        let initial_state = self.state_stack.initial_state();
+
         for recover in events {
-            let event = match recover {
+            match recover {
                 RecoveryEvent::PatchDelete { kind, state } => {
-                    ParseEvent::RecoverDrop { kind: *kind, current_state: *state, next_state: *state, edit_state: *state }
+                    self.event_queue.push_back(
+                        ParseEvent::RecoverDrop { kind: *kind, current_state: *state, next_state: *state, edit_state: *state }
+                    );
                 }
                 RecoveryEvent::PatchShift(RecoveryEventPayload::Shift { kind, state, next_state }) => {
                     self.state_stack.push_state(*next_state);
                     let edit_state = self.state_stack.mark_checkpoint(*state);
-                    ParseEvent::RecoverShift { kind: *kind, current_state: *state, next_state: *next_state, edit_state }
+                    
+                    self.event_queue.push_back(
+                        ParseEvent::RecoverShift { kind: *kind, current_state: *state, next_state: *next_state, edit_state }
+                    );
                 }
                 RecoveryEvent::PatchShift(RecoveryEventPayload::Reduce { kind, state, next_state, pop_count }) => {
                     self.state_stack.pop_n_state(*pop_count);
@@ -124,7 +132,9 @@ impl ParseEventDispatcher {
                         .unwrap_or_else(|| self.state_stack.mark_checkpoint(*state))
                     ;
                     
-                    ParseEvent::RecoverReduce { kind: *kind, current_state: *state, next_state: *next_state, edit_state, pop_count: *pop_count }
+                    self.event_queue.push_back(
+                        ParseEvent::RecoverReduce { kind: *kind, current_state: *state, next_state: *next_state, edit_state, pop_count: *pop_count }
+                    );
                 }
                 RecoveryEvent::PatchShift(RecoveryEventPayload::Accept { .. }) => {
                     // In recovery patch pthase, Accept event does not fire.
@@ -134,7 +144,9 @@ impl ParseEventDispatcher {
                     self.state_stack.push_state(*next_state);
                     let edit_state = self.state_stack.mark_checkpoint(*state);
 
-                    ParseEvent::Shift { kind: *kind, current_state: *state, next_state: *next_state, edit_state }
+                    self.event_queue.push_back(
+                        ParseEvent::Shift { kind: *kind, current_state: *state, next_state: *next_state, edit_state }
+                    );
                 }
                 RecoveryEvent::Stitch(RecoveryEventPayload::Reduce { kind, state, next_state, pop_count }) => {
                     self.state_stack.pop_n_state(*pop_count);
@@ -145,14 +157,32 @@ impl ParseEventDispatcher {
                         .unwrap_or_else(|| self.state_stack.mark_checkpoint(*state))
                     ;
                     
-                    ParseEvent::Reduce { kind: *kind, current_state: *state, next_state: *next_state, pop_count: *pop_count, edit_state }
+                    self.event_queue.push_back(
+                        ParseEvent::Reduce { kind: *kind, current_state: *state, next_state: *next_state, pop_count: *pop_count, edit_state }
+                    );
                 }
                 RecoveryEvent::Stitch(RecoveryEventPayload::Accept { kind, last_state }) => {
-                    ParseEvent::Accept { kind: *kind, last_state: *last_state, edit_state: 0 }
+                    self.event_queue.push_back(
+                        ParseEvent::Accept { kind: *kind, last_state: *last_state, edit_state: initial_state }
+                    );
+                }
+                RecoveryEvent::Invalid { kind, need_emit } => {
+                    self.event_queue.push_back({
+                        // peek top state
+                        let state = self.state_stack.peek_state().cloned().unwrap_or(initial_state);
+                        ParseEvent::Invalid { kind: *kind, current_state: state, edit_state: initial_state }
+                    });
+
+                    if *need_emit {
+                        if let Some(config) = self.engine.statement_emit_config() {
+                            // post emit event
+                            self.event_queue.push_back(
+                                ParseEvent::Emit { kind: config.from_symbol, edit_state: initial_state }
+                            );
+                        }
+                    }
                 }
             };
-
-            self.event_queue.push_back(event);
         }
     }
 
@@ -236,6 +266,13 @@ pub enum ParseEvent {
         /// edit state for incremental parsing
         edit_state: usize,
     },
+    Invalid{
+        kind: SyntaxKind, 
+        /// transition before state
+        current_state: usize, 
+        /// edit state for incremental parsing
+        edit_state: usize,
+    }
 }
 
 impl ParseEvent {
@@ -248,6 +285,7 @@ impl ParseEvent {
             ParseEvent::RecoverDrop { kind, .. } => *kind,
             ParseEvent::RecoverShift { kind, .. } => *kind,
             ParseEvent::RecoverReduce { kind, .. } => *kind,
+            ParseEvent::Invalid { kind, .. } => *kind,
         }
     }
 }

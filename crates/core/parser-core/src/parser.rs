@@ -79,6 +79,9 @@ impl DefaultPasrser {
                 Ok(ParseEvent::RecoverReduce { .. }) => {
                     todo!()
                 }
+                Ok(ParseEvent::Invalid { .. }) => {
+                    todo!()
+                }
                 Err(_) => {
                     event?;
                 }
