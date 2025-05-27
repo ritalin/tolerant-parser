@@ -90,6 +90,11 @@ fn print_parse_event(event: &ParseEvent, config: &CmdConfig) {
             println!("     (kind) name: {}, id: {}, (pop_count) {}", kind.text, kind.id, pop_count);
             println!("    (state) current: {}, next: {}, edit: {}", current_state, next_state, edit_state);
         }
+        ParseEvent::Invalid { kind, current_state, edit_state } => {
+            println!("[{}]", apply_parse_event_color(event, "Recover/Invalid", config));
+            println!("     (kind) name: {}, id: {}", kind.text, kind.id);
+            println!("    (state) current: {}, edit: {}", current_state, edit_state);
+        }
     }
 }
 
@@ -107,6 +112,9 @@ fn apply_parse_event_color(event: &ParseEvent, label: &str, config: &CmdConfig) 
         ParseEvent::RecoverShift { .. } | 
         ParseEvent::RecoverReduce { .. } => {
             ansi_term::Color::Red
+        }
+        ParseEvent::Invalid { .. } => {
+            ansi_term::Color::RGB(128, 128, 128)
         }
         ParseEvent::Reduce { pop_count, .. } if *pop_count == 0 => {
             ansi_term::Color::RGB(128, 128, 128)

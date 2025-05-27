@@ -98,6 +98,13 @@ impl ParseEventCapture {
                     self.accepted = true;
                     break;
                 }
+                ParseEvent::Invalid { .. } => {
+                    self.scanner.shift();
+
+                    if !self.config.no_parse {
+                        self.event_queue.push_back(Some(CaptureEvent::Parse(event)));
+                    }
+                }
                 event => {
                     if !self.config.no_parse {
                         self.event_queue.push_back(Some(CaptureEvent::Parse(event)));
@@ -113,12 +120,12 @@ impl ParseEventCapture {
         let state_stack = self.dispatcher.borrow_stack();
         let prefetch = self.scanner.prefetch(self.stmt_term_kind);
 
-        match self.recovery_handler.handle(state_stack, prefetch) {
+        match self.recovery_handler.handle(state_stack, prefetch.clone()) {
             Some(events) => {
                 self.dispatcher.post_recovery_event(&events);
             }
             None => {
-                todo!()
+                self.dispatcher.post_recovery_event(&self.recovery_handler.handle_as_invalid(prefetch, true));
             }
         }
 
