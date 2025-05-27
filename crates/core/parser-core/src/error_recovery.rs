@@ -1,5 +1,5 @@
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
-use scanner_core::Token;
+use scanner_core::LookaheadIterator;
 use stitch_handler::StitchRecoveryHandler;
 use crate::state_stack::StateStack;
 
@@ -19,13 +19,13 @@ impl RecoveryEventDispatcher {
 
     #[cfg(feature = "test_support")]
     #[doc(hidden)]
-    pub fn handle_from_history(&mut self, state_histories: &[usize], lookaheads: std::slice::Iter<Token>) -> Option<Vec<RecoveryEvent>> {
-        self.handle(make_stack(state_histories), lookaheads)
+    pub fn handle_from_history(&mut self, state_histories: &[usize], lookaheads: LookaheadIterator) -> Option<Vec<RecoveryEvent>> {
+        let state_stack = make_stack(state_histories);
+        self.handle(&state_stack, lookaheads)
     }
 
-    pub(crate) fn handle(&mut self, state_stack: StateStack, lookaheads: std::slice::Iter<Token>) -> Option<Vec<RecoveryEvent>> {
-        let mut peekable = lookaheads.clone().peekable();
-        let Some(lookahead) = peekable.peek() else {
+    pub(crate) fn handle(&mut self, state_stack: &StateStack, lookaheads: LookaheadIterator) -> Option<Vec<RecoveryEvent>> {
+        let Some(lookahead) = lookaheads.peek() else {
             return None;
         };
 
@@ -200,5 +200,5 @@ pub enum RecoveryEventPayload {
     /// A Reduce action performed during patch/stitch phase.
     Reduce{ kind: SyntaxKind, state: usize, next_state: usize, pop_count: usize, },
     /// A Accept action performed during patch/stitch phase.
-    Accept{ kind: SyntaxKind, state: usize, last_state: usize },
+    Accept{ kind: SyntaxKind, last_state: usize },
 }

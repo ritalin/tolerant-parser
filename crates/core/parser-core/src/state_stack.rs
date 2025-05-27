@@ -1,7 +1,7 @@
 use cactus::Cactus;
 
 #[derive(PartialEq, Clone, Debug)]
-pub(crate) struct StateStack {
+pub struct StateStack {
     initial_state: usize,
     stack: Cactus<usize>,
     checkpoint: Cactus<usize>,

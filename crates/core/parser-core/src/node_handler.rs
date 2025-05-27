@@ -79,7 +79,8 @@ impl SyntaxTreeBuilder {
                 self.prev_id = Some(id);
                 Ok(())
             }
-            ParseEvent::Shift { .. } | ParseEvent::Emit { .. } => {
+            ParseEvent::Shift { .. } | ParseEvent::Emit { .. } | 
+            ParseEvent::RecoverDrop { .. } | ParseEvent::RecoverShift { .. } | ParseEvent::RecoverReduce { .. } => {
                 Err(NodeBuildError::NodeFailed)
             },
         }

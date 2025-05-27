@@ -329,9 +329,11 @@ mod shift_recovery_tests {
 
 #[cfg(test)]
 mod recovery_tests {
+    use std::collections::VecDeque;
+
     use engine_core::scanner_engine::ScanEvent;
     use parser_core::error_recovery::{RecoveryEvent, RecoveryEventDispatcher, RecoveryEventPayload, RecoveryPenalty};
-    use scanner_core::Token;
+    use scanner_core::{LookaheadIterator, Token};
     use sqlite_engine::syntax_kind;
 
     #[test]
@@ -343,7 +345,7 @@ mod recovery_tests {
         };
         let state_histories = &[0, 238, 122];
         
-        let lookaheads = vec![
+        let lookaheads = VecDeque::from([
             Token{
                 leading_trivia: None,
                 main: ScanEvent{ kind: syntax_kind::INTEGER, offset: 10, len: 3, value: Some("101".into()) },
@@ -364,10 +366,10 @@ mod recovery_tests {
                 main: ScanEvent{ kind: syntax_kind::FROM, offset: 22, len: 4, value: Some("FROM".into()) },
                 trailing_trivia: None,
             },
-        ];
+        ]);
 
         let mut handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
-        let Some(events) = handler.handle_from_history(state_histories, lookaheads.iter()) else {
+        let Some(events) = handler.handle_from_history(state_histories, LookaheadIterator::new(&lookaheads, lookaheads.len())) else {
             panic!("Actual value must be returned");
         };
 
@@ -417,7 +419,7 @@ mod recovery_tests {
         };
         let state_histories = &[0, 238, 122];
 
-        let lookaheads = [
+        let lookaheads = VecDeque::from([
             Token{
                 leading_trivia: None,
                 main: ScanEvent{ kind: syntax_kind::INTEGER, offset: 11, len: 2, value: Some("30".into()) },
@@ -428,10 +430,10 @@ mod recovery_tests {
                 main: ScanEvent{ kind: syntax_kind::AS, offset: 14, len: 2, value: Some("AS".into()) },
                 trailing_trivia: None,
             },
-        ];
+        ]);
 
         let mut handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
-        let Some(events) = handler.handle_from_history(state_histories, lookaheads.iter()) else {
+        let Some(events) = handler.handle_from_history(state_histories, LookaheadIterator::new(&lookaheads, lookaheads.len())) else {
             panic!("Actual value must be returned");
         };
 
@@ -467,7 +469,7 @@ mod recovery_tests {
         };
         let state_histories = &[0, 238, 122];
 
-        let lookaheads = vec![
+        let lookaheads = &VecDeque::from([
             Token{
                 leading_trivia: None,
                 main: ScanEvent{ kind: syntax_kind::INTEGER, offset: 10, len: 3, value: Some("101".into()) },
@@ -488,10 +490,10 @@ mod recovery_tests {
                 main: ScanEvent{ kind: syntax_kind::FROM, offset: 22, len: 4, value: Some("FROM".into()) },
                 trailing_trivia: None,
             },
-        ];
+        ]);
 
         let mut handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
-        let events = handler.handle_from_history(state_histories, lookaheads.iter());
+        let events = handler.handle_from_history(state_histories, LookaheadIterator::new(&lookaheads, lookaheads.len()));
 
         assert_eq!(None, events);
 

@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use engine_core::{parser_engine::{ParsingRuleSet, Transition}, SyntaxKind};
-use crate::state_stack::StateStack;
+use crate::{error_recovery::RecoveryEventPayload, parser::RecoveryEvent, state_stack::StateStack};
 
 pub struct ParseEventDispatcher {
     state_stack: StateStack,
@@ -46,7 +46,7 @@ impl ParseEventDispatcher {
         Ok(event)
     }
 
-    pub fn next_internal(&mut self, lookahead_kind: Option<SyntaxKind>) -> Result<ParseEvent, ParseEventError> {
+    fn next_internal(&mut self, lookahead_kind: Option<SyntaxKind>) -> Result<ParseEvent, ParseEventError> {
         let Some(state) = self.state_stack.peek_state().cloned() else {
             return Err(ParseEventError::NoMoreState{ context: "Shift".into() });
         };
@@ -104,12 +104,68 @@ impl ParseEventDispatcher {
         }
     }
 
+    pub fn post_recovery_event(&mut self, events: &[RecoveryEvent]) {
+        for recover in events {
+            let event = match recover {
+                RecoveryEvent::PatchDelete { kind, state } => {
+                    ParseEvent::RecoverDrop { kind: *kind, current_state: *state, next_state: *state, edit_state: *state }
+                }
+                RecoveryEvent::PatchShift(RecoveryEventPayload::Shift { kind, state, next_state }) => {
+                    self.state_stack.push_state(*next_state);
+                    let edit_state = self.state_stack.mark_checkpoint(*state);
+                    ParseEvent::RecoverShift { kind: *kind, current_state: *state, next_state: *next_state, edit_state }
+                }
+                RecoveryEvent::PatchShift(RecoveryEventPayload::Reduce { kind, state, next_state, pop_count }) => {
+                    self.state_stack.pop_n_state(*pop_count);
+                    self.state_stack.push_state(*next_state);
+
+                    let edit_state = self.state_stack
+                        .resolve_checkpoint(*pop_count)
+                        .unwrap_or_else(|| self.state_stack.mark_checkpoint(*state))
+                    ;
+                    
+                    ParseEvent::RecoverReduce { kind: *kind, current_state: *state, next_state: *next_state, edit_state, pop_count: *pop_count }
+                }
+                RecoveryEvent::PatchShift(RecoveryEventPayload::Accept { .. }) => {
+                    // In recovery patch pthase, Accept event does not fire.
+                    continue;
+                }
+                RecoveryEvent::Stitch(RecoveryEventPayload::Shift { kind, state, next_state }) => {
+                    self.state_stack.push_state(*next_state);
+                    let edit_state = self.state_stack.mark_checkpoint(*state);
+
+                    ParseEvent::Shift { kind: *kind, current_state: *state, next_state: *next_state, edit_state }
+                }
+                RecoveryEvent::Stitch(RecoveryEventPayload::Reduce { kind, state, next_state, pop_count }) => {
+                    self.state_stack.pop_n_state(*pop_count);
+                    self.state_stack.push_state(*next_state);
+
+                    let edit_state = self.state_stack
+                        .resolve_checkpoint(*pop_count)
+                        .unwrap_or_else(|| self.state_stack.mark_checkpoint(*state))
+                    ;
+                    
+                    ParseEvent::Reduce { kind: *kind, current_state: *state, next_state: *next_state, pop_count: *pop_count, edit_state }
+                }
+                RecoveryEvent::Stitch(RecoveryEventPayload::Accept { kind, last_state }) => {
+                    ParseEvent::Accept { kind: *kind, last_state: *last_state, edit_state: 0 }
+                }
+            };
+
+            self.event_queue.push_back(event);
+        }
+    }
+
     pub fn has_next(&self) -> bool {
         ! self.event_queue.is_empty()
     }
 
     pub fn flush_state(&mut self) {
         self.state_stack.reset();
+    }
+
+    pub fn borrow_stack(&self) -> &StateStack {
+        &self.state_stack
     }
 
     pub fn state_values(&self) -> Vec<usize> {
@@ -126,7 +182,7 @@ pub enum ParseEvent {
         /// transition after state
         next_state: usize, 
         /// edit state for incremental parsing
-        edit_state: usize 
+        edit_state: usize,
     },
     Reduce{ 
         kind: SyntaxKind, 
@@ -137,7 +193,7 @@ pub enum ParseEvent {
         /// count for popped from state stack
         pop_count: usize, 
         /// edit state for incremental parsing
-        edit_state: usize 
+        edit_state: usize,
     },
     Emit {
         kind: SyntaxKind, 
@@ -149,7 +205,36 @@ pub enum ParseEvent {
         /// final state
         last_state: usize,
         /// edit state for incremental parsing
-        edit_state: usize 
+        edit_state: usize,
+    },
+    RecoverDrop {
+        kind: SyntaxKind, 
+        /// transition before state
+        current_state: usize, 
+        /// transition after state
+        next_state: usize, 
+        /// edit state for incremental parsing
+        edit_state: usize,
+    },
+    RecoverShift { 
+        kind: SyntaxKind, 
+        /// transition before state
+        current_state: usize, 
+        /// transition after state
+        next_state: usize, 
+        /// edit state for incremental parsing
+        edit_state: usize,
+    },
+    RecoverReduce{ 
+        kind: SyntaxKind, 
+        /// transition before state
+        current_state: usize, 
+        /// transition after state
+        next_state: usize, 
+        /// count for popped from state stack
+        pop_count: usize, 
+        /// edit state for incremental parsing
+        edit_state: usize,
     },
 }
 
@@ -160,6 +245,9 @@ impl ParseEvent {
             ParseEvent::Reduce { kind, .. } => *kind,
             ParseEvent::Emit { kind, .. } => *kind,
             ParseEvent::Accept { kind, .. } => *kind,
+            ParseEvent::RecoverDrop { kind, .. } => *kind,
+            ParseEvent::RecoverShift { kind, .. } => *kind,
+            ParseEvent::RecoverReduce { kind, .. } => *kind,
         }
     }
 }

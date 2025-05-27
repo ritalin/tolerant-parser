@@ -20,7 +20,7 @@ mod default_scanner_engine_tests {
 
 #[cfg(test)]
 #[cfg(not(engine_ungenerated))]
-mod scanner_engine_tests {
+mod dispatcher_tests {
     use parser_core::event_dispatcher::ParseEventError;
     use sqlite_engine::syntax_kind;
     use super::*;
@@ -194,5 +194,222 @@ mod scanner_engine_tests {
         fn next_lookahead_translation(_kind: u32, _state: usize) -> Option<&'static Transition> {
             Some(&DUMMY_LA_TRANSITION)
         }
+    }
+}
+
+mod dispatcher_support_tests {
+    use engine_core::{scanner_engine::ScanEvent, SyntaxKind};
+    use parser_core::{error_recovery::{RecoveryEvent, RecoveryEventPayload}, event_dispatcher::{ParseEvent, ParseEventDispatcher}};
+    use sqlite_engine::syntax_kind;
+
+    fn prepare_dispatcher_state(dispatcher: &mut ParseEventDispatcher, requests: &[(SyntaxKind, usize)]) -> Result<(), anyhow::Error> {
+        for req in requests.iter().flat_map(|(ev, n)| std::iter::repeat(*ev).take(*n)) {
+            dispatcher.next(Some(req))?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_borrow_stack() -> Result<(), anyhow::Error> {
+        let engine = sqlite_engine::create()?.parsing_rules;
+        let mut dispatcher = ParseEventDispatcher::new(0, engine);
+
+        prepare_dispatcher_state(&mut dispatcher, &[
+            (syntax_kind::SELECT, 1),
+            (syntax_kind::STAR, 4),
+            (syntax_kind::FROM, 1),
+        ])?;
+
+        let state_stack = dispatcher.borrow_stack();
+
+        let expected_state = vec![145, 71, 18, 0];
+        assert_eq!(expected_state, state_stack.state_values());
+        Ok(())
+    }
+
+    #[test]
+    fn test_post_delete_recovery_event() -> Result<(), anyhow::Error>{
+        let engine = sqlite_engine::create()?.parsing_rules;
+        let mut dispatcher = ParseEventDispatcher::new(0, engine);
+
+        prepare_dispatcher_state(&mut dispatcher, &[
+            (syntax_kind::SELECT, 1),
+            (syntax_kind::INTEGER, 4),
+        ])?;
+
+        let mut lookaheads = vec![
+            ScanEvent{ kind:syntax_kind::BLOB, offset: 10, len: 6, value: Some("x'quv'".into()) },
+            ScanEvent{ kind:syntax_kind::INTEGER, offset: 17, len: 3, value: Some("101".into()) },
+            ScanEvent{ kind:syntax_kind::FROM, offset: 21, len: 4, value: Some("FROM".into()) },
+            ScanEvent{ kind:syntax_kind::ID, offset: 26, len: 1, value: Some("x".into()) }
+        ].into_iter().peekable();
+
+        let events = vec![
+            RecoveryEvent::PatchDelete { kind: syntax_kind::BLOB, state: 122 },
+            RecoveryEvent::PatchDelete { kind: syntax_kind::INTEGER, state: 122 },
+            RecoveryEvent::Stitch(RecoveryEventPayload::Reduce{
+                kind: syntax_kind::term, state: 122, next_state: 128, pop_count: 1,
+            }),
+        ];
+
+        dispatcher.post_recovery_event(&events);
+
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            lookaheads.next();
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::RecoverDrop { kind: syntax_kind::BLOB, current_state: 122, next_state: 122, edit_state: 122 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            lookaheads.next();
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::RecoverDrop { kind: syntax_kind::INTEGER, current_state: 122, next_state: 122, edit_state: 122 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::Reduce { kind: syntax_kind::term, current_state: 122, next_state: 128, edit_state: 238, pop_count: 1 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::Reduce { kind: syntax_kind::expr, current_state: 128, next_state: 361, edit_state: 238, pop_count: 1 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::Reduce { kind:syntax_kind::scanpt, current_state:361, next_state:467, edit_state:361, pop_count:0 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::Reduce { kind:syntax_kind::r#as, current_state:467, next_state:579, edit_state:467, pop_count:0 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::Reduce { kind:syntax_kind::selcollist, current_state:579, next_state:145, edit_state:71, pop_count:5 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            lookaheads.next();
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::Shift { kind: syntax_kind::FROM, current_state:145, next_state:240, edit_state:145 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_post_shift_recovery_event() -> Result<(), anyhow::Error> {
+        let engine = sqlite_engine::create()?.parsing_rules;
+        let mut dispatcher = ParseEventDispatcher::new(0, engine);
+
+        prepare_dispatcher_state(&mut dispatcher, &[
+            (syntax_kind::SELECT, 1),
+            (syntax_kind::INTEGER, 4),
+        ])?;
+
+        let mut lookaheads = vec![
+            ScanEvent{ kind:syntax_kind::INTEGER, offset: 10, len: 3, value: Some("101".into()) },
+            ScanEvent{ kind:syntax_kind::AS, offset: 15, len: 2, value: Some("AS".into()) },
+            ScanEvent{ kind:syntax_kind::ID, offset: 18, len: 1, value: Some("x".into()) }
+        ].into_iter().peekable();
+
+        let events = vec![
+            RecoveryEvent::PatchShift(RecoveryEventPayload::Reduce {kind:syntax_kind::term, state:122, next_state:128, pop_count: 1 }),
+            RecoveryEvent::PatchShift(RecoveryEventPayload::Reduce {kind:syntax_kind::expr, state:128, next_state:361, pop_count: 1 }),
+            RecoveryEvent::PatchShift(RecoveryEventPayload::Shift {kind:syntax_kind::STAR, state:361, next_state:214 }),
+            RecoveryEvent::Stitch(RecoveryEventPayload::Shift { kind:syntax_kind::INTEGER, state:214, next_state:122 }),
+            RecoveryEvent::Stitch(RecoveryEventPayload::Reduce { kind:syntax_kind::term, state:122, next_state:128, pop_count: 1 })
+        ];
+
+        dispatcher.post_recovery_event(&events);
+
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::RecoverReduce { kind: syntax_kind::term, current_state: 122, next_state: 128, edit_state: 238, pop_count: 1 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::RecoverReduce { kind: syntax_kind::expr, current_state: 128, next_state: 361, edit_state: 238, pop_count: 1 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::RecoverShift { kind: syntax_kind::STAR, current_state: 361, next_state: 214, edit_state: 361 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            lookaheads.next();
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::Shift { kind: syntax_kind::INTEGER, current_state: 214, next_state: 122, edit_state: 214 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::Reduce { kind: syntax_kind::term, current_state: 122, next_state: 128, edit_state: 214, pop_count: 1 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::Reduce { kind: syntax_kind::expr, current_state: 128, next_state: 326, edit_state: 214, pop_count: 1 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::Reduce { kind: syntax_kind::expr, current_state: 326, next_state: 361, edit_state: 238, pop_count: 3 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::Reduce { kind: syntax_kind::scanpt, current_state: 361, next_state: 467, edit_state: 361, pop_count: 0 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+        'next_state: {
+            let lookahead = lookaheads.peek().map(|x| x.kind);
+            lookaheads.next();
+            let event = dispatcher.next(lookahead)?;
+            let expect_event = ParseEvent::Shift { kind: syntax_kind::AS, current_state: 467, next_state: 576, edit_state: 467 };
+            assert_eq!(expect_event, event);
+            break 'next_state;
+        }
+
+        Ok(())
     }
 }

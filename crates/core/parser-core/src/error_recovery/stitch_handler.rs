@@ -78,7 +78,6 @@ impl StitchRecoveryHandler {
                     report.push_event(kind.id, 
                         RecoveryEvent::Stitch(RecoveryEventPayload::Accept {
                             kind: self.engine.from_kind_id(*lhs),
-                            state: *last_state, 
                             last_state: *last_state
                         })
                     ); 
