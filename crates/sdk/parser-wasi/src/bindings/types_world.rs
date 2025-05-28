@@ -14,19 +14,62 @@ pub mod exports {
         super::super::super::super::__link_custom_section_describing_imports;
         
         use super::super::super::super::_rt;
+        #[repr(u8)]
+        #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+        pub enum SymbolGroup {
+          Keyword,
+          NonKeyword,
+          Pattern,
+          NonTerminal,
+        }
+        impl ::core::fmt::Debug for SymbolGroup {
+          fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            match self {
+              SymbolGroup::Keyword => {
+                f.debug_tuple("SymbolGroup::Keyword").finish()
+              }
+              SymbolGroup::NonKeyword => {
+                f.debug_tuple("SymbolGroup::NonKeyword").finish()
+              }
+              SymbolGroup::Pattern => {
+                f.debug_tuple("SymbolGroup::Pattern").finish()
+              }
+              SymbolGroup::NonTerminal => {
+                f.debug_tuple("SymbolGroup::NonTerminal").finish()
+              }
+            }
+          }
+        }
+
+        impl SymbolGroup{
+          #[doc(hidden)]
+          pub unsafe fn _lift(val: u8) -> SymbolGroup{
+            if !cfg!(debug_assertions) {
+              return unsafe { ::core::mem::transmute(val) };
+            }
+
+            match val {
+              0 => SymbolGroup::Keyword,
+              1 => SymbolGroup::NonKeyword,
+              2 => SymbolGroup::Pattern,
+              3 => SymbolGroup::NonTerminal,
+
+              _ => panic!("invalid enum discriminant"),
+            }
+          }
+        }
+
         /// Terminal/Non-terminal symbol definition
         #[derive(Clone)]
         pub struct SyntaxKind {
           /// symbol name
           pub name: _rt::String,
-          /// wether this is a keyword symbol
-          pub is_keyword: bool,
-          /// whether this is a terminal symbol
-          pub is_terminal: bool,
+          /// symbol group category
+          pub group: SymbolGroup,
         }
         impl ::core::fmt::Debug for SyntaxKind {
           fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_struct("SyntaxKind").field("name", &self.name).field("is-keyword", &self.is_keyword).field("is-terminal", &self.is_terminal).finish()
+            f.debug_struct("SyntaxKind").field("name", &self.name).field("group", &self.group).finish()
           }
         }
         /// Syntax node type
@@ -42,10 +85,6 @@ pub mod exports {
           TokenItem,
           /// trailing trivia mainly has some white space
           TrailingTrivia,
-          /// node for supplied by the error recovery process
-          Error,
-          /// if a error recovery process failed, this node is inserted insted
-          FatalError,
         }
         impl ::core::fmt::Debug for NodeType {
           fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
@@ -65,12 +104,6 @@ pub mod exports {
               NodeType::TrailingTrivia => {
                 f.debug_tuple("NodeType::TrailingTrivia").finish()
               }
-              NodeType::Error => {
-                f.debug_tuple("NodeType::Error").finish()
-              }
-              NodeType::FatalError => {
-                f.debug_tuple("NodeType::FatalError").finish()
-              }
             }
           }
         }
@@ -88,8 +121,6 @@ pub mod exports {
               2 => NodeType::LeadingTrivia,
               3 => NodeType::TokenItem,
               4 => NodeType::TrailingTrivia,
-              5 => NodeType::Error,
-              6 => NodeType::FatalError,
 
               _ => panic!("invalid enum discriminant"),
             }
@@ -99,35 +130,47 @@ pub mod exports {
         /// error recovery type selected by a error recovery
         #[repr(u8)]
         #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
-        pub enum Recovery {
+        pub enum PatchAction {
+          /// no error recovery
+          None,
           /// lookahead token is deleted
           Delete,
           /// Non-terminated symbol is inserted
           Shift,
+          /// failed to error recovery
+          Invalid,
         }
-        impl ::core::fmt::Debug for Recovery {
+        impl ::core::fmt::Debug for PatchAction {
           fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
             match self {
-              Recovery::Delete => {
-                f.debug_tuple("Recovery::Delete").finish()
+              PatchAction::None => {
+                f.debug_tuple("PatchAction::None").finish()
               }
-              Recovery::Shift => {
-                f.debug_tuple("Recovery::Shift").finish()
+              PatchAction::Delete => {
+                f.debug_tuple("PatchAction::Delete").finish()
+              }
+              PatchAction::Shift => {
+                f.debug_tuple("PatchAction::Shift").finish()
+              }
+              PatchAction::Invalid => {
+                f.debug_tuple("PatchAction::Invalid").finish()
               }
             }
           }
         }
 
-        impl Recovery{
+        impl PatchAction{
           #[doc(hidden)]
-          pub unsafe fn _lift(val: u8) -> Recovery{
+          pub unsafe fn _lift(val: u8) -> PatchAction{
             if !cfg!(debug_assertions) {
               return unsafe { ::core::mem::transmute(val) };
             }
 
             match val {
-              0 => Recovery::Delete,
-              1 => Recovery::Shift,
+              0 => PatchAction::None,
+              1 => PatchAction::Delete,
+              2 => PatchAction::Shift,
+              3 => PatchAction::Invalid,
 
               _ => panic!("invalid enum discriminant"),
             }
@@ -187,15 +230,16 @@ pub(crate) use __export_types_world_impl as export;
 #[unsafe(link_section = "component-type:wit-bindgen:0.42.1:ritalin:parser@0.0.1:types-world:encoded world")]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 381] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xfb\x01\x01A\x02\x01\
-A\x02\x01B\x06\x01r\x03\x04names\x0ais-keyword\x7f\x0bis-terminal\x7f\x04\0\x0bs\
-yntax-kind\x03\0\0\x01m\x07\x04node\x09token-set\x0eleading-trivia\x0atoken-item\
-\x0ftrailing-trivia\x05error\x0bfatal-error\x04\0\x09node-type\x03\0\x02\x01m\x02\
-\x06delete\x05shift\x04\0\x08recovery\x03\0\x04\x04\0\x1aritalin:parser/types@0.\
-0.1\x05\0\x04\0\x20ritalin:parser/types-world@0.0.1\x04\0\x0b\x11\x01\0\x0btypes\
--world\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.230\
-.0\x10wit-bindgen-rust\x060.42.1";
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 424] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xa6\x02\x01A\x02\x01\
+A\x02\x01B\x08\x01m\x04\x07keyword\x0bnon-keyword\x07pattern\x0cnon-terminal\x04\
+\0\x0csymbol-group\x03\0\0\x01r\x02\x04names\x05group\x01\x04\0\x0bsyntax-kind\x03\
+\0\x02\x01m\x05\x04node\x09token-set\x0eleading-trivia\x0atoken-item\x0ftrailing\
+-trivia\x04\0\x09node-type\x03\0\x04\x01m\x04\x04none\x06delete\x05shift\x07inva\
+lid\x04\0\x0cpatch-action\x03\0\x06\x04\0\x1aritalin:parser/types@0.0.1\x05\0\x04\
+\0\x20ritalin:parser/types-world@0.0.1\x04\0\x0b\x11\x01\0\x0btypes-world\x03\0\0\
+\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.230.0\x10wit-bind\
+gen-rust\x060.42.1";
 
 #[inline(never)]
 #[doc(hidden)]

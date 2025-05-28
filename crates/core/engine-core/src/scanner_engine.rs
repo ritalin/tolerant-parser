@@ -2,30 +2,45 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::SyntaxKind;
 
-#[derive(Clone)]
+#[derive(Clone, derive_builder::Builder)]
 pub struct ScanningRuleSet {
     lexme_rule: fn(prefix: char) -> Option<&'static [ScanPattern]>,
+    #[builder(private)]
     acceptable_regex: fn(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]>,
     symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
     eof_id: u32,
+    invalid_id: u32,
+    #[builder(setter(name = "regex_rule", custom))]
     regex_cache: Rc<HashMap<usize, RegexScanPattern>>,
 }
 
-impl ScanningRuleSet {
-    pub fn new(
-        lexme_rule: fn(prefix: char) -> Option<&'static [ScanPattern]>,
-        regex_rule: fn(index: usize) -> Option<&'static ScanPattern>,
-        acceptable_regex: fn(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]>,
-        symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
-        eof_id: u32) -> Self
+impl ScanningRuleSetBuilder {
+    pub fn regex_rule(
+        &mut self, 
+        rule: fn(index: usize) -> Option<&'static ScanPattern>,
+        acceptable_regex: fn(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]>) -> &mut Self 
     {
-        let regex_cache = init_regex_cache(regex_rule, acceptable_regex);
-
-        Self { 
-            lexme_rule, acceptable_regex, symbol_lookup, eof_id,
-            regex_cache: Rc::new(regex_cache),
-        }
+        self.acceptable_regex = Some(acceptable_regex);
+        self.regex_cache = Some(Rc::new(init_regex_cache(rule, acceptable_regex)));
+        self
     }
+}
+
+impl ScanningRuleSet {
+    // pub fn new(
+    //     lexme_rule: fn(prefix: char) -> Option<&'static [ScanPattern]>,
+    //     regex_rule: fn(index: usize) -> Option<&'static ScanPattern>,
+    //     acceptable_regex: fn(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]>,
+    //     symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
+    //     eof_id: u32) -> Self
+    // {
+    //     let regex_cache = init_regex_cache(regex_rule, acceptable_regex);
+
+    //     Self { 
+    //         lexme_rule, acceptable_regex, symbol_lookup, eof_id,
+    //         regex_cache: Rc::new(regex_cache),
+    //     }
+    // }
 
     pub fn scan_by_lexme(&self, source: &str, offset: usize) -> Option<ScanEvent> {
         let Some(prefix) = source.chars().nth(0) else {
@@ -67,6 +82,10 @@ impl ScanningRuleSet {
 
     pub fn eof(&self) -> SyntaxKind {
         (self.symbol_lookup)(self.eof_id).clone()
+    }
+
+    pub fn invalid(&self) -> SyntaxKind {
+        (self.symbol_lookup)(self.invalid_id).clone()
     }
 }
 
@@ -115,13 +134,16 @@ impl Default for ScanningRuleSet {
             acceptable_regex: default_acceptable_regex_lookup,
             symbol_lookup: default_symbol_lookup,
             eof_id: 0,
+            invalid_id: 0,
             regex_cache: Default::default(),
         }
     }
 }
 
 pub mod default_syntax_kind {
-    pub static DEFAULT: crate::SyntaxKind = crate::SyntaxKind { id: 0, text: "EOF", is_keyword: false, is_terminal: true };
+    use crate::SymbolGroup;
+
+    pub static DEFAULT: crate::SyntaxKind = crate::SyntaxKind { id: 0, text: "EOF", group: SymbolGroup::NonKeyword };
 }
 
 fn default_lexme_rule_lookup(_sprefix: char) -> Option<&'static [ScanPattern]> {

@@ -11,7 +11,7 @@
       "value": {
         "edit_state": 0,
         "node_type": "Node",
-        "recovery": null,
+        "patch": "None",
         "char_offset": 0,
         "char_len": 10
       }
@@ -30,7 +30,7 @@
             "value": {
               "edit_state": 0,
               "node_type": "Node",
-              "recovery": null,
+              "patch": "None",
               "char_offset": 0,
               "char_len": 10
             }
@@ -49,7 +49,7 @@
                   "value": {
                     "edit_state": 0,
                     "node_type": "Node",
-                    "recovery": null,
+                    "patch": "None",
                     "char_offset": 0,
                     "char_len": 9
                   }
@@ -68,7 +68,7 @@
                         "value": {
                           "edit_state": 0,
                           "node_type": "Node",
-                          "recovery": null,
+                          "patch": "None",
                           "char_offset": 0,
                           "char_len": 9
                         }
@@ -87,7 +87,7 @@
                               "value": {
                                 "edit_state": 0,
                                 "node_type": "Node",
-                                "recovery": null,
+                                "patch": "None",
                                 "char_offset": 0,
                                 "char_len": 9
                               }
@@ -106,7 +106,7 @@
                                     "value": {
                                       "edit_state": 0,
                                       "node_type": "Node",
-                                      "recovery": null,
+                                      "patch": "None",
                                       "char_offset": 0,
                                       "char_len": 9
                                     }
@@ -125,7 +125,7 @@
                                           "value": {
                                             "edit_state": 0,
                                             "node_type": "Node",
-                                            "recovery": null,
+                                            "patch": "None",
                                             "char_offset": 0,
                                             "char_len": 9
                                           }
@@ -144,7 +144,7 @@
                                                 "value": {
                                                   "edit_state": 0,
                                                   "node_type": "TokenSet",
-                                                  "recovery": null,
+                                                  "patch": "None",
                                                   "char_offset": 0,
                                                   "char_len": 7
                                                 }
@@ -163,7 +163,7 @@
                                                     "value": {
                                                       "edit_state": 0,
                                                       "node_type": "TokenItem",
-                                                      "recovery": null,
+                                                      "patch": "None",
                                                       "char_offset": 0,
                                                       "char_len": 6
                                                     }
@@ -185,7 +185,7 @@
                                                       "value": {
                                                         "edit_state": 0,
                                                         "node_type": "TrailingToken",
-                                                        "recovery": null,
+                                                        "patch": "None",
                                                         "char_offset": 6,
                                                         "char_len": 1
                                                       }
@@ -209,7 +209,7 @@
                                                 "value": {
                                                   "edit_state": 71,
                                                   "node_type": "Node",
-                                                  "recovery": null,
+                                                  "patch": "None",
                                                   "char_offset": 7,
                                                   "char_len": 2
                                                 }
@@ -228,7 +228,7 @@
                                                       "value": {
                                                         "edit_state": 238,
                                                         "node_type": "Node",
-                                                        "recovery": null,
+                                                        "patch": "None",
                                                         "char_offset": 7,
                                                         "char_len": 2
                                                       }
@@ -247,7 +247,7 @@
                                                             "value": {
                                                               "edit_state": 238,
                                                               "node_type": "Node",
-                                                              "recovery": null,
+                                                              "patch": "None",
                                                               "char_offset": 7,
                                                               "char_len": 2
                                                             }
@@ -266,7 +266,7 @@
                                                                   "value": {
                                                                     "edit_state": 238,
                                                                     "node_type": "TokenSet",
-                                                                    "recovery": null,
+                                                                    "patch": "None",
                                                                     "char_offset": 7,
                                                                     "char_len": 2
                                                                   }
@@ -285,7 +285,7 @@
                                                                       "value": {
                                                                         "edit_state": 238,
                                                                         "node_type": "TokenItem",
-                                                                        "recovery": null,
+                                                                        "patch": "None",
                                                                         "char_offset": 7,
                                                                         "char_len": 2
                                                                       }
@@ -333,7 +333,7 @@
                   "value": {
                     "edit_state": 23,
                     "node_type": "TokenSet",
-                    "recovery": null,
+                    "patch": "None",
                     "char_offset": 9,
                     "char_len": 1
                   }
@@ -352,7 +352,7 @@
                       "value": {
                         "edit_state": 23,
                         "node_type": "TokenItem",
-                        "recovery": null,
+                        "patch": "None",
                         "char_offset": 9,
                         "char_len": 1
                       }
@@ -379,7 +379,7 @@
             "value": {
               "edit_state": 0,
               "node_type": "Node",
-              "recovery": null,
+              "patch": "None",
               "char_offset": 10,
               "char_len": 0
             }
@@ -398,7 +398,7 @@
                   "value": {
                     "edit_state": 0,
                     "node_type": "TokenSet",
-                    "recovery": null,
+                    "patch": "None",
                     "char_offset": 10,
                     "char_len": 0
                   }
@@ -417,7 +417,7 @@
                       "value": {
                         "edit_state": 0,
                         "node_type": "TokenItem",
-                        "recovery": null,
+                        "patch": "None",
                         "char_offset": 10,
                         "char_len": 0
                       }

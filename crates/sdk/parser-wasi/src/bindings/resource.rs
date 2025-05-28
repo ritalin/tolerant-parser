@@ -166,7 +166,7 @@ impl From<&parser_core::NodeMetadata> for syntaxes::Metadata {
         Self {
             node_type: value.node_type.clone().into(),
             edit_state: value.edit_state as u64,
-            recovery: value.recovery.as_ref().map(Into::into),
+            patch: value.patch.clone().into(),
             char_offset: value.char_offset as u32,
             char_len: value.char_len as u32,
         }
@@ -177,8 +177,18 @@ impl From<engine_core::SyntaxKind> for types::SyntaxKind {
     fn from(value: engine_core::SyntaxKind) -> Self {
         Self {
             name: value.text.into(),
-            is_keyword: value.is_keyword,
-            is_terminal: value.is_terminal,
+            group: value.group.into(),
+        }
+    }
+}
+
+impl From<engine_core::SymbolGroup> for types::SymbolGroup {
+    fn from(value: engine_core::SymbolGroup) -> Self {
+        match value {
+            engine_core::SymbolGroup::Keyword => types::SymbolGroup::Keyword,
+            engine_core::SymbolGroup::NonKeyword => types::SymbolGroup::NonKeyword,
+            engine_core::SymbolGroup::Pattern => types::SymbolGroup::Pattern,
+            engine_core::SymbolGroup::NonTerminal => types::SymbolGroup::NonTerminal,
         }
     }
 }
@@ -191,29 +201,20 @@ impl From<parser_core::NodeType> for types::NodeType {
             parser_core::NodeType::TokenItem => types::NodeType::TokenItem,
             parser_core::NodeType::LeadingToken => types::NodeType::LeadingTrivia,
             parser_core::NodeType::TrailingToken => types::NodeType::TrailingTrivia,
-            parser_core::NodeType::Error => types::NodeType::Error,
         }
     }
 }
 
-impl From<&parser_core::Recovery> for types::Recovery {
-    fn from(value: &parser_core::Recovery) -> Self {
+impl From<parser_core::PatchAction> for types::PatchAction {
+    fn from(value: parser_core::PatchAction) -> Self {
         match value {
-            parser_core::Recovery::Delete => types::Recovery::Delete,
-            parser_core::Recovery::Shift => types::Recovery::Shift,
+            parser_core::PatchAction::None => types::PatchAction::None,
+            parser_core::PatchAction::Delete => types::PatchAction::Delete,
+            parser_core::PatchAction::Shift => types::PatchAction::Shift,
+            parser_core::PatchAction::Invalid => types::PatchAction::Invalid,
         }
     }
 }
-
-// pub struct ParserComponent;
-
-// impl parsers::Guest for ParserComponent {
-//     type Parser = ParserImpl;
-
-//     fn create() -> parsers::Parser {
-//         todo!()
-//     }
-// }
 
 pub struct SyntaxTreeComponent;
 

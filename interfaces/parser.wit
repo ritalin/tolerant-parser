@@ -24,11 +24,11 @@ interface types {
     record syntax-kind {
         // symbol name
         name: string,
-        // wether this is a keyword symbol
-        is-keyword: bool,
-        // whether this is a terminal symbol
-        is-terminal: bool,
+        // symbol group category
+        group: symbol-group,
     }
+
+    enum symbol-group { keyword, non-keyword, pattern, non-terminal }
 
     // Syntax node type
     enum node-type {
@@ -41,23 +41,23 @@ interface types {
         token-item,
         // trailing trivia mainly has some white space
         trailing-trivia,
-        // node for supplied by the error recovery process
-        error,
-        // if a error recovery process failed, this node is inserted insted
-        fatal-error,
     }
 
     // error recovery type selected by a error recovery
-    enum recovery {
+    enum patch-action {
+        // no error recovery
+        none,
         // lookahead token is deleted
         delete,
         // Non-terminated symbol is inserted
         shift,
+        // failed to error recovery
+        invalid,
     }
 }
 
 interface syntaxes {
-    use types.{syntax-kind, node-type, recovery};
+    use types.{syntax-kind, node-type, patch-action};
 
     // A syntax tree returned the parser
     resource syntax-tree {
@@ -130,8 +130,9 @@ interface syntaxes {
         node-type: node-type,
         // Resume state at incremental parsing
         edit-state: u64,
-        // Selected recovery method
-        recovery: option<recovery>,
+        // Selected patch action
+        // If it does not go to error recover, `None` passed
+        patch: patch-action,
         // char offset from begining of the document 
         char-offset: u32,
         // char length of node

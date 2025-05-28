@@ -1,9 +1,9 @@
 use std::collections::VecDeque;
 
-use engine_core::Engine;
+use engine_core::{Engine, SyntaxKind};
 use scanner_core::{Scanner, Token};
 
-use crate::{event_dispatcher::{ParseEvent, ParseEventDispatcher}, parser::ParseError};
+use crate::{error_recovery::{RecoveryEventDispatcher, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher, ParseEventError}, parser::ParseError};
 
 
 
@@ -22,8 +22,10 @@ pub enum  CaptureEvent {
 pub struct ParseEventCapture {
     scanner: Scanner,
     dispatcher: ParseEventDispatcher,
+    recovery_handler: RecoveryEventDispatcher,
     config: EventCaptureConfig,
     event_queue: VecDeque<Option<CaptureEvent>>,
+    stmt_term_kind: SyntaxKind,
     accepted: bool,
 }
 
@@ -34,12 +36,16 @@ impl ParseEventCapture {
             Some(lookahead) if ! config.no_scan => VecDeque::from([Some(CaptureEvent::Scan(lookahead.clone()))]),
             _ => VecDeque::new(),
         };
+        let penalty = RecoveryPenalty{ delete_slot: 3, shift_limit: 10, shift_decay: 0, next_shift_decay: 1, max_shift_packet_size: 10 };
+        let stmt_term_kind = engine.parsing_rules.statement_emit_config().unwrap_or(engine.parsing_rules.full_emit_config()).to_symbol;
 
         let this = Self { 
             scanner, 
             dispatcher: ParseEventDispatcher::new(0, engine.parsing_rules),
+            recovery_handler: RecoveryEventDispatcher::new(penalty, engine.parsing_rules),
             config: config,
             event_queue,
+            stmt_term_kind,
             accepted: false,
         };
 
@@ -52,11 +58,19 @@ impl ParseEventCapture {
         }
 
         while self.event_queue.is_empty() {
-            let event = match self.scanner.lookahead().cloned() {
-                Some(lookahead) => self.dispatcher.next(Some(lookahead.main.kind)),
-                None if self.dispatcher.has_next() => self.dispatcher.next(None),
+            let lookahead = match self.scanner.lookahead().cloned() {
+                Some(lookahead) => Some(lookahead.main.kind),
+                None if self.dispatcher.has_next() => None,
                 None => break,
-            }?;
+            };
+            let event = match self.dispatcher.next(lookahead) {
+                Ok(event) => event,
+                Err(ParseEventError::RequestRecovery) => {
+                    self.try_recover()?;
+                    self.dispatcher.next(lookahead)?
+                }
+                Err(err) => return Err(ParseError::ByEvent(err)),
+            };
 
             match event {
                 ParseEvent::Shift { .. } => {
@@ -84,6 +98,18 @@ impl ParseEventCapture {
                     self.accepted = true;
                     break;
                 }
+                ParseEvent::PatchDrop { .. } | ParseEvent::Invalid { .. } => {
+                    self.scanner.shift();
+
+                    if !self.config.no_parse {
+                        self.event_queue.push_back(Some(CaptureEvent::Parse(event)));
+                    }
+                    if !self.config.no_scan {
+                        if let Some(lookahead) = self.scanner.lookahead() {
+                            self.event_queue.push_back(Some(CaptureEvent::Scan(lookahead.clone())));
+                        }
+                    }
+                }
                 event => {
                     if !self.config.no_parse {
                         self.event_queue.push_back(Some(CaptureEvent::Parse(event)));
@@ -93,5 +119,21 @@ impl ParseEventCapture {
         }
 
         Ok(self.event_queue.pop_front().flatten())
+    }
+
+    fn try_recover(&mut self) -> Result<(), ParseError> {
+        let state_stack = self.dispatcher.borrow_stack();
+        let prefetch = self.scanner.prefetch(self.stmt_term_kind);
+
+        match self.recovery_handler.handle(state_stack, prefetch.clone()) {
+            Some(events) => {
+                self.dispatcher.post_recovery_event(&events);
+            }
+            None => {
+                self.dispatcher.post_recovery_event(&self.recovery_handler.handle_as_invalid(prefetch, true));
+            }
+        }
+
+        Ok(())
     }
 }

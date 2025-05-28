@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
-
-use cactus::Cactus;
 use engine_core::{parser_engine::{ParsingRuleSet, Transition}, SyntaxKind};
+use crate::{error_recovery::RecoveryEventPayload, parser::RecoveryEvent, state_stack::StateStack};
 
 pub struct ParseEventDispatcher {
     state_stack: StateStack,
@@ -23,10 +22,11 @@ impl ParseEventDispatcher {
             return Ok(self.event_queue.pop_front().unwrap());
         }
 
+        // peek event
         let event = self.next_internal(lookahead_kind)?;
 
         if let Some(config) = self.engine.statement_emit_config() {
-            let initial_state = self.state_stack.initial_state;
+            let initial_state = self.state_stack.initial_state();
             match event.kind() {
                 kind if kind == config.to_symbol => {
                     // additional emit event
@@ -47,7 +47,7 @@ impl ParseEventDispatcher {
         Ok(event)
     }
 
-    pub fn next_internal(&mut self, lookahead_kind: Option<SyntaxKind>) -> Result<ParseEvent, ParseEventError> {
+    fn next_internal(&mut self, lookahead_kind: Option<SyntaxKind>) -> Result<ParseEvent, ParseEventError> {
         let Some(state) = self.state_stack.peek_state().cloned() else {
             return Err(ParseEventError::NoMoreState{ context: "Shift".into() });
         };
@@ -95,13 +95,94 @@ impl ParseEventDispatcher {
             }
             None if lookahead_kind == self.engine.full_emit_config().to_symbol => {
                 // fall back to handle EOF 
-                let initial_state = self.state_stack.initial_state;
+                let initial_state = self.state_stack.initial_state();
                 let state = self.state_stack.peek_state().cloned().unwrap_or(initial_state);
                 return Ok(ParseEvent::Shift { kind: lookahead_kind, current_state: state, next_state: initial_state, edit_state: initial_state });
             }
             None => {
                 return Err(ParseEventError::RequestRecovery);
             }
+        }
+    }
+
+    pub fn post_recovery_event(&mut self, events: &[RecoveryEvent]) {
+        let initial_state = self.state_stack.initial_state();
+
+        for recover in events {
+            match recover {
+                RecoveryEvent::PatchDelete { kind, state } => {
+                    self.event_queue.push_back(
+                        ParseEvent::PatchDrop { kind: *kind, current_state: *state, next_state: *state, edit_state: *state }
+                    );
+                }
+                RecoveryEvent::PatchShift(RecoveryEventPayload::Shift { kind, state, next_state }) => {
+                    self.state_stack.push_state(*next_state);
+                    let edit_state = self.state_stack.mark_checkpoint(*state);
+                    
+                    self.event_queue.push_back(
+                        ParseEvent::PatchShift { kind: *kind, current_state: *state, next_state: *next_state, edit_state }
+                    );
+                }
+                RecoveryEvent::PatchShift(RecoveryEventPayload::Reduce { kind, state, next_state, pop_count }) => {
+                    self.state_stack.pop_n_state(*pop_count);
+                    self.state_stack.push_state(*next_state);
+
+                    let edit_state = self.state_stack
+                        .resolve_checkpoint(*pop_count)
+                        .unwrap_or_else(|| self.state_stack.mark_checkpoint(*state))
+                    ;
+                    
+                    self.event_queue.push_back(
+                        ParseEvent::PatchReduce { kind: *kind, current_state: *state, next_state: *next_state, edit_state, pop_count: *pop_count }
+                    );
+                }
+                RecoveryEvent::PatchShift(RecoveryEventPayload::Accept { .. }) => {
+                    // In recovery patch pthase, Accept event does not fire.
+                    continue;
+                }
+                RecoveryEvent::Stitch(RecoveryEventPayload::Shift { kind, state, next_state }) => {
+                    self.state_stack.push_state(*next_state);
+                    let edit_state = self.state_stack.mark_checkpoint(*state);
+
+                    self.event_queue.push_back(
+                        ParseEvent::Shift { kind: *kind, current_state: *state, next_state: *next_state, edit_state }
+                    );
+                }
+                RecoveryEvent::Stitch(RecoveryEventPayload::Reduce { kind, state, next_state, pop_count }) => {
+                    self.state_stack.pop_n_state(*pop_count);
+                    self.state_stack.push_state(*next_state);
+
+                    let edit_state = self.state_stack
+                        .resolve_checkpoint(*pop_count)
+                        .unwrap_or_else(|| self.state_stack.mark_checkpoint(*state))
+                    ;
+                    
+                    self.event_queue.push_back(
+                        ParseEvent::Reduce { kind: *kind, current_state: *state, next_state: *next_state, pop_count: *pop_count, edit_state }
+                    );
+                }
+                RecoveryEvent::Stitch(RecoveryEventPayload::Accept { kind, last_state }) => {
+                    self.event_queue.push_back(
+                        ParseEvent::Accept { kind: *kind, last_state: *last_state, edit_state: initial_state }
+                    );
+                }
+                RecoveryEvent::Invalid { kind, need_emit } => {
+                    self.event_queue.push_back({
+                        // peek top state
+                        let state = self.state_stack.peek_state().cloned().unwrap_or(initial_state);
+                        ParseEvent::Invalid { kind: *kind, current_state: state, edit_state: initial_state }
+                    });
+
+                    if *need_emit {
+                        if let Some(config) = self.engine.statement_emit_config() {
+                            // post emit event
+                            self.event_queue.push_back(
+                                ParseEvent::Emit { kind: config.from_symbol, edit_state: initial_state }
+                            );
+                        }
+                    }
+                }
+            };
         }
     }
 
@@ -113,86 +194,12 @@ impl ParseEventDispatcher {
         self.state_stack.reset();
     }
 
+    pub fn borrow_stack(&self) -> &StateStack {
+        &self.state_stack
+    }
+
     pub fn state_values(&self) -> Vec<usize> {
         self.state_stack.state_values()
-    }
-}
-
-struct StateStack {
-    initial_state: usize,
-    stack: Cactus<usize>,
-    checkpoint: Cactus<usize>,
-}
-
-impl StateStack {
-    pub fn new(initial_state: usize) -> Self {
-        Self { 
-            initial_state,
-            stack: Cactus::new().child(initial_state),
-            checkpoint: Cactus::new(),
-        }
-    }
-
-    pub fn peek_state(&self) -> Option<&usize> {
-        self.stack.val()
-    }
-
-    pub fn push_state(&mut self, state: usize) {
-        self.stack = self.stack.child(state);
-    }
-
-    pub fn pop_n_state(&mut self, mut pop_count: usize) -> Option<&usize> {
-        while pop_count > 0 {
-            let Some(parent) = self.stack.parent() else { break };
-            self.stack = parent;
-            pop_count -= 1;
-        }
-
-        assert!(pop_count == 0);
-
-        self.peek_state()
-    }
-
-    pub fn pop_all(&mut self) {
-        self.pop_n_state(self.stack.len());
-    }
-
-    pub fn reset(&mut self) {
-        self.stack = Cactus::new().child(self.initial_state);
-        self.checkpoint = Cactus::new();
-    }
-
-    pub fn state_values(&self) -> Vec<usize> {
-        let mut values = vec![];
-
-        let mut next_node = self.stack.clone();
-        while let Some(v) = next_node.val() {
-            values.push(*v);
-            
-            let Some(node) = next_node.parent() else {
-                break
-            };
-            next_node = node;
-        }
-
-        values
-    }
-
-    pub fn mark_checkpoint(&mut self, state: usize) -> usize {
-        self.checkpoint = self.checkpoint.child(state);
-        state
-    }
-    pub fn resolve_checkpoint(&mut self, mut pop_count: usize) -> Option<usize> {
-        if pop_count == 0 {
-            return None;
-        }
-
-        while pop_count > 1 {
-            self.checkpoint = self.checkpoint.parent().unwrap_or_default();
-            pop_count -= 1;
-        }
-        self.checkpoint.val().cloned()
-
     }
 }
 
@@ -205,7 +212,7 @@ pub enum ParseEvent {
         /// transition after state
         next_state: usize, 
         /// edit state for incremental parsing
-        edit_state: usize 
+        edit_state: usize,
     },
     Reduce{ 
         kind: SyntaxKind, 
@@ -216,7 +223,7 @@ pub enum ParseEvent {
         /// count for popped from state stack
         pop_count: usize, 
         /// edit state for incremental parsing
-        edit_state: usize 
+        edit_state: usize,
     },
     Emit {
         kind: SyntaxKind, 
@@ -228,8 +235,44 @@ pub enum ParseEvent {
         /// final state
         last_state: usize,
         /// edit state for incremental parsing
-        edit_state: usize 
+        edit_state: usize,
     },
+    PatchDrop {
+        kind: SyntaxKind, 
+        /// transition before state
+        current_state: usize, 
+        /// transition after state
+        next_state: usize, 
+        /// edit state for incremental parsing
+        edit_state: usize,
+    },
+    PatchShift { 
+        kind: SyntaxKind, 
+        /// transition before state
+        current_state: usize, 
+        /// transition after state
+        next_state: usize, 
+        /// edit state for incremental parsing
+        edit_state: usize,
+    },
+    PatchReduce{ 
+        kind: SyntaxKind, 
+        /// transition before state
+        current_state: usize, 
+        /// transition after state
+        next_state: usize, 
+        /// count for popped from state stack
+        pop_count: usize, 
+        /// edit state for incremental parsing
+        edit_state: usize,
+    },
+    Invalid{
+        kind: SyntaxKind, 
+        /// transition before state
+        current_state: usize, 
+        /// edit state for incremental parsing
+        edit_state: usize,
+    }
 }
 
 impl ParseEvent {
@@ -239,6 +282,10 @@ impl ParseEvent {
             ParseEvent::Reduce { kind, .. } => *kind,
             ParseEvent::Emit { kind, .. } => *kind,
             ParseEvent::Accept { kind, .. } => *kind,
+            ParseEvent::PatchDrop { kind, .. } => *kind,
+            ParseEvent::PatchShift { kind, .. } => *kind,
+            ParseEvent::PatchReduce { kind, .. } => *kind,
+            ParseEvent::Invalid { kind, .. } => *kind,
         }
     }
 }

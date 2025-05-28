@@ -8,8 +8,7 @@ pub use scanner_engine::default_syntax_kind;
 pub struct SyntaxKind {
     pub id: u32,
     pub text: &'static str,
-    pub is_keyword: bool,
-    pub is_terminal: bool,
+    pub group: SymbolGroup,
 }
 
 impl PartialEq for SyntaxKind {
@@ -30,6 +29,18 @@ impl std::hash::Hash for SyntaxKind {
     }
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+pub enum SymbolGroup {
+    /// Terminal symbol of keyword scanned by lexme
+    Keyword,
+    /// Terminal symbol of non keyword scanned by lexme
+    NonKeyword,
+    /// Terminal symbol scanned by regex
+    Pattern,
+    /// Non-Terminal symbol
+    NonTerminal,
+}
+
 #[derive(Clone)]
 pub struct Engine {
     pub scanning_rules: scanner_engine::ScanningRuleSet,
@@ -47,6 +58,8 @@ impl Default for Engine {
 
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
-    #[error("Can not initialize parser/scanner engine")]
-    CreateFailed
+    #[error("Can not initialize scanner engine (cause: {0})")]
+    ScanningRuleCreateFailed(String),
+    #[error("Can not initialize parser engine (cause: {0})")]
+    PrsingRuleCreateFailed(String)
 }

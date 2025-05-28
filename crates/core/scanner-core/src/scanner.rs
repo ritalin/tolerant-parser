@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use engine_core::scanner_engine::{self, AcceptableRegexSet, ScanEvent};
+use engine_core::SyntaxKind;
 use crate::Token;
 use crate::event_dispatch::ScanEventDispatcher;
 
@@ -35,6 +36,27 @@ impl Scanner {
         lookahead
     }
 
+    pub fn prefetch(&mut self, terminate_synbol: SyntaxKind) -> LookaheadIterator {
+        // Find prefetch queue
+        if let Some(p) = self.lookaheads.iter().position(|tk| tk.main.kind == terminate_synbol) {
+            return LookaheadIterator::new(&self.lookaheads, p+1);
+        }
+
+        while let Some(next_lookahead) = handle_scan_event(&mut self.dispatcher) {
+            match next_lookahead {
+                lookahead if lookahead.main.kind.id == terminate_synbol.id => {
+                    self.lookaheads.push_back(lookahead);
+                    break;
+                }
+                lookahead => {
+                    self.lookaheads.push_back(lookahead);
+                }
+            }
+        }
+        
+        LookaheadIterator::new(&self.lookaheads, self.lookaheads.len())
+    }
+
     pub fn save_scope(&self) -> ScannerScope {
         ScannerScope::new()
     }
@@ -44,6 +66,46 @@ impl Scanner {
         for token in scope.lookaheads.into_iter().rev() {
             self.lookaheads.push_front(token);
         }
+    }
+}
+
+#[derive(PartialEq, Clone, Debug)]
+pub struct LookaheadIterator<'a> {
+    inner: &'a VecDeque<Token>,
+    index: usize,
+    size: usize,
+}
+
+impl<'a> LookaheadIterator<'a> {
+    pub fn new(lookaheads: &'a VecDeque<Token>, size: usize) -> Self {
+        Self {
+            inner: lookaheads,
+            index: 0,
+            size,
+        }
+    }
+
+    pub fn peek(&self) -> Option<&'a Token> {
+        self.inner.get(self.index)
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+}
+
+impl<'a> Iterator for LookaheadIterator<'a> {
+    type Item = &'a Token;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.size {
+            return None;
+        }
+
+        let token = self.inner.get(self.index);
+        self.index += 1;
+
+        token
     }
 }
 
@@ -69,8 +131,12 @@ fn handle_scan_event(dispatcher: &mut ScanEventDispatcher) -> Option<Token> {
     // scan leading trivia
     let leading_trivia = handle_scan_trivia_event(dispatcher, AcceptableRegexSet::Leading);
     // scan main token
-    let Some(main) = dispatcher.next(&AcceptableRegexSet::Main) else {
-        return None;
+    let main = match dispatcher.next(&AcceptableRegexSet::Main) {
+        Some(event) => event,
+        None if dispatcher.has_more() => dispatcher.invalid(),
+        None => {
+            return None;
+        }
     };
     // scan trailing trivia
     let trailing_trivia = handle_scan_trivia_event(dispatcher, AcceptableRegexSet::Trailing);

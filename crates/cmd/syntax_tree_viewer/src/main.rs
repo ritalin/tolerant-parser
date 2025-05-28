@@ -1,5 +1,5 @@
 use config::CmdConfig;
-use parser_core::{syntax_tree::{MetadataAccess, SyntaxNode, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey};
+use parser_core::{syntax_tree::{MetadataAccess, SyntaxNode, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey, PatchAction};
 
 mod config;
 
@@ -13,6 +13,9 @@ fn main() -> Result<(), anyhow::Error> {
     let engine = sqlite_engine::create()?;
     let parser = parser_core::Parser::new(engine);
     let tree = parser.parse(&source)?;
+    
+    println!("`{}`", source);
+    println!("--------------------------------------------------------------------------------");
     
     print_tree(&tree.root(), &cmd_config);
     Ok(())
@@ -54,14 +57,26 @@ fn print_token_set(token_set: &SyntaxTokenSet, config: &CmdConfig, indent_level:
 
 fn print_node(key: &NodeMetadataKey, metadata: &NodeMetadata, value: Option<&str>, config: &CmdConfig, indent_level: usize) {
     let range_str = format!("({}-{})", key.offset, key.offset + key.len);
+    let node_type_str = match metadata.patch {
+        PatchAction::None => metadata.node_type.to_string(),
+        PatchAction::Delete | PatchAction::Shift | PatchAction::Invalid => {
+            format!("{}(patch: {})", metadata.node_type.to_string(), metadata.patch.to_string())
+        }
+    };
     let value = value.map(|s| format!("{s:?}")).unwrap_or_default();
 
     let plain = format!(
-        "{:<16}{:<16} | {:width$}{} {}", 
-        range_str, metadata.node_type.to_string(), "", key.kind.text, value, width = indent_level * 4
+        "{:<16}{:<30} | {:width$}{} {}", 
+        range_str, node_type_str, "", key.kind.text, value, width = indent_level * 4
     );
 
     let colored = match (metadata.node_type.clone(), config.no_color) {
+        (_, false) if metadata.patch == PatchAction::Invalid => {
+            ansi_term::Color::Red.paint(plain).to_string()
+        }
+        (_, false) if metadata.patch != PatchAction::None => {
+            ansi_term::Color::RGB(255, 165, 0).paint(plain).to_string()
+        }
         (parser_core::NodeType::TokenSet, false) => {
             ansi_term::Color::Cyan.paint(plain).to_string()
         }
@@ -71,9 +86,6 @@ fn print_node(key: &NodeMetadataKey, metadata: &NodeMetadata, value: Option<&str
         (parser_core::NodeType::LeadingToken, false) |
         (parser_core::NodeType::TrailingToken, false) => {
             ansi_term::Color::RGB(128, 128, 128).paint(plain).to_string()
-        }
-        (parser_core::NodeType::Error, false) => {
-            ansi_term::Color::Red.paint(plain).to_string()
         }
         _ => plain
     };

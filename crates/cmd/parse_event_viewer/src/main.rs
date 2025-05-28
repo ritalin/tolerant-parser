@@ -15,6 +15,9 @@ fn main() -> Result<(), anyhow::Error> {
     let engine = sqlite_engine::create()?;
     let mut capture = ParseEventCapture::create(&source, cmd_config.to_capture_config(), engine)?;
     
+    println!("`{}`", source);
+    println!("--------------------------------------------------------------------------------");
+
     while let Some(event) = capture.next()? {
         match event {
             CaptureEvent::Scan(event) => print_scan_event(&event, &cmd_config),
@@ -72,6 +75,26 @@ fn print_parse_event(event: &ParseEvent, config: &CmdConfig) {
             println!("     (kind) name: {}, id: {}", kind.text, kind.id);
             println!("    (state) last: {}, edit: {}", last_state, edit_state);
         }
+        ParseEvent::PatchDrop { kind, current_state, next_state, edit_state } => {
+            println!("[{}]", apply_parse_event_color(event, "Recover/Drop", config));
+            println!("     (kind) name: {}, id: {}", kind.text, kind.id);
+            println!("    (state) current: {}, next: {}, edit: {}", current_state, next_state, edit_state);
+        }
+        ParseEvent::PatchShift { kind, current_state, next_state, edit_state, .. } => {
+            println!("[{}]", apply_parse_event_color(event, "Recover/Shift", config));
+            println!("     (kind) name: {}, id: {}", kind.text, kind.id);
+            println!("    (state) current: {}, next: {}, edit: {}", current_state, next_state, edit_state);
+        }
+        ParseEvent::PatchReduce { kind, current_state, next_state, pop_count, edit_state, .. } => {
+            println!("[{}]", apply_parse_event_color(event, "Recover/Reduce", config));
+            println!("     (kind) name: {}, id: {}, (pop_count) {}", kind.text, kind.id, pop_count);
+            println!("    (state) current: {}, next: {}, edit: {}", current_state, next_state, edit_state);
+        }
+        ParseEvent::Invalid { kind, current_state, edit_state } => {
+            println!("[{}]", apply_parse_event_color(event, "Recover/Invalid", config));
+            println!("     (kind) name: {}, id: {}", kind.text, kind.id);
+            println!("    (state) current: {}, edit: {}", current_state, edit_state);
+        }
     }
 }
 
@@ -85,8 +108,20 @@ fn apply_label_color(label: &str, config: &CmdConfig, color: ansi_term::Color) -
 
 fn apply_parse_event_color(event: &ParseEvent, label: &str, config: &CmdConfig) -> String {
     let color = match event {
-        ParseEvent::Reduce { pop_count, .. } if *pop_count == 0 => ansi_term::Color::RGB(128, 128, 128),
-        ParseEvent::Emit { .. } => ansi_term::Color::Purple,
+        ParseEvent::PatchDrop { .. } |
+        ParseEvent::PatchShift { .. } | 
+        ParseEvent::PatchReduce { .. } => {
+            ansi_term::Color::Red
+        }
+        ParseEvent::Invalid { .. } => {
+            ansi_term::Color::RGB(128, 128, 128)
+        }
+        ParseEvent::Reduce { pop_count, .. } if *pop_count == 0 => {
+            ansi_term::Color::RGB(128, 128, 128)
+        }
+        ParseEvent::Emit { .. } => {
+            ansi_term::Color::Purple
+        }
         _ => ansi_term::Color::Cyan,
     };
 

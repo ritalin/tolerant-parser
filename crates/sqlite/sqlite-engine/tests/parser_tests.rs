@@ -2,8 +2,15 @@
 
 use parser_core::Parser;
 
+#[path = "supports/test_support.rs"]
 mod test_support;
 use test_support::*;
+
+mod parser_tests_members {
+    mod parse_dispatcher_tests;
+    mod node_handler_tests;
+    mod parse_recovery_tests;
+}
 
 #[test]
 fn test_const_select() -> Result<(), anyhow::Error> {

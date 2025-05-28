@@ -18,7 +18,7 @@ pub mod exports {
         use super::super::super::super::_rt;
         pub type SyntaxKind = super::super::super::super::__with_name0::SyntaxKind;
         pub type NodeType = super::super::super::super::__with_name0::NodeType;
-        pub type Recovery = super::super::super::super::__with_name0::Recovery;
+        pub type PatchAction = super::super::super::super::__with_name0::PatchAction;
         /// A syntax tree returned the parser
 
         #[derive(Debug)]
@@ -631,8 +631,9 @@ pub mod exports {
           pub node_type: NodeType,
           /// Resume state at incremental parsing
           pub edit_state: u64,
-          /// Selected recovery method
-          pub recovery: Option<Recovery>,
+          /// Selected patch action
+          /// If it does not go to error recover, `None` passed
+          pub patch: PatchAction,
           /// char offset from begining of the document
           pub char_offset: u32,
           /// char length of node
@@ -641,7 +642,7 @@ pub mod exports {
         }
         impl ::core::fmt::Debug for Metadata {
           fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_struct("Metadata").field("node-type", &self.node_type).field("edit-state", &self.edit_state).field("recovery", &self.recovery).field("char-offset", &self.char_offset).field("char-len", &self.char_len).finish()
+            f.debug_struct("Metadata").field("node-type", &self.node_type).field("edit-state", &self.edit_state).field("patch", &self.patch).field("char-offset", &self.char_offset).field("char-len", &self.char_len).finish()
           }
         }
         #[doc(hidden)]
@@ -660,15 +661,14 @@ pub mod exports {
       };
       let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
       let MetadataKey{ kind:kind2, offset:offset2, len:len2, is_leaf:is_leaf2, } = result0;
-      let super::super::super::super::__with_name0::SyntaxKind{ name:name3, is_keyword:is_keyword3, is_terminal:is_terminal3, } = kind2;
+      let super::super::super::super::__with_name0::SyntaxKind{ name:name3, group:group3, } = kind2;
       let vec4 = (name3.into_bytes()).into_boxed_slice();
       let ptr4 = vec4.as_ptr().cast::<u8>();
       let len4 = vec4.len();
       ::core::mem::forget(vec4);
       *ptr1.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len4;
       *ptr1.add(0).cast::<*mut u8>() = ptr4.cast_mut();
-      *ptr1.add(2*::core::mem::size_of::<*const u8>()).cast::<u8>() = (match is_keyword3 { true => 1, false => 0 }) as u8;
-      *ptr1.add(1+2*::core::mem::size_of::<*const u8>()).cast::<u8>() = (match is_terminal3 { true => 1, false => 0 }) as u8;
+      *ptr1.add(2*::core::mem::size_of::<*const u8>()).cast::<u8>() = (group3.clone() as i32) as u8;
       *ptr1.add(3*::core::mem::size_of::<*const u8>()).cast::<i32>() = _rt::as_i32(offset2);
       *ptr1.add(4+3*::core::mem::size_of::<*const u8>()).cast::<i32>() = _rt::as_i32(len2);
       *ptr1.add(8+3*::core::mem::size_of::<*const u8>()).cast::<u8>() = (match is_leaf2 { true => 1, false => 0 }) as u8;
@@ -688,20 +688,11 @@ pub mod exports {
       T::metadata(SyntaxNodeBorrow::lift(arg0 as u32 as usize).get())
     };
     let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
-    let Metadata{ node_type:node_type2, edit_state:edit_state2, recovery:recovery2, char_offset:char_offset2, char_len:char_len2, } = result0;
+    let Metadata{ node_type:node_type2, edit_state:edit_state2, patch:patch2, char_offset:char_offset2, char_len:char_len2, } = result0;
     *ptr1.add(0).cast::<u8>() = (node_type2.clone() as i32) as u8;
     *ptr1.add(8).cast::<i64>() = _rt::as_i64(edit_state2);
-    match recovery2 {
-      Some(e) => {
-        *ptr1.add(16).cast::<u8>() = (1i32) as u8;
-        *ptr1.add(17).cast::<u8>() = (e.clone() as i32) as u8;
-      },
-      None => {
-        {
-          *ptr1.add(16).cast::<u8>() = (0i32) as u8;
-        }
-      },
-    };*ptr1.add(20).cast::<i32>() = _rt::as_i32(char_offset2);
+    *ptr1.add(16).cast::<u8>() = (patch2.clone() as i32) as u8;
+    *ptr1.add(20).cast::<i32>() = _rt::as_i32(char_offset2);
     *ptr1.add(24).cast::<i32>() = _rt::as_i32(char_len2);
     ptr1
   } }
@@ -771,15 +762,14 @@ _rt::run_ctors_once();let result0 = {
 };
 let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
 let MetadataKey{ kind:kind2, offset:offset2, len:len2, is_leaf:is_leaf2, } = result0;
-let super::super::super::super::__with_name0::SyntaxKind{ name:name3, is_keyword:is_keyword3, is_terminal:is_terminal3, } = kind2;
+let super::super::super::super::__with_name0::SyntaxKind{ name:name3, group:group3, } = kind2;
 let vec4 = (name3.into_bytes()).into_boxed_slice();
 let ptr4 = vec4.as_ptr().cast::<u8>();
 let len4 = vec4.len();
 ::core::mem::forget(vec4);
 *ptr1.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len4;
 *ptr1.add(0).cast::<*mut u8>() = ptr4.cast_mut();
-*ptr1.add(2*::core::mem::size_of::<*const u8>()).cast::<u8>() = (match is_keyword3 { true => 1, false => 0 }) as u8;
-*ptr1.add(1+2*::core::mem::size_of::<*const u8>()).cast::<u8>() = (match is_terminal3 { true => 1, false => 0 }) as u8;
+*ptr1.add(2*::core::mem::size_of::<*const u8>()).cast::<u8>() = (group3.clone() as i32) as u8;
 *ptr1.add(3*::core::mem::size_of::<*const u8>()).cast::<i32>() = _rt::as_i32(offset2);
 *ptr1.add(4+3*::core::mem::size_of::<*const u8>()).cast::<i32>() = _rt::as_i32(len2);
 *ptr1.add(8+3*::core::mem::size_of::<*const u8>()).cast::<u8>() = (match is_leaf2 { true => 1, false => 0 }) as u8;
@@ -799,20 +789,11 @@ _rt::run_ctors_once();let result0 = {
   T::metadata(SyntaxTokenSetBorrow::lift(arg0 as u32 as usize).get())
 };
 let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
-let Metadata{ node_type:node_type2, edit_state:edit_state2, recovery:recovery2, char_offset:char_offset2, char_len:char_len2, } = result0;
+let Metadata{ node_type:node_type2, edit_state:edit_state2, patch:patch2, char_offset:char_offset2, char_len:char_len2, } = result0;
 *ptr1.add(0).cast::<u8>() = (node_type2.clone() as i32) as u8;
 *ptr1.add(8).cast::<i64>() = _rt::as_i64(edit_state2);
-match recovery2 {
-  Some(e) => {
-    *ptr1.add(16).cast::<u8>() = (1i32) as u8;
-    *ptr1.add(17).cast::<u8>() = (e.clone() as i32) as u8;
-  },
-  None => {
-    {
-      *ptr1.add(16).cast::<u8>() = (0i32) as u8;
-    }
-  },
-};*ptr1.add(20).cast::<i32>() = _rt::as_i32(char_offset2);
+*ptr1.add(16).cast::<u8>() = (patch2.clone() as i32) as u8;
+*ptr1.add(20).cast::<i32>() = _rt::as_i32(char_offset2);
 *ptr1.add(24).cast::<i32>() = _rt::as_i32(char_len2);
 ptr1
 } }
@@ -911,15 +892,14 @@ _rt::run_ctors_once();let result0 = {
 };
 let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
 let MetadataKey{ kind:kind2, offset:offset2, len:len2, is_leaf:is_leaf2, } = result0;
-let super::super::super::super::__with_name0::SyntaxKind{ name:name3, is_keyword:is_keyword3, is_terminal:is_terminal3, } = kind2;
+let super::super::super::super::__with_name0::SyntaxKind{ name:name3, group:group3, } = kind2;
 let vec4 = (name3.into_bytes()).into_boxed_slice();
 let ptr4 = vec4.as_ptr().cast::<u8>();
 let len4 = vec4.len();
 ::core::mem::forget(vec4);
 *ptr1.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len4;
 *ptr1.add(0).cast::<*mut u8>() = ptr4.cast_mut();
-*ptr1.add(2*::core::mem::size_of::<*const u8>()).cast::<u8>() = (match is_keyword3 { true => 1, false => 0 }) as u8;
-*ptr1.add(1+2*::core::mem::size_of::<*const u8>()).cast::<u8>() = (match is_terminal3 { true => 1, false => 0 }) as u8;
+*ptr1.add(2*::core::mem::size_of::<*const u8>()).cast::<u8>() = (group3.clone() as i32) as u8;
 *ptr1.add(3*::core::mem::size_of::<*const u8>()).cast::<i32>() = _rt::as_i32(offset2);
 *ptr1.add(4+3*::core::mem::size_of::<*const u8>()).cast::<i32>() = _rt::as_i32(len2);
 *ptr1.add(8+3*::core::mem::size_of::<*const u8>()).cast::<u8>() = (match is_leaf2 { true => 1, false => 0 }) as u8;
@@ -939,20 +919,11 @@ _rt::run_ctors_once();let result0 = {
   T::metadata(SyntaxTokenItemBorrow::lift(arg0 as u32 as usize).get())
 };
 let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
-let Metadata{ node_type:node_type2, edit_state:edit_state2, recovery:recovery2, char_offset:char_offset2, char_len:char_len2, } = result0;
+let Metadata{ node_type:node_type2, edit_state:edit_state2, patch:patch2, char_offset:char_offset2, char_len:char_len2, } = result0;
 *ptr1.add(0).cast::<u8>() = (node_type2.clone() as i32) as u8;
 *ptr1.add(8).cast::<i64>() = _rt::as_i64(edit_state2);
-match recovery2 {
-  Some(e) => {
-    *ptr1.add(16).cast::<u8>() = (1i32) as u8;
-    *ptr1.add(17).cast::<u8>() = (e.clone() as i32) as u8;
-  },
-  None => {
-    {
-      *ptr1.add(16).cast::<u8>() = (0i32) as u8;
-    }
-  },
-};*ptr1.add(20).cast::<i32>() = _rt::as_i32(char_offset2);
+*ptr1.add(16).cast::<u8>() = (patch2.clone() as i32) as u8;
+*ptr1.add(20).cast::<i32>() = _rt::as_i32(char_offset2);
 *ptr1.add(24).cast::<i32>() = _rt::as_i32(char_len2);
 ptr1
 } }
@@ -1655,38 +1626,39 @@ pub(crate) use __export_syntax_tree_world_impl as export;
 #[unsafe(link_section = "component-type:wit-bindgen:0.42.1:ritalin:parser@0.0.1:syntax-tree-world:encoded world")]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 1520] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xe8\x0a\x01A\x02\x01\
-A\x07\x01B\x06\x01r\x03\x04names\x0ais-keyword\x7f\x0bis-terminal\x7f\x04\0\x0bs\
-yntax-kind\x03\0\0\x01m\x07\x04node\x09token-set\x0eleading-trivia\x0atoken-item\
-\x0ftrailing-trivia\x05error\x0bfatal-error\x04\0\x09node-type\x03\0\x02\x01m\x02\
-\x06delete\x05shift\x04\0\x08recovery\x03\0\x04\x03\0\x1aritalin:parser/types@0.\
-0.1\x05\0\x02\x03\0\0\x0bsyntax-kind\x02\x03\0\0\x09node-type\x02\x03\0\0\x08rec\
-overy\x01B8\x02\x03\x02\x01\x01\x04\0\x0bsyntax-kind\x03\0\0\x02\x03\x02\x01\x02\
-\x04\0\x09node-type\x03\0\x02\x02\x03\x02\x01\x03\x04\0\x08recovery\x03\0\x04\x04\
-\0\x0bsyntax-tree\x03\x01\x04\0\x0bsyntax-node\x03\x01\x04\0\x10syntax-token-set\
-\x03\x01\x04\0\x11syntax-token-item\x03\x01\x01i\x07\x01i\x08\x01q\x02\x04node\x01\
-\x0a\0\x09token-set\x01\x0b\0\x04\0\x0esyntax-element\x03\0\x0c\x01r\x04\x04kind\
-\x01\x06offsety\x03leny\x07is-leaf\x7f\x04\0\x0cmetadata-key\x03\0\x0e\x01k\x05\x01\
-r\x05\x09node-type\x03\x0aedit-statew\x08recovery\x10\x0bchar-offsety\x08char-le\
-ny\x04\0\x08metadata\x03\0\x11\x01h\x06\x01@\x01\x04self\x13\0\x0a\x04\0\x18[met\
-hod]syntax-tree.root\x01\x14\x01h\x07\x01@\x01\x04self\x15\0\x0f\x04\0\x20[metho\
-d]syntax-node.metadata-key\x01\x16\x01@\x01\x04self\x15\0\x12\x04\0\x1c[method]s\
-yntax-node.metadata\x01\x17\x01k\x0a\x01@\x01\x04self\x15\0\x18\x04\0\x1a[method\
-]syntax-node.parent\x01\x19\x01p\x0d\x01@\x01\x04self\x15\0\x1a\x04\0\x1c[method\
-]syntax-node.children\x01\x1b\x01h\x08\x01@\x01\x04self\x1c\0\x0f\x04\0%[method]\
-syntax-token-set.metadata-key\x01\x1d\x01@\x01\x04self\x1c\0\x12\x04\0![method]s\
-yntax-token-set.metadata\x01\x1e\x01@\x01\x04self\x1c\0\x18\x04\0\x1f[method]syn\
-tax-token-set.parent\x01\x1f\x01i\x09\x01p\x20\x01@\x01\x04self\x1c\0!\x04\0'[me\
-thod]syntax-token-set.leading-trivia\x01\"\x01@\x01\x04self\x1c\0\x20\x04\0\x1e[\
-method]syntax-token-set.token\x01#\x04\0([method]syntax-token-set.trailing-trivi\
-a\x01\"\x01h\x09\x01@\x01\x04self$\0\x0f\x04\0&[method]syntax-token-item.metadat\
-a-key\x01%\x01@\x01\x04self$\0\x12\x04\0\"[method]syntax-token-item.metadata\x01\
-&\x01@\x01\x04self$\0\x18\x04\0\x20[method]syntax-token-item.parent\x01'\x01@\x01\
-\x04self$\0s\x04\0\x1f[method]syntax-token-item.value\x01(\x04\0\x1dritalin:pars\
-er/syntaxes@0.0.1\x05\x04\x04\0&ritalin:parser/syntax-tree-world@0.0.1\x04\0\x0b\
-\x17\x01\0\x11syntax-tree-world\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0d\
-wit-component\x070.230.0\x10wit-bindgen-rust\x060.42.1";
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 1565] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\x95\x0b\x01A\x02\x01\
+A\x07\x01B\x08\x01m\x04\x07keyword\x0bnon-keyword\x07pattern\x0cnon-terminal\x04\
+\0\x0csymbol-group\x03\0\0\x01r\x02\x04names\x05group\x01\x04\0\x0bsyntax-kind\x03\
+\0\x02\x01m\x05\x04node\x09token-set\x0eleading-trivia\x0atoken-item\x0ftrailing\
+-trivia\x04\0\x09node-type\x03\0\x04\x01m\x04\x04none\x06delete\x05shift\x07inva\
+lid\x04\0\x0cpatch-action\x03\0\x06\x03\0\x1aritalin:parser/types@0.0.1\x05\0\x02\
+\x03\0\0\x0bsyntax-kind\x02\x03\0\0\x09node-type\x02\x03\0\0\x0cpatch-action\x01\
+B7\x02\x03\x02\x01\x01\x04\0\x0bsyntax-kind\x03\0\0\x02\x03\x02\x01\x02\x04\0\x09\
+node-type\x03\0\x02\x02\x03\x02\x01\x03\x04\0\x0cpatch-action\x03\0\x04\x04\0\x0b\
+syntax-tree\x03\x01\x04\0\x0bsyntax-node\x03\x01\x04\0\x10syntax-token-set\x03\x01\
+\x04\0\x11syntax-token-item\x03\x01\x01i\x07\x01i\x08\x01q\x02\x04node\x01\x0a\0\
+\x09token-set\x01\x0b\0\x04\0\x0esyntax-element\x03\0\x0c\x01r\x04\x04kind\x01\x06\
+offsety\x03leny\x07is-leaf\x7f\x04\0\x0cmetadata-key\x03\0\x0e\x01r\x05\x09node-\
+type\x03\x0aedit-statew\x05patch\x05\x0bchar-offsety\x08char-leny\x04\0\x08metad\
+ata\x03\0\x10\x01h\x06\x01@\x01\x04self\x12\0\x0a\x04\0\x18[method]syntax-tree.r\
+oot\x01\x13\x01h\x07\x01@\x01\x04self\x14\0\x0f\x04\0\x20[method]syntax-node.met\
+adata-key\x01\x15\x01@\x01\x04self\x14\0\x11\x04\0\x1c[method]syntax-node.metada\
+ta\x01\x16\x01k\x0a\x01@\x01\x04self\x14\0\x17\x04\0\x1a[method]syntax-node.pare\
+nt\x01\x18\x01p\x0d\x01@\x01\x04self\x14\0\x19\x04\0\x1c[method]syntax-node.chil\
+dren\x01\x1a\x01h\x08\x01@\x01\x04self\x1b\0\x0f\x04\0%[method]syntax-token-set.\
+metadata-key\x01\x1c\x01@\x01\x04self\x1b\0\x11\x04\0![method]syntax-token-set.m\
+etadata\x01\x1d\x01@\x01\x04self\x1b\0\x17\x04\0\x1f[method]syntax-token-set.par\
+ent\x01\x1e\x01i\x09\x01p\x1f\x01@\x01\x04self\x1b\0\x20\x04\0'[method]syntax-to\
+ken-set.leading-trivia\x01!\x01@\x01\x04self\x1b\0\x1f\x04\0\x1e[method]syntax-t\
+oken-set.token\x01\"\x04\0([method]syntax-token-set.trailing-trivia\x01!\x01h\x09\
+\x01@\x01\x04self#\0\x0f\x04\0&[method]syntax-token-item.metadata-key\x01$\x01@\x01\
+\x04self#\0\x11\x04\0\"[method]syntax-token-item.metadata\x01%\x01@\x01\x04self#\
+\0\x17\x04\0\x20[method]syntax-token-item.parent\x01&\x01@\x01\x04self#\0s\x04\0\
+\x1f[method]syntax-token-item.value\x01'\x04\0\x1dritalin:parser/syntaxes@0.0.1\x05\
+\x04\x04\0&ritalin:parser/syntax-tree-world@0.0.1\x04\0\x0b\x17\x01\0\x11syntax-\
+tree-world\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070\
+.230.0\x10wit-bindgen-rust\x060.42.1";
 
 #[inline(never)]
 #[doc(hidden)]

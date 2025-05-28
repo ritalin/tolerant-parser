@@ -10,3 +10,6 @@ thiserror = { workspace = true }
 serde = { workspace = true }
 cactus = "1.0.7"
 rowan = "0.16.1"
+
+[features]
+test_support = []

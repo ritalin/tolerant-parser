@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-use engine_core::{parser_engine::ParsingRuleSet, scanner_engine::ScanEvent, SyntaxKind};
+use engine_core::{parser_engine::ParsingRuleSet, scanner_engine::ScanEvent, SymbolGroup, SyntaxKind};
 use rowan::GreenNode;
 use scanner_core::Token;
 
-use crate::{event_dispatcher::ParseEvent, syntax_tree::SyntaxTree, NodeId, NodeMetadata, NodeMetadataKey, NodeType};
+use crate::{event_dispatcher::ParseEvent, syntax_tree::SyntaxTree, NodeId, NodeMetadata, NodeMetadataKey, NodeType, PatchAction};
 
 pub struct SyntaxTreeBuilder {
     element_stack: Vec<Option<(NodeId, StackEntry)>>,
@@ -25,14 +25,54 @@ impl SyntaxTreeBuilder {
     }
 
     pub fn add_token_set(&mut self, event: ParseEvent, lookahead: Option<&Token>) -> Result<(), NodeBuildError> {
-        let ParseEvent::Shift { edit_state, .. } = event else {
-            return Err(NodeBuildError::TokenSetFailed);
+        let (edit_state, patch) = match event {
+            ParseEvent::Shift { edit_state, .. } => (edit_state, PatchAction::None),
+            ParseEvent::PatchShift { edit_state, .. } => (edit_state, PatchAction::Shift),
+            ParseEvent::Invalid { edit_state, .. } => (edit_state, PatchAction::Invalid),
+            _ => return Err(NodeBuildError::TokenSetFailed)
         };
+
         let Some(lookahead) = lookahead else {
             return Err(NodeBuildError::TokenSetFailed);
         };
         
-        let (id, node) = create_token_set(edit_state, lookahead, self.prev_id.clone(), &mut self.metadata_map);
+        let (id, node) = create_token_set(edit_state, lookahead, patch, self.prev_id.clone(), &mut self.metadata_map);
+        self.element_stack.push(Some((id, StackEntry::Node(node))));
+        self.prev_id = Some(id);
+        Ok(())
+    }
+
+    pub fn add_patch_drop_token_set(&mut self, event: ParseEvent, lookahead: Option<&Token>) -> Result<(), NodeBuildError> {
+        let ParseEvent::PatchDrop { edit_state, .. } = event else {
+            return Err(NodeBuildError::TokenSetFailed);
+        };
+
+        let Some(lookahead) = lookahead else {
+            return Err(NodeBuildError::TokenSetFailed);
+        };
+        
+        let (id, node) = create_token_set(edit_state, lookahead, PatchAction::Delete, self.prev_id.clone(), &mut self.metadata_map);
+        self.element_stack.push(Some((id, StackEntry::DeleteRecovery(node))));
+        self.prev_id = Some(id);
+        Ok(())
+    }
+
+    pub fn add_patch_shift_token_set(&mut self, event: ParseEvent) -> Result<(), NodeBuildError> {
+        let ParseEvent::PatchShift { kind, edit_state, .. } = event else {
+            return Err(NodeBuildError::TokenSetFailed);
+        };
+
+        let offset = match get_node_metadata_key(&self.metadata_map, self.element_stack.last()) {
+            Some(key) => key.offset + key.len,
+            None => 0,
+        };
+        let lookahead = Token{
+            leading_trivia: None,
+            main: ScanEvent{ kind, offset, len: 0, value: None },
+            trailing_trivia: None,
+        };
+
+        let (id, node) = create_token_set(edit_state, &lookahead, PatchAction::Shift, self.prev_id.clone(), &mut self.metadata_map);
         self.element_stack.push(Some((id, StackEntry::Node(node))));
         self.prev_id = Some(id);
         Ok(())
@@ -47,7 +87,7 @@ impl SyntaxTreeBuilder {
             Some(key) => key.offset + key.len,
             None => 0,
         };
-        let len = if kind.is_keyword { kind.text.len() } else { 0 };
+        let len = if kind.group == SymbolGroup::Keyword { kind.text.len() } else { 0 };
 
         let lookahead = Token{
             leading_trivia: None,
@@ -55,7 +95,7 @@ impl SyntaxTreeBuilder {
             trailing_trivia: None,
         };
 
-        let (id, node) = create_token_set(edit_state, &lookahead, self.prev_id.clone(), &mut self.metadata_map);
+        let (id, node) = create_token_set(edit_state, &lookahead, PatchAction::None, self.prev_id.clone(), &mut self.metadata_map);
         self.element_stack.push(Some((id, StackEntry::Node(node))));
         self.prev_id = Some(id);
         Ok(())
@@ -68,18 +108,26 @@ impl SyntaxTreeBuilder {
                 Ok(())
             }
             ParseEvent::Reduce { kind, pop_count, edit_state, .. } => {
-                let (id, node) = create_node(kind, edit_state, pop_count, self.engine, &mut self.element_stack, &mut self.metadata_map);
+                let (id, node) = create_node(kind, edit_state, pop_count, PatchAction::None, self.engine, &mut self.element_stack, &mut self.metadata_map);
                 self.element_stack.push(Some((id, StackEntry::Node(node))));
                 self.prev_id = Some(id);
                 Ok(())
             }
             ParseEvent::Accept { kind, edit_state, .. } => {
-                let (id, node) = create_node(kind, edit_state, self.element_stack.len(), self.engine, &mut self.element_stack, &mut self.metadata_map);
+                let (id, node) = create_node(kind, edit_state, self.element_stack.len(), PatchAction::None, self.engine, &mut self.element_stack, &mut self.metadata_map);
                 self.element_stack.push(Some((id, StackEntry::Node(node))));
                 self.prev_id = Some(id);
                 Ok(())
             }
-            ParseEvent::Shift { .. } | ParseEvent::Emit { .. } => {
+            ParseEvent::PatchReduce { kind, pop_count, edit_state, .. } => {
+                let (id, node) = create_node(kind, edit_state, pop_count, PatchAction::Shift, self.engine, &mut self.element_stack, &mut self.metadata_map);
+                self.element_stack.push(Some((id, StackEntry::Node(node))));
+                self.prev_id = Some(id);
+                Ok(())
+            }
+            ParseEvent::Shift { .. } | ParseEvent::Emit { .. } | 
+            ParseEvent::Invalid { .. } |
+            ParseEvent::PatchDrop { .. } | ParseEvent::PatchShift { .. } => {
                 Err(NodeBuildError::NodeFailed)
             },
         }
@@ -90,7 +138,7 @@ impl SyntaxTreeBuilder {
             return Err(NodeBuildError::NodeFailed);
         };
         let pop_count = self.element_stack.len() - self.water_mark;
-        let (id, node) = create_node(kind, edit_state, pop_count, self.engine, &mut self.element_stack, &mut self.metadata_map);
+        let (id, node) = create_node(kind, edit_state, pop_count, PatchAction::None, self.engine, &mut self.element_stack, &mut self.metadata_map);
         self.element_stack.push(Some((id, StackEntry::Node(node))));
         self.water_mark = self.element_stack.len();
 
@@ -110,7 +158,7 @@ impl SyntaxTreeBuilder {
             return Err(NodeBuildError::EmptyTree);
         }
 
-        let (_, root) = create_node(kind, edit_state, self.element_stack.len(), self.engine, &mut self.element_stack, &mut self.metadata_map);
+        let (_, root) = create_node(kind, edit_state, self.element_stack.len(), PatchAction::None, self.engine, &mut self.element_stack, &mut self.metadata_map);
 
         let metadata_map = HashMap::<NodeMetadataKey, (NodeId, NodeMetadata)>::from_iter(
             self.metadata_map.into_iter().map(|(id, (metadata, key))| (key, (id, metadata)))
@@ -132,7 +180,7 @@ fn next_node_id() -> NodeId {
 
 type NodeElement = rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>;
 fn create_token_set(
-    state: usize, lookahead: &Token, mut last_id: Option<NodeId>,
+    state: usize, lookahead: &Token, patch: PatchAction, mut last_id: Option<NodeId>,
     metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenNode)
 {
     let mut children: Vec<(NodeId, NodeElement)> = vec![];
@@ -142,7 +190,7 @@ fn create_token_set(
     'leading_trivia: {
         if let Some(leadings) = lookahead.leading_trivia.as_ref() {
             for trivia in leadings {
-                let (child_id, child_node) = create_token_item(state, trivia, NodeType::LeadingToken, last_id.as_ref(), metadata_map);
+                let (child_id, child_node) = create_token_item(state, trivia, NodeType::LeadingToken, patch.clone(), last_id.as_ref(), metadata_map);
                 children.push((child_id, NodeElement::Token(child_node)));
                 last_id = Some(child_id);
             }
@@ -150,20 +198,20 @@ fn create_token_set(
         break 'leading_trivia;
     }
     'main_token_item: {
-        let (child_id, child_node) = create_token_item(state, &lookahead.main, NodeType::TokenItem, last_id.as_ref(), metadata_map);
+        let (child_id, child_node) = create_token_item(state, &lookahead.main, NodeType::TokenItem, patch.clone(), last_id.as_ref(), metadata_map);
         children.push((child_id, NodeElement::Token(child_node)));
         last_id = Some(child_id);
         break 'main_token_item;
     }
-    'trailing_irivia: {
+    'trailing_trivia: {
         if let Some(trailings) = lookahead.trailing_trivia.as_ref() {
             for trivia in trailings {
-                let (child_id, child_node) = create_token_item(state, trivia, NodeType::TrailingToken, last_id.as_ref(), metadata_map);
+                let (child_id, child_node) = create_token_item(state, trivia, NodeType::TrailingToken, patch.clone(), last_id.as_ref(), metadata_map);
                 children.push((child_id, NodeElement::Token(child_node)));
                 last_id = Some(child_id);
             }
         }
-        break 'trailing_irivia;
+        break 'trailing_trivia;
     }
 
     'node_set: {
@@ -177,7 +225,7 @@ fn create_token_set(
         // add metadata
         let metadata_key = NodeMetadataKey{ kind, offset, len, is_leaf: false };
         let metadata = NodeMetadata{ 
-            edit_state: state, node_type: NodeType::TokenSet, recovery: None, 
+            edit_state: state, node_type: NodeType::TokenSet, patch, 
             char_offset, char_len
         };
         metadata_map.insert(id, (metadata, metadata_key));
@@ -205,7 +253,7 @@ fn resolve_token_items_range<'a>(
 }
 
 fn create_token_item(
-    state: usize, lookahead: &ScanEvent, node_type: NodeType,
+    state: usize, lookahead: &ScanEvent, node_type: NodeType, patch: PatchAction,
     last_id: Option<&NodeId>,
     metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenToken) 
 {
@@ -215,13 +263,13 @@ fn create_token_item(
         &lookahead.value.clone().unwrap_or_else (|| "".into())
     );
 
-    let (metadata_key, metadata) = create_token_metadata_pair(lookahead, state, node_type, last_id.and_then(|id| metadata_map.get(&id)));
+    let (metadata_key, metadata) = create_token_metadata_pair(lookahead, state, node_type, patch, last_id.and_then(|id| metadata_map.get(&id)));
     metadata_map.insert(id, (metadata, metadata_key));
 
     (id, node)
 }
 
-fn create_token_metadata_pair(event: &ScanEvent, state: usize, node_type: NodeType, last_metadata: Option<&(NodeMetadata, NodeMetadataKey)>) -> (NodeMetadataKey, NodeMetadata) {
+fn create_token_metadata_pair(event: &ScanEvent, state: usize, node_type: NodeType, patch: PatchAction, last_metadata: Option<&(NodeMetadata, NodeMetadataKey)>) -> (NodeMetadataKey, NodeMetadata) {
     let char_len = event.value.as_ref().map(|s| s.chars().count()).unwrap_or(0);
 
     let char_offset = match last_metadata {
@@ -232,7 +280,7 @@ fn create_token_metadata_pair(event: &ScanEvent, state: usize, node_type: NodeTy
     // add metadata
     let key = NodeMetadataKey{ kind: event.kind, offset: event.offset, len: event.len, is_leaf: true };
     let metadata = NodeMetadata{ 
-        edit_state: state, node_type, recovery: None, 
+        edit_state: state, node_type, patch, 
         char_offset, char_len
     };
 
@@ -240,7 +288,8 @@ fn create_token_metadata_pair(event: &ScanEvent, state: usize, node_type: NodeTy
 }
 
 fn create_node(
-    kind: SyntaxKind, state: usize, pop_count: usize, engine: ParsingRuleSet,
+    kind: SyntaxKind, state: usize, pop_count: usize, patch: PatchAction, 
+    engine: ParsingRuleSet,
     element_stack: &mut Vec<Option<(NodeId, StackEntry)>>,
     metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenNode)
 {
@@ -255,7 +304,7 @@ fn create_node(
     let node = rowan::GreenNode::new(rowan::SyntaxKind(kind.id as u16), child_nodes);
     let key = NodeMetadataKey{ kind, offset, len, is_leaf: false };
     let metadata = NodeMetadata{ 
-        edit_state: state, node_type: NodeType::Node, recovery: None,
+        edit_state: state, node_type: NodeType::Node, patch,
         char_offset, char_len,
     };
     metadata_map.insert(id, (metadata, key));
