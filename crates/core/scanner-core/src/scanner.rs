@@ -131,8 +131,12 @@ fn handle_scan_event(dispatcher: &mut ScanEventDispatcher) -> Option<Token> {
     // scan leading trivia
     let leading_trivia = handle_scan_trivia_event(dispatcher, AcceptableRegexSet::Leading);
     // scan main token
-    let Some(main) = dispatcher.next(&AcceptableRegexSet::Main) else {
-        return None;
+    let main = match dispatcher.next(&AcceptableRegexSet::Main) {
+        Some(event) => event,
+        None if dispatcher.has_more() => dispatcher.invalid(),
+        None => {
+            return None;
+        }
     };
     // scan trailing trivia
     let trailing_trivia = handle_scan_trivia_event(dispatcher, AcceptableRegexSet::Trailing);

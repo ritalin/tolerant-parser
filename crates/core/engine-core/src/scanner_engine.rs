@@ -9,6 +9,7 @@ pub struct ScanningRuleSet {
     acceptable_regex: fn(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]>,
     symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
     eof_id: u32,
+    invalid_id: u32,
     #[builder(setter(name = "regex_rule", custom))]
     regex_cache: Rc<HashMap<usize, RegexScanPattern>>,
 }
@@ -26,20 +27,20 @@ impl ScanningRuleSetBuilder {
 }
 
 impl ScanningRuleSet {
-    pub fn new(
-        lexme_rule: fn(prefix: char) -> Option<&'static [ScanPattern]>,
-        regex_rule: fn(index: usize) -> Option<&'static ScanPattern>,
-        acceptable_regex: fn(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]>,
-        symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
-        eof_id: u32) -> Self
-    {
-        let regex_cache = init_regex_cache(regex_rule, acceptable_regex);
+    // pub fn new(
+    //     lexme_rule: fn(prefix: char) -> Option<&'static [ScanPattern]>,
+    //     regex_rule: fn(index: usize) -> Option<&'static ScanPattern>,
+    //     acceptable_regex: fn(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]>,
+    //     symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
+    //     eof_id: u32) -> Self
+    // {
+    //     let regex_cache = init_regex_cache(regex_rule, acceptable_regex);
 
-        Self { 
-            lexme_rule, acceptable_regex, symbol_lookup, eof_id,
-            regex_cache: Rc::new(regex_cache),
-        }
-    }
+    //     Self { 
+    //         lexme_rule, acceptable_regex, symbol_lookup, eof_id,
+    //         regex_cache: Rc::new(regex_cache),
+    //     }
+    // }
 
     pub fn scan_by_lexme(&self, source: &str, offset: usize) -> Option<ScanEvent> {
         let Some(prefix) = source.chars().nth(0) else {
@@ -81,6 +82,10 @@ impl ScanningRuleSet {
 
     pub fn eof(&self) -> SyntaxKind {
         (self.symbol_lookup)(self.eof_id).clone()
+    }
+
+    pub fn invalid(&self) -> SyntaxKind {
+        (self.symbol_lookup)(self.invalid_id).clone()
     }
 }
 
@@ -129,6 +134,7 @@ impl Default for ScanningRuleSet {
             acceptable_regex: default_acceptable_regex_lookup,
             symbol_lookup: default_symbol_lookup,
             eof_id: 0,
+            invalid_id: 0,
             regex_cache: Default::default(),
         }
     }

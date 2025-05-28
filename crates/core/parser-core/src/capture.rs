@@ -98,7 +98,7 @@ impl ParseEventCapture {
                     self.accepted = true;
                     break;
                 }
-                ParseEvent::Invalid { .. } => {
+                ParseEvent::PatchDrop { .. } | ParseEvent::Invalid { .. } => {
                     self.scanner.shift();
 
                     if !self.config.no_parse {

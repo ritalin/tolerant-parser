@@ -88,5 +88,17 @@ impl ScanEventDispatcher {
             }
         }
     }
+
+    pub fn invalid(&mut self) -> ScanEvent {
+        let offset = self.index;
+        let value = self.source.get(offset..offset+1).map(String::from);
+        self.index += 1;
+
+        ScanEvent{ kind: self.engine.invalid(), offset, len: 1, value }
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.index < self.source.len()
+    }
 }
 
