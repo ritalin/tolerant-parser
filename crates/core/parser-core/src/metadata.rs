@@ -12,15 +12,29 @@ pub struct NodeMetadataKey {
 pub struct NodeMetadata {
     pub edit_state: usize,
     pub node_type: NodeType,
-    pub recovery: Option<Recovery>,
+    pub patch: PatchAction,
     pub char_offset: usize,
     pub char_len: usize,
 }
 
 #[derive(PartialEq, Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub enum Recovery {
+pub enum PatchAction {
+    None,
     Delete,
     Shift,
+    Invalid,
+}
+
+impl std::fmt::Display for PatchAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            PatchAction::None => "None",
+            PatchAction::Delete => "Delete",
+            PatchAction::Shift => "Shift",
+            PatchAction::Invalid => "Invalid",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 #[derive(PartialEq, Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -30,7 +44,6 @@ pub enum NodeType {
     TokenItem,
     LeadingToken,
     TrailingToken,
-    Error,
 }
 
 impl std::fmt::Display for NodeType {
@@ -41,7 +54,6 @@ impl std::fmt::Display for NodeType {
             NodeType::TokenItem => "TokenItem",
             NodeType::LeadingToken => "LeadingToken",
             NodeType::TrailingToken => "TrailingToken",
-            NodeType::Error => "Error",
         };
 
         write!(f, "{name}")

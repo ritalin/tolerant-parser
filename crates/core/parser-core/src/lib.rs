@@ -7,7 +7,7 @@ pub mod capture;
 mod state_stack;
 
 mod metadata;
-pub use metadata::{NodeMetadataKey, NodeMetadata, NodeType, Recovery};
+pub use metadata::{NodeMetadataKey, NodeMetadata, NodeType, PatchAction};
 
 mod parser;
 pub use parser::DefaultPasrser as Parser;

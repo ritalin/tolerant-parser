@@ -262,7 +262,7 @@ mod dispatcher_support_tests {
             let lookahead = lookaheads.peek().map(|x| x.kind);
             lookaheads.next();
             let event = dispatcher.next(lookahead)?;
-            let expect_event = ParseEvent::RecoverDrop { kind: syntax_kind::BLOB, current_state: 122, next_state: 122, edit_state: 122 };
+            let expect_event = ParseEvent::PatchDrop { kind: syntax_kind::BLOB, current_state: 122, next_state: 122, edit_state: 122 };
             assert_eq!(expect_event, event);
             break 'next_state;
         }
@@ -270,7 +270,7 @@ mod dispatcher_support_tests {
             let lookahead = lookaheads.peek().map(|x| x.kind);
             lookaheads.next();
             let event = dispatcher.next(lookahead)?;
-            let expect_event = ParseEvent::RecoverDrop { kind: syntax_kind::INTEGER, current_state: 122, next_state: 122, edit_state: 122 };
+            let expect_event = ParseEvent::PatchDrop { kind: syntax_kind::INTEGER, current_state: 122, next_state: 122, edit_state: 122 };
             assert_eq!(expect_event, event);
             break 'next_state;
         }
@@ -350,21 +350,21 @@ mod dispatcher_support_tests {
         'next_state: {
             let lookahead = lookaheads.peek().map(|x| x.kind);
             let event = dispatcher.next(lookahead)?;
-            let expect_event = ParseEvent::RecoverReduce { kind: syntax_kind::term, current_state: 122, next_state: 128, edit_state: 238, pop_count: 1 };
+            let expect_event = ParseEvent::PatchReduce { kind: syntax_kind::term, current_state: 122, next_state: 128, edit_state: 238, pop_count: 1 };
             assert_eq!(expect_event, event);
             break 'next_state;
         }
         'next_state: {
             let lookahead = lookaheads.peek().map(|x| x.kind);
             let event = dispatcher.next(lookahead)?;
-            let expect_event = ParseEvent::RecoverReduce { kind: syntax_kind::expr, current_state: 128, next_state: 361, edit_state: 238, pop_count: 1 };
+            let expect_event = ParseEvent::PatchReduce { kind: syntax_kind::expr, current_state: 128, next_state: 361, edit_state: 238, pop_count: 1 };
             assert_eq!(expect_event, event);
             break 'next_state;
         }
         'next_state: {
             let lookahead = lookaheads.peek().map(|x| x.kind);
             let event = dispatcher.next(lookahead)?;
-            let expect_event = ParseEvent::RecoverShift { kind: syntax_kind::STAR, current_state: 361, next_state: 214, edit_state: 361 };
+            let expect_event = ParseEvent::PatchShift { kind: syntax_kind::STAR, current_state: 361, next_state: 214, edit_state: 361 };
             assert_eq!(expect_event, event);
             break 'next_state;
         }

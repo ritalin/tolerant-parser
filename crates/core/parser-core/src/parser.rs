@@ -41,11 +41,11 @@ impl DefaultPasrser {
             };
 
             match event {
-                Ok(ParseEvent::Shift { .. }) => {
+                Ok(ParseEvent::Shift { .. } | ParseEvent::Invalid { .. }) => {
                     scanner.shift();
                     tree_builder.add_token_set(event?, lookahead.as_ref())?;
                 }
-                Ok(ParseEvent::Reduce { .. }) => {
+                Ok(ParseEvent::Reduce { .. } | ParseEvent::PatchReduce { .. }) => {
                     tree_builder.add_node(event?)?;
                 }
                 Ok(ParseEvent::Emit { .. }) => {
@@ -65,25 +65,20 @@ impl DefaultPasrser {
                         }
                         None => {
                             // Recovery failed
-                            // dispatcher.push_recover_event(recovery_handler.handle_invalid(lookaheads));
-                            todo!()
+                            let need_emit = self.engine.parsing_rules.statement_emit_config().is_some();
+                            dispatcher.post_recovery_event(&recovery_handler.handle_as_invalid(lookaheads, need_emit));
                         }
                     }
                 }
-                Ok(ParseEvent::RecoverDrop { .. }) => {
-                    todo!()
+                Ok(ParseEvent::PatchDrop { .. }) => {
+                    scanner.shift();
+                    tree_builder.add_patch_drop_token_set(event?, lookahead.as_ref())?;
                 }
-                Ok(ParseEvent::RecoverShift { .. }) => {
-                    todo!()
+                Ok(ParseEvent::PatchShift { .. }) => {
+                    tree_builder.add_patch_shift_token_set(event?)?;
                 }
-                Ok(ParseEvent::RecoverReduce { .. }) => {
-                    todo!()
-                }
-                Ok(ParseEvent::Invalid { .. }) => {
-                    todo!()
-                }
-                Err(_) => {
-                    event?;
+                Err(err) => {
+                    Err(err)?;
                 }
             }
         }

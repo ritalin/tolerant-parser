@@ -1,5 +1,5 @@
 use engine_core::parser_engine::ParsingRuleSet;
-use parser_core::{syntax_tree::{MetadataAccess, SyntaxElement, SyntaxNode, SyntaxTokenItem, SyntaxTokenItems, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey, Recovery};
+use parser_core::{syntax_tree::{MetadataAccess, SyntaxElement, SyntaxNode, SyntaxTokenItem, SyntaxTokenItems, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey, PatchAction};
 use serde::ser::SerializeStruct;
 
 #[derive(Debug)]
@@ -54,14 +54,7 @@ pub fn verify<'a>(actual: &ActualNode, expect_node: &ExpectNode, engine: Parsing
 }
 
 fn verify_member<'a>(member: &'a impl MetadataAccess, ExpectMetadata(key, metadata): &ExpectMetadata, engine: ParsingRuleSet, _actual_depth: usize) {
-    'verify_key: {
-        assert_eq!(key.of(engine), member.metadata_key());
-        break 'verify_key;
-    }
-    'verify_metadata: {
-        assert_eq!(&metadata.of(), member.metadata());
-        break 'verify_metadata;
-    }
+    assert_eq!((key.of(engine), &metadata.of()), (member.metadata_key(), member.metadata()));
 }
 
 fn verify_trivia(trivia_items: SyntaxTokenItems, actual_count: usize, expect: &[ExpectNode], engine: ParsingRuleSet, depth: usize) {
@@ -138,19 +131,19 @@ impl From<&NodeMetadataKey> for ExpectMetadataKey {
 pub struct ExpectMetadataValue {
     pub edit_state: usize,
     pub node_type: parser_core::NodeType,
-    pub recovery: Option<Recovery>,
+    pub patch: PatchAction,
     pub char_offset: usize,
     pub char_len: usize,
 }
 
 impl ExpectMetadataValue {
     pub fn of(&self) -> NodeMetadata {
-        NodeMetadata{ edit_state: self.edit_state, node_type: self.node_type.clone(), recovery: self.recovery.clone(), char_offset: self.char_offset, char_len: self.char_len }
+        NodeMetadata{ edit_state: self.edit_state, node_type: self.node_type.clone(), patch: self.patch.clone(), char_offset: self.char_offset, char_len: self.char_len }
     }
 }
 
 impl From<&NodeMetadata> for ExpectMetadataValue {
     fn from(value: &NodeMetadata) -> Self {
-        Self { edit_state: value.edit_state, node_type: value.node_type.clone(), recovery: value.recovery.clone(), char_offset: value.char_offset, char_len: value.char_len }
+        Self { edit_state: value.edit_state, node_type: value.node_type.clone(), patch: value.patch.clone(), char_offset: value.char_offset, char_len: value.char_len }
     }
 }

@@ -79,7 +79,9 @@ impl RecoveryEventDispatcher {
     }
 }
 
-pub(crate) fn make_stack(state_histories: &[usize]) -> StateStack {
+#[cfg(feature = "test_support")]
+#[doc(hidden)]
+fn make_stack(state_histories: &[usize]) -> StateStack {
     let initial_state = state_histories.first().cloned().unwrap_or_default();
 
     let mut stack = StateStack::new(initial_state);

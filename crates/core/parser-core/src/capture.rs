@@ -104,6 +104,11 @@ impl ParseEventCapture {
                     if !self.config.no_parse {
                         self.event_queue.push_back(Some(CaptureEvent::Parse(event)));
                     }
+                    if !self.config.no_scan {
+                        if let Some(lookahead) = self.scanner.lookahead() {
+                            self.event_queue.push_back(Some(CaptureEvent::Scan(lookahead.clone())));
+                        }
+                    }
                 }
                 event => {
                     if !self.config.no_parse {

@@ -112,7 +112,7 @@ impl ParseEventDispatcher {
             match recover {
                 RecoveryEvent::PatchDelete { kind, state } => {
                     self.event_queue.push_back(
-                        ParseEvent::RecoverDrop { kind: *kind, current_state: *state, next_state: *state, edit_state: *state }
+                        ParseEvent::PatchDrop { kind: *kind, current_state: *state, next_state: *state, edit_state: *state }
                     );
                 }
                 RecoveryEvent::PatchShift(RecoveryEventPayload::Shift { kind, state, next_state }) => {
@@ -120,7 +120,7 @@ impl ParseEventDispatcher {
                     let edit_state = self.state_stack.mark_checkpoint(*state);
                     
                     self.event_queue.push_back(
-                        ParseEvent::RecoverShift { kind: *kind, current_state: *state, next_state: *next_state, edit_state }
+                        ParseEvent::PatchShift { kind: *kind, current_state: *state, next_state: *next_state, edit_state }
                     );
                 }
                 RecoveryEvent::PatchShift(RecoveryEventPayload::Reduce { kind, state, next_state, pop_count }) => {
@@ -133,7 +133,7 @@ impl ParseEventDispatcher {
                     ;
                     
                     self.event_queue.push_back(
-                        ParseEvent::RecoverReduce { kind: *kind, current_state: *state, next_state: *next_state, edit_state, pop_count: *pop_count }
+                        ParseEvent::PatchReduce { kind: *kind, current_state: *state, next_state: *next_state, edit_state, pop_count: *pop_count }
                     );
                 }
                 RecoveryEvent::PatchShift(RecoveryEventPayload::Accept { .. }) => {
@@ -237,7 +237,7 @@ pub enum ParseEvent {
         /// edit state for incremental parsing
         edit_state: usize,
     },
-    RecoverDrop {
+    PatchDrop {
         kind: SyntaxKind, 
         /// transition before state
         current_state: usize, 
@@ -246,7 +246,7 @@ pub enum ParseEvent {
         /// edit state for incremental parsing
         edit_state: usize,
     },
-    RecoverShift { 
+    PatchShift { 
         kind: SyntaxKind, 
         /// transition before state
         current_state: usize, 
@@ -255,7 +255,7 @@ pub enum ParseEvent {
         /// edit state for incremental parsing
         edit_state: usize,
     },
-    RecoverReduce{ 
+    PatchReduce{ 
         kind: SyntaxKind, 
         /// transition before state
         current_state: usize, 
@@ -282,9 +282,9 @@ impl ParseEvent {
             ParseEvent::Reduce { kind, .. } => *kind,
             ParseEvent::Emit { kind, .. } => *kind,
             ParseEvent::Accept { kind, .. } => *kind,
-            ParseEvent::RecoverDrop { kind, .. } => *kind,
-            ParseEvent::RecoverShift { kind, .. } => *kind,
-            ParseEvent::RecoverReduce { kind, .. } => *kind,
+            ParseEvent::PatchDrop { kind, .. } => *kind,
+            ParseEvent::PatchShift { kind, .. } => *kind,
+            ParseEvent::PatchReduce { kind, .. } => *kind,
             ParseEvent::Invalid { kind, .. } => *kind,
         }
     }
