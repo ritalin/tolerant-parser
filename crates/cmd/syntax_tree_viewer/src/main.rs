@@ -14,6 +14,9 @@ fn main() -> Result<(), anyhow::Error> {
     let parser = parser_core::Parser::new(engine);
     let tree = parser.parse(&source)?;
     
+    println!("`{}`", source);
+    println!("--------------------------------------------------------------------------------");
+    
     print_tree(&tree.root(), &cmd_config);
     Ok(())
 }
