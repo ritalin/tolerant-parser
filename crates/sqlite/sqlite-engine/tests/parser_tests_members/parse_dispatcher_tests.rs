@@ -3,13 +3,15 @@ use engine_core::Engine;
 
 #[cfg(test)]
 mod default_scanner_engine_tests {
+    use parser_core::ParseMode;
+
     use super::*;
 
     #[test]
     fn test_next_event() -> Result<(), anyhow::Error> {
         let engine = Engine::default().parsing_rules;
         let eof_kind = engine.full_emit_config().to_symbol;
-        let mut dispatcher = ParseEventDispatcher::new(0, engine);
+        let mut dispatcher = ParseEventDispatcher::new(0, ParseMode::ByStatement, engine);
 
         let expect_event = ParseEvent::Shift { kind: eof_kind, current_state: 0, next_state: 0, edit_state: 0 };
         assert_eq!(Ok(expect_event), dispatcher.next(Some(eof_kind)));
@@ -21,14 +23,14 @@ mod default_scanner_engine_tests {
 #[cfg(test)]
 #[cfg(not(engine_ungenerated))]
 mod dispatcher_tests {
-    use parser_core::event_dispatcher::ParseEventError;
+    use parser_core::{event_dispatcher::ParseEventError, ParseMode};
     use sqlite_engine::syntax_kind;
     use super::*;
 
     #[test]
     fn test_parse_empty_source() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?.parsing_rules;
-        let mut dispatcher = ParseEventDispatcher::new(0, engine);
+        let mut dispatcher = ParseEventDispatcher::new(0, ParseMode::ByStatement, engine);
 
         let expect_event = ParseEvent::Shift { kind: syntax_kind::r#EOF, current_state: 0, next_state: 0, edit_state: 0 };
         assert_eq!(Ok(expect_event), dispatcher.next(Some(syntax_kind::r#EOF)));
@@ -39,7 +41,7 @@ mod dispatcher_tests {
     #[test]
     fn test_parse_shift() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?.parsing_rules;
-        let mut dispatcher = ParseEventDispatcher::new(0, engine);
+        let mut dispatcher = ParseEventDispatcher::new(0, ParseMode::ByStatement, engine);
 
         'next_state: {
             let expected_event = ParseEvent::Shift{ kind: syntax_kind::r#SELECT, current_state: 0, next_state: 18, edit_state: 0 };
@@ -59,7 +61,7 @@ mod dispatcher_tests {
     #[test]
     fn test_parse_reduce() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?.parsing_rules;
-        let mut dispatcher = ParseEventDispatcher::new(0, engine);
+        let mut dispatcher = ParseEventDispatcher::new(0, ParseMode::ByStatement, engine);
 
         'next_state: {
             let expected_event = ParseEvent::Shift{ kind: syntax_kind::r#SELECT, current_state: 0, next_state: 18, edit_state: 0 };
@@ -104,7 +106,7 @@ mod dispatcher_tests {
     #[test]
     fn test_parse_accept() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?.parsing_rules;
-        let mut dispatcher = ParseEventDispatcher::new(22, engine);
+        let mut dispatcher = ParseEventDispatcher::new(22, ParseMode::ByStatement, engine);
 
         'next_state: {
             let expected_event = ParseEvent::Shift{ kind: syntax_kind::r#EOF, current_state: 22, next_state: 74, edit_state: 22 };
@@ -131,7 +133,7 @@ mod dispatcher_tests {
     #[test]
     fn test_no_more_state() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?.parsing_rules;
-        let mut dispatcher = ParseEventDispatcher::new(74, engine);
+        let mut dispatcher = ParseEventDispatcher::new(74, ParseMode::ByStatement, engine);
             
         'next_state: {
             let expected_event = ParseEvent::Accept{ kind: syntax_kind::r#input, last_state: 74, edit_state: 0 };
@@ -151,7 +153,7 @@ mod dispatcher_tests {
     #[test]
     fn test_not_acceptable_state() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?.parsing_rules;
-        let mut dispatcher = ParseEventDispatcher::new(0, engine);
+        let mut dispatcher = ParseEventDispatcher::new(0, ParseMode::ByStatement, engine);
             
         'next_state: {
             assert_eq!(Err(ParseEventError::NotAccept), dispatcher.next(None));
@@ -163,23 +165,27 @@ mod dispatcher_tests {
     }
 
     mod broken_table {
-        use engine_core::parser_engine::{ParsingRuleSet, Transition};
+        use engine_core::parser_engine::{ParsingRuleSetBuilder, Transition};
 
         use super::*;
 
         #[test]
         fn test_goto_failed() -> Result<(), anyhow::Error> {
-            let engine = ParsingRuleSet::new(
-                next_lookahead_translation,
-                |_kind, _state| None,
-                || None,
-                |_| &syntax_kind::r#EOF,
-                |_p, _c| None,
-                |_| vec![],
-                (0, 0), None,
-            );
+            let engine = ParsingRuleSetBuilder::default()
+                .lookahead_translation(next_lookahead_translation)
+                .goto_translation(|_kind, _state| None)
+                .accept_transition(|| None)
+                .symbol_lookup(|_| &syntax_kind::r#EOF)
+                .alternative_symbol_lookup(|_p, _c| None)
+                .candidate_symbols(|_| vec![])
+                .full_emit_config(0, 0)
+                .statement_emit_config(0, 0)
+                .invalid_statement_emit_config(0, 0)
+                .build()?
+            ;
+
             sqlite_engine::create()?.parsing_rules;
-            let mut dispatcher = ParseEventDispatcher::new(1, engine);
+            let mut dispatcher = ParseEventDispatcher::new(1, ParseMode::ByStatement, engine);
 
             'next_state: {
                 assert_eq!(Err(ParseEventError::NoGotoCandidate { state: 1, lhs: "EOF".into() }), dispatcher.next(Some(syntax_kind::r#SEMI)));
@@ -201,7 +207,7 @@ mod dispatcher_support_tests {
     use std::collections::VecDeque;
 
     use engine_core::{scanner_engine::ScanEvent, SyntaxKind};
-    use parser_core::{error_recovery::{RecoveryEvent, RecoveryEventDispatcher, RecoveryEventPayload, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher}};
+    use parser_core::{error_recovery::{RecoveryEvent, RecoveryEventDispatcher, RecoveryEventPayload, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher}, ParseMode};
     use scanner_core::{LookaheadIterator, Token};
     use sqlite_engine::syntax_kind;
 
@@ -216,7 +222,7 @@ mod dispatcher_support_tests {
     #[test]
     fn test_borrow_stack() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?.parsing_rules;
-        let mut dispatcher = ParseEventDispatcher::new(0, engine);
+        let mut dispatcher = ParseEventDispatcher::new(0, ParseMode::ByStatement, engine);
 
         prepare_dispatcher_state(&mut dispatcher, &[
             (syntax_kind::SELECT, 1),
@@ -234,7 +240,7 @@ mod dispatcher_support_tests {
     #[test]
     fn test_post_delete_recovery_event() -> Result<(), anyhow::Error>{
         let engine = sqlite_engine::create()?.parsing_rules;
-        let mut dispatcher = ParseEventDispatcher::new(0, engine);
+        let mut dispatcher = ParseEventDispatcher::new(0, ParseMode::ByStatement, engine);
 
         prepare_dispatcher_state(&mut dispatcher, &[
             (syntax_kind::SELECT, 1),
@@ -324,7 +330,7 @@ mod dispatcher_support_tests {
     #[test]
     fn test_post_shift_recovery_event() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?.parsing_rules;
-        let mut dispatcher = ParseEventDispatcher::new(0, engine);
+        let mut dispatcher = ParseEventDispatcher::new(0, ParseMode::ByStatement, engine);
 
         prepare_dispatcher_state(&mut dispatcher, &[
             (syntax_kind::SELECT, 1),
@@ -419,7 +425,7 @@ mod dispatcher_support_tests {
     #[test]
     fn test_post_invalid_recovery_event() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?.parsing_rules;
-        let mut dispatcher = ParseEventDispatcher::new(0, engine);
+        let mut dispatcher = ParseEventDispatcher::new(0, ParseMode::ByStatement, engine);
         let penalty = RecoveryPenalty{ delete_slot: 0, shift_limit: 0, shift_decay: 0, next_shift_decay: 0, max_shift_packet_size: 0 };
         let recovery_handler = RecoveryEventDispatcher::new(penalty, engine);
 
@@ -447,7 +453,7 @@ mod dispatcher_support_tests {
             },
         ]);
 
-        let recover_events = recovery_handler.handle_as_invalid(LookaheadIterator::new(&lookaheads, lookaheads.len()), true);
+        let recover_events = recovery_handler.handle_as_invalid(LookaheadIterator::new(&lookaheads, lookaheads.len()));
         dispatcher.post_recovery_event(&recover_events);
 
         'next_state: {

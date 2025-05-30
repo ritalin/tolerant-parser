@@ -1,16 +1,18 @@
 use std::collections::VecDeque;
 use engine_core::{parser_engine::{ParsingRuleSet, Transition}, SyntaxKind};
-use crate::{error_recovery::RecoveryEventPayload, parser::RecoveryEvent, state_stack::StateStack};
+use crate::{error_recovery::RecoveryEventPayload, parser::{ParseMode, RecoveryEvent}, state_stack::StateStack};
 
 pub struct ParseEventDispatcher {
+    mode: ParseMode,
     state_stack: StateStack,
     event_queue: VecDeque<ParseEvent>,
     engine: ParsingRuleSet,
 }
 
 impl ParseEventDispatcher {
-    pub fn new(initial_state: usize, engine: ParsingRuleSet) -> Self {
+    pub fn new(initial_state: usize, mode: ParseMode, engine: ParsingRuleSet) -> Self {
         Self {
+            mode,
             state_stack: StateStack::new(initial_state),
             event_queue: VecDeque::new(),
             engine,
@@ -24,19 +26,20 @@ impl ParseEventDispatcher {
 
         // peek event
         let event = self.next_internal(lookahead_kind)?;
+        let emit_config = self.engine.statement_emit_config();
 
-        if let Some(config) = self.engine.statement_emit_config() {
+        if self.mode == ParseMode::ByStatement {
             let initial_state = self.state_stack.initial_state();
             match event.kind() {
-                kind if kind == config.to_symbol => {
+                kind if kind == emit_config.to_symbol => {
                     // additional emit event
-                    self.event_queue.push_back(ParseEvent::Emit { kind: config.from_symbol, edit_state: initial_state });
+                    self.event_queue.push_back(ParseEvent::Emit { kind: emit_config.from_symbol, edit_state: initial_state });
                 }
                 kind => {
                     let full_emit_config = self.engine.full_emit_config();
                     if kind == full_emit_config.to_symbol {
                         // additional emit event
-                        self.event_queue.push_back(ParseEvent::Emit { kind: config.from_symbol, edit_state: initial_state });
+                        self.event_queue.push_back(ParseEvent::Emit { kind: emit_config.from_symbol, edit_state: initial_state });
                         // additional accept event
                         self.event_queue.push_back(ParseEvent::Accept { kind: full_emit_config.from_symbol, last_state: initial_state, edit_state: initial_state });
                     }
@@ -174,11 +177,35 @@ impl ParseEventDispatcher {
                     });
 
                     if *need_emit {
-                        if let Some(config) = self.engine.statement_emit_config() {
-                            // post emit event
-                            self.event_queue.push_back(
-                                ParseEvent::Emit { kind: config.from_symbol, edit_state: initial_state }
-                            );
+                        // post emit event
+                        match self.mode {
+                            ParseMode::ByStatement => {
+                                let statement_emit = self.engine.statement_emit_config();
+                                self.event_queue.push_back(
+                                    ParseEvent::Emit { kind: statement_emit.from_symbol, edit_state: initial_state }
+                                );
+                            }
+                            ParseMode::Full => {
+                                // ParseMode::Full needs to rewind state stack
+                                let statement_emit = self.engine.invalid_statement_emit_config();
+                                let mut pop_count = 0;
+                                while let Some(state) = self.state_stack.peek_state().cloned() {
+                                    match self.engine.next_lookahead_state(statement_emit.to_symbol.id, state) {
+                                        Some(Transition::Shift { next_state }) => {
+                                            self.state_stack.push_state(*next_state);
+                                            break;
+                                        }
+                                        _ => {}
+                                    }
+                                    
+                                    self.state_stack.pop_n_state(1);
+                                    pop_count += 1;
+                                }
+
+                                self.event_queue.push_back(
+                                    ParseEvent::InvalidEmit { kind: statement_emit.from_symbol, edit_state: initial_state, pop_count: pop_count }
+                                );
+                            }
                         }
                     }
                 }
@@ -272,6 +299,13 @@ pub enum ParseEvent {
         current_state: usize, 
         /// edit state for incremental parsing
         edit_state: usize,
+    },
+    InvalidEmit{
+        kind: SyntaxKind, 
+        /// edit state for incremental parsing
+        edit_state: usize,
+        /// count for popped from state stack
+        pop_count: usize, 
     }
 }
 
@@ -286,6 +320,7 @@ impl ParseEvent {
             ParseEvent::PatchShift { kind, .. } => *kind,
             ParseEvent::PatchReduce { kind, .. } => *kind,
             ParseEvent::Invalid { kind, .. } => *kind,
+            ParseEvent::InvalidEmit { kind, .. } => *kind,
         }
     }
 }

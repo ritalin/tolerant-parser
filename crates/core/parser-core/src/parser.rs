@@ -14,43 +14,44 @@ impl DefaultPasrser {
     }
 
     pub fn parse(&self, source: &str) -> Result<super::syntax_tree::SyntaxTree, ParseError> {
-        let recovery_penalty = RecoveryPenalty {
-            delete_slot: 3,
-            shift_limit: 10,
-            shift_decay: 0,
-            next_shift_decay: 1,
-            max_shift_packet_size: 10,
+        let config = ParserConfig {
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
         };
 
-        let terminate_symbol = self.engine.parsing_rules
-            .statement_emit_config()
-            .unwrap_or_else(|| self.engine.parsing_rules.full_emit_config())
-            .to_symbol
-        ;
+        self.parse_with_config(source, config)
+    }
+
+    pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<super::syntax_tree::SyntaxTree, ParseError> {
+        let terminate_symbol = self.engine.parsing_rules.statement_emit_config().to_symbol;
 
         let mut scanner = Scanner::create(source, 0, self.engine.scanning_rules.clone())?;
-        let mut dispatcher = ParseEventDispatcher::new(0, self.engine.parsing_rules);
+        let mut dispatcher = ParseEventDispatcher::new(0, config.mode.clone(), self.engine.parsing_rules);
         let mut tree_builder = SyntaxTreeBuilder::new(self.engine.parsing_rules, None);
-        let mut recovery_handler = RecoveryEventDispatcher::new(recovery_penalty, self.engine.parsing_rules);
+        let mut recovery_handler = RecoveryEventDispatcher::new(config.penalty, self.engine.parsing_rules);
 
         loop { 
             let (event, lookahead) = match scanner.lookahead().cloned() {
                 Some(lookahead) => (dispatcher.next(Some(lookahead.main.kind)), Some(lookahead)),
                 None if dispatcher.has_next() => (dispatcher.next(None), None),
+                None if config.mode == ParseMode::Full => (dispatcher.next(None), None),
                 None => break,
             };
 
             match event {
-                Ok(ParseEvent::Shift { .. } | ParseEvent::Invalid { .. }) => {
+                Ok(ParseEvent::Shift { .. }) => {
                     scanner.shift();
                     tree_builder.add_token_set(event?, lookahead.as_ref())?;
                 }
                 Ok(ParseEvent::Reduce { .. } | ParseEvent::PatchReduce { .. }) => {
                     tree_builder.add_node(event?)?;
                 }
-                Ok(ParseEvent::Emit { .. }) => {
+                Ok(ParseEvent::Emit { .. } | ParseEvent::InvalidEmit { .. }) => {
                     tree_builder.emit_statement(event?)?;
-                    dispatcher.flush_state();
+
+                    if config.mode == ParseMode::ByStatement {
+                        dispatcher.flush_state();
+                    }
                 }
                 Ok(ParseEvent::Accept { .. }) => {
                     return Ok(tree_builder.build(event?)?);
@@ -65,14 +66,17 @@ impl DefaultPasrser {
                         }
                         None => {
                             // Recovery failed
-                            let need_emit = self.engine.parsing_rules.statement_emit_config().is_some();
-                            dispatcher.post_recovery_event(&recovery_handler.handle_as_invalid(lookaheads, need_emit));
+                            dispatcher.post_recovery_event(&recovery_handler.handle_as_invalid(lookaheads));
                         }
                     }
                 }
-                Ok(ParseEvent::PatchDrop { .. }) => {
+                Ok(ParseEvent::Invalid { .. }) if config.mode == ParseMode::ByStatement => {
                     scanner.shift();
-                    tree_builder.add_patch_drop_token_set(event?, lookahead.as_ref())?;
+                    tree_builder.add_token_set(event?, lookahead.as_ref())?;
+                }
+                Ok(ParseEvent::PatchDrop { .. } | ParseEvent::Invalid { .. }) => {
+                    scanner.shift();
+                    tree_builder.add_invisible_token_set(event?, lookahead.as_ref())?;
                 }
                 Ok(ParseEvent::PatchShift { .. }) => {
                     tree_builder.add_patch_shift_token_set(event?)?;
@@ -85,6 +89,41 @@ impl DefaultPasrser {
 
         Err(ParseError::ByEvent(ParseEventError::NotAccept))
     }
+}
+
+/// Specifies the parsing mode behavior.
+///
+/// - `Full`: Parses the entire input as a single unit without explicitly
+///   emitting individual statements. This typically results in a recursive
+///   AST structure like:
+///
+///   ```text
+///   root
+///     └─ stmt_list
+///           ├─ stmt
+///           └─ stmt_list
+///                 ├─ stmt
+///                 └─ ...
+///   ```
+///
+/// - `ByStatement`: Emits each statement as it is parsed, resetting internal
+///   state between statements. This results in a flatter AST structure:
+///
+///   ```text
+///   root
+///     ├─ stmt
+///     ├─ stmt
+///     └─ ...
+///   ```
+#[derive(PartialEq, Clone)]
+pub enum ParseMode {
+    Full,
+    ByStatement,
+}
+
+pub struct ParserConfig {
+    pub mode: ParseMode,
+    pub penalty: RecoveryPenalty,
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -11,9 +11,9 @@ pub struct StitchRecoveryHandler {
 impl StitchRecoveryHandler {
     pub fn new(engine: ParsingRuleSet) -> Self {
         let terminate_kinds = [
-            engine.statement_emit_config().map(|config| config.to_symbol.id),
-            Some(engine.full_emit_config().to_symbol.id)
-        ].into_iter().flatten().collect::<HashSet<u32>>();
+            engine.statement_emit_config().to_symbol.id,
+            engine.full_emit_config().to_symbol.id
+        ].into_iter().collect::<HashSet<u32>>();
 
         Self { engine, terminate_kinds }
     }

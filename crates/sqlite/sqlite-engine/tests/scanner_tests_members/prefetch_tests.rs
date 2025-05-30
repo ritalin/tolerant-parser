@@ -92,7 +92,7 @@ fn test_prefetch_statement() -> Result<(), anyhow::Error> {
     scanner.shift();
     scanner.shift();
 
-    let terminate_symbol = engine.parsing_rules.statement_emit_config().unwrap().to_symbol;
+    let terminate_symbol = engine.parsing_rules.statement_emit_config().to_symbol;
     let lookaheads = scanner.prefetch(terminate_symbol);
 
     let expected_lookaheads = VecDeque::from([
@@ -145,7 +145,7 @@ fn test_prefetch_statement_twice() -> Result<(), anyhow::Error> {
     scanner.shift();
     scanner.shift();
 
-    let terminate_symbol = engine.parsing_rules.statement_emit_config().unwrap().to_symbol;
+    let terminate_symbol = engine.parsing_rules.statement_emit_config().to_symbol;
     scanner.prefetch(terminate_symbol);
     let lookaheads = scanner.prefetch(terminate_symbol);
 

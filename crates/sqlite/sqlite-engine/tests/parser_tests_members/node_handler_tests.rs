@@ -367,7 +367,7 @@ mod build_tree_tests {
             ParseEvent::Accept{ kind: syntax_kind::r#expr, last_state: 29, edit_state: 0 },
     ];
 
-        handler.add_patch_drop_token_set(events[0].clone(), lookaheads.get(0))?;
+        handler.add_invisible_token_set(events[0].clone(), lookaheads.get(0))?;
         handler.add_token_set(events[1].clone(), lookaheads.get(1))?;
         handler.add_node(events[2].clone())?;
 

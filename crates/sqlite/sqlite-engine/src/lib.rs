@@ -110,6 +110,7 @@ pub mod builder {
             .candidate_symbols(get_candidate_symbols)
             .full_emit_config(super::syntax_kind::r#input.id, super::syntax_kind::r#EOF.id)
             .statement_emit_config(super::syntax_kind::r#ecmd.id, super::syntax_kind::r#SEMI.id)
+            .invalid_statement_emit_config(super::syntax_kind::r#cmdx.id, super::syntax_kind::r#SEMI.id)
         ;
         builder
     }

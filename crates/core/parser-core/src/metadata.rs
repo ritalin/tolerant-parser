@@ -1,6 +1,6 @@
 use engine_core::SyntaxKind;
 
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct NodeMetadataKey {
     pub kind: SyntaxKind,
     pub offset: usize,
@@ -8,7 +8,7 @@ pub struct NodeMetadataKey {
     pub is_leaf: bool,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct NodeMetadata {
     pub edit_state: usize,
     pub node_type: NodeType,

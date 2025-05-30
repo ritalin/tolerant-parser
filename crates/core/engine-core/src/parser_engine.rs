@@ -10,8 +10,10 @@ pub struct ParsingRuleSet {
     candidate_symbols: fn(state: usize) -> Vec<&'static SyntaxKind>,
     #[builder(setter(custom))]
     full_emit_config: (u32, u32),
-    #[builder(default = None, setter(custom))]
-    statement_emit_config: Option<(u32, u32)>,
+    #[builder(setter(custom))]
+    statement_emit_config: (u32, u32),
+    #[builder(setter(custom))]
+    invalid_statement_emit_config: (u32, u32),
 }
 
 impl ParsingRuleSetBuilder {
@@ -21,33 +23,38 @@ impl ParsingRuleSetBuilder {
     }
 
     pub fn statement_emit_config(&mut self, from_kind_id: u32, to_kind_id: u32) -> &mut Self {
-        self.statement_emit_config = Some(Some((from_kind_id, to_kind_id)));
+        self.statement_emit_config = Some((from_kind_id, to_kind_id));
+        self
+    }
+
+    pub fn invalid_statement_emit_config(&mut self, from_kind_id: u32, to_kind_id: u32) -> &mut Self {
+        self.invalid_statement_emit_config = Some((from_kind_id, to_kind_id));
         self
     }
 }
 
 impl ParsingRuleSet {
-    pub fn new(
-        lookahead_translation: fn(kind_id: u32, state: usize) -> Option<&'static Transition>,
-        goto_translation: fn(kind_id: u32, state: usize) -> Option<&'static usize>,
-        accept_transition: fn() -> Option<&'static Transition>,
-        symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
-        alternative_symbol_lookup: fn(parent_kind_id: u32, child_kind_id: u32) -> Option<&'static crate::SyntaxKind>,
-        candidate_symbols: fn(state: usize) -> Vec<&'static SyntaxKind>,
-        full_emit_config: (u32, u32),
-        statement_emit_config: Option<(u32, u32)>) -> Self 
-    {
-        Self {
-            lookahead_translation,
-            goto_translation,
-            accept_transition,
-            symbol_lookup,
-            alternative_symbol_lookup,
-            candidate_symbols,
-            full_emit_config,
-            statement_emit_config,
-        }
-    }
+    // pub fn new(
+    //     lookahead_translation: fn(kind_id: u32, state: usize) -> Option<&'static Transition>,
+    //     goto_translation: fn(kind_id: u32, state: usize) -> Option<&'static usize>,
+    //     accept_transition: fn() -> Option<&'static Transition>,
+    //     symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
+    //     alternative_symbol_lookup: fn(parent_kind_id: u32, child_kind_id: u32) -> Option<&'static crate::SyntaxKind>,
+    //     candidate_symbols: fn(state: usize) -> Vec<&'static SyntaxKind>,
+    //     full_emit_config: (u32, u32),
+    //     statement_emit_config: (u32, u32)) -> Self 
+    // {
+    //     Self {
+    //         lookahead_translation,
+    //         goto_translation,
+    //         accept_transition,
+    //         symbol_lookup,
+    //         alternative_symbol_lookup,
+    //         candidate_symbols,
+    //         full_emit_config,
+    //         statement_emit_config,
+    //     }
+    // }
 
     pub fn next_lookahead_state(&self, kind_id: u32, state: usize) -> Option<&'static Transition> {
         (self.lookahead_translation)(kind_id, state)
@@ -80,15 +87,19 @@ impl ParsingRuleSet {
         (self.candidate_symbols)(state)
     }
 
-    pub fn statement_emit_config(&self) -> Option<EmitConfig> {
-        match self.statement_emit_config {
-            Some((from, to)) => {
-                Some(EmitConfig{
-                    from_symbol: self.from_kind_id(from),
-                    to_symbol: self.from_kind_id(to),
-                })
-            }
-            None => None,
+    pub fn statement_emit_config(&self) -> EmitConfig {
+        let (from, to) = self.statement_emit_config;
+        EmitConfig{
+            from_symbol: self.from_kind_id(from),
+            to_symbol: self.from_kind_id(to),
+        }
+    }
+
+    pub fn invalid_statement_emit_config(&self) -> EmitConfig {
+        let (from, to) = self.invalid_statement_emit_config;
+        EmitConfig{
+            from_symbol: self.from_kind_id(from),
+            to_symbol: self.from_kind_id(to),
         }
     }
 
@@ -110,7 +121,8 @@ impl Default for ParsingRuleSet {
             symbol_lookup: crate::scanner_engine::default_symbol_lookup,
             alternative_symbol_lookup: |_parent_kind_id, _child_kind_id| None,
             candidate_symbols: |_state| vec![],
-            statement_emit_config: None,
+            statement_emit_config: (crate::default_syntax_kind::DEFAULT.id, crate::default_syntax_kind::DEFAULT.id),
+            invalid_statement_emit_config: (crate::default_syntax_kind::DEFAULT.id, crate::default_syntax_kind::DEFAULT.id),
             full_emit_config: (crate::default_syntax_kind::DEFAULT.id, crate::default_syntax_kind::DEFAULT.id),
         }
     }

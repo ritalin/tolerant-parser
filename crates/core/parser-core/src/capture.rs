@@ -3,12 +3,11 @@ use std::collections::VecDeque;
 use engine_core::{Engine, SyntaxKind};
 use scanner_core::{Scanner, Token};
 
-use crate::{error_recovery::{RecoveryEventDispatcher, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher, ParseEventError}, parser::ParseError};
-
-
+use crate::{error_recovery::{RecoveryEventDispatcher, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher, ParseEventError}, parser::{ParseError, ParseMode}};
 
 #[derive(Clone)]
 pub struct EventCaptureConfig {
+    pub mode: ParseMode,
     pub no_scan: bool,
     pub no_parse: bool,
 }
@@ -37,11 +36,11 @@ impl ParseEventCapture {
             _ => VecDeque::new(),
         };
         let penalty = RecoveryPenalty{ delete_slot: 3, shift_limit: 10, shift_decay: 0, next_shift_decay: 1, max_shift_packet_size: 10 };
-        let stmt_term_kind = engine.parsing_rules.statement_emit_config().unwrap_or(engine.parsing_rules.full_emit_config()).to_symbol;
+        let stmt_term_kind = engine.parsing_rules.statement_emit_config().to_symbol;
 
         let this = Self { 
             scanner, 
-            dispatcher: ParseEventDispatcher::new(0, engine.parsing_rules),
+            dispatcher: ParseEventDispatcher::new(0, config.mode.clone(), engine.parsing_rules),
             recovery_handler: RecoveryEventDispatcher::new(penalty, engine.parsing_rules),
             config: config,
             event_queue,
@@ -61,6 +60,7 @@ impl ParseEventCapture {
             let lookahead = match self.scanner.lookahead().cloned() {
                 Some(lookahead) => Some(lookahead.main.kind),
                 None if self.dispatcher.has_next() => None,
+                None if self.config.mode == ParseMode::Full => None,
                 None => break,
             };
             let event = match self.dispatcher.next(lookahead) {
@@ -89,7 +89,9 @@ impl ParseEventCapture {
                     if !self.config.no_parse {
                         self.event_queue.push_back(Some(CaptureEvent::Parse(event)));
                     }
-                    self.dispatcher.flush_state();
+                    if self.config.mode == ParseMode::ByStatement {
+                        self.dispatcher.flush_state();
+                    }
                 }
                 ParseEvent::Accept { .. } => {
                     if !self.config.no_parse {
@@ -130,7 +132,7 @@ impl ParseEventCapture {
                 self.dispatcher.post_recovery_event(&events);
             }
             None => {
-                self.dispatcher.post_recovery_event(&self.recovery_handler.handle_as_invalid(prefetch, true));
+                self.dispatcher.post_recovery_event(&self.recovery_handler.handle_as_invalid(prefetch));
             }
         }
 

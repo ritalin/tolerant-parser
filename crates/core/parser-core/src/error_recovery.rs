@@ -67,11 +67,11 @@ impl RecoveryEventDispatcher {
         None
     }
 
-    pub fn handle_as_invalid(&self, lookaheads: LookaheadIterator, need_emit: bool) -> Vec<RecoveryEvent> {
+    pub fn handle_as_invalid(&self, lookaheads: LookaheadIterator) -> Vec<RecoveryEvent> {
         let len = lookaheads.len();
 
         lookaheads.enumerate()
-        .map(|(i, la)| RecoveryEvent::Invalid { kind: la.main.kind, need_emit: need_emit && (i + 1 == len) }).collect()
+        .map(|(i, la)| RecoveryEvent::Invalid { kind: la.main.kind, need_emit: i + 1 == len }).collect()
     }
 
     pub fn penalty(&self) -> RecoveryPenalty {
@@ -114,6 +114,18 @@ impl RecoveryPenalty {
     pub fn accept_shift(&mut self) {
         self.shift_decay = self.next_shift_decay;
         self.next_shift_decay <<= 1;
+    }
+}
+
+impl Default for RecoveryPenalty {
+    fn default() -> Self {
+        Self { 
+            delete_slot: 3,
+            shift_limit: 10,
+            shift_decay: 0,
+            next_shift_decay: 1,
+            max_shift_packet_size: 10,
+        }
     }
 }
 

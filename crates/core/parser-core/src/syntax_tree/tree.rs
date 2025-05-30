@@ -30,3 +30,9 @@ impl SyntaxTree {
         }
     }
 }
+
+impl SyntaxTree {
+    pub(crate) fn metadata_map(&self) -> Rc<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>> {
+        self.metadata_map.clone()
+    }
+}

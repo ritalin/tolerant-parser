@@ -539,7 +539,7 @@ mod recovery_tests {
         ]);
 
         let handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
-        let events = handler.handle_as_invalid(LookaheadIterator::new(&lookaheads, lookaheads.len()), true);
+        let events = handler.handle_as_invalid(LookaheadIterator::new(&lookaheads, lookaheads.len()));
 
         let expect_events = vec![
             RecoveryEvent::Invalid { kind: syntax_kind::SELECT, need_emit: false },

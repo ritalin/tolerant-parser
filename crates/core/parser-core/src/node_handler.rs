@@ -42,17 +42,20 @@ impl SyntaxTreeBuilder {
         Ok(())
     }
 
-    pub fn add_patch_drop_token_set(&mut self, event: ParseEvent, lookahead: Option<&Token>) -> Result<(), NodeBuildError> {
-        let ParseEvent::PatchDrop { edit_state, .. } = event else {
-            return Err(NodeBuildError::TokenSetFailed);
+    pub fn add_invisible_token_set(&mut self, event: ParseEvent, lookahead: Option<&Token>) -> Result<(), NodeBuildError> {
+        let (edit_state, patch) = match event {
+            ParseEvent::PatchDrop { edit_state, .. } => (edit_state, PatchAction::Delete),
+            ParseEvent::Invalid { edit_state, .. } => (edit_state, PatchAction::Invalid),
+            _ => {
+                return Err(NodeBuildError::TokenSetFailed);
+            }
         };
-
         let Some(lookahead) = lookahead else {
             return Err(NodeBuildError::TokenSetFailed);
         };
         
-        let (id, node) = create_token_set(edit_state, lookahead, PatchAction::Delete, self.prev_id.clone(), &mut self.metadata_map);
-        self.element_stack.push(Some((id, StackEntry::DeleteRecovery(node))));
+        let (id, node) = create_token_set(edit_state, lookahead, patch, self.prev_id.clone(), &mut self.metadata_map);
+        self.element_stack.push(Some((id, StackEntry::Invisible(node))));
         self.prev_id = Some(id);
         Ok(())
     }
@@ -126,7 +129,7 @@ impl SyntaxTreeBuilder {
                 Ok(())
             }
             ParseEvent::Shift { .. } | ParseEvent::Emit { .. } | 
-            ParseEvent::Invalid { .. } |
+            ParseEvent::Invalid { .. } | ParseEvent::InvalidEmit { .. } |
             ParseEvent::PatchDrop { .. } | ParseEvent::PatchShift { .. } => {
                 Err(NodeBuildError::NodeFailed)
             },
@@ -134,10 +137,19 @@ impl SyntaxTreeBuilder {
     }
 
     pub fn emit_statement(&mut self, event: ParseEvent) -> Result<(), NodeBuildError> {
-        let ParseEvent::Emit { kind, edit_state, .. } = event else {
-            return Err(NodeBuildError::NodeFailed);
+        let (kind, edit_state, pop_count) = match event {
+            ParseEvent::Emit { kind, edit_state, .. } => {
+                let pop_count = self.element_stack.len() - self.water_mark;
+                (kind, edit_state, pop_count)
+            }
+            ParseEvent::InvalidEmit { kind, edit_state, pop_count } => {
+                (kind, edit_state, pop_count)
+            }
+            _ => {
+                return Err(NodeBuildError::NodeFailed);
+            }
         };
-        let pop_count = self.element_stack.len() - self.water_mark;
+            
         let (id, node) = create_node(kind, edit_state, pop_count, PatchAction::None, self.engine, &mut self.element_stack, &mut self.metadata_map);
         self.element_stack.push(Some((id, StackEntry::Node(node))));
         self.water_mark = self.element_stack.len();
@@ -325,7 +337,7 @@ fn pop_node_from_stack(element_stack: &mut Vec<Option<(NodeId, StackEntry)>>, mu
             Some(None) => {
                 pop_count -= 1;
             }
-            Some(Some((id, StackEntry::DeleteRecovery(element)))) => {
+            Some(Some((id, StackEntry::Invisible(element)))) => {
                 elements.push((id, NodeElement::Node(element) ));
             }
             _ => {}
@@ -334,7 +346,7 @@ fn pop_node_from_stack(element_stack: &mut Vec<Option<(NodeId, StackEntry)>>, mu
     }
 
 
-    if let Some(Some((id, StackEntry::DeleteRecovery(element)))) = element_stack.last() {
+    while let Some(Some((id, StackEntry::Invisible(element)))) = element_stack.last() {
         elements.push((id.clone(), NodeElement::Node(element.clone())));
         element_stack.pop();
     }
@@ -380,7 +392,7 @@ fn remap_alternative_symbol(
 
 enum StackEntry {
     Node(rowan::GreenNode),
-    DeleteRecovery(rowan::GreenNode),
+    Invisible(rowan::GreenNode),
 }
 
 #[derive(PartialEq, Debug, thiserror::Error)]

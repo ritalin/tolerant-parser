@@ -15,6 +15,10 @@ impl SyntaxNode {
         engine: ParsingRuleSet) -> Self {
         Self { data: SyntaxNodeData::new(raw, metadata_map, engine) }
     }
+
+    pub fn into_raw(&self) -> rowan::SyntaxNode<RowanLangageImpl> {
+        self.data.raw.clone()
+    }
 }
 
 impl SyntaxNode {

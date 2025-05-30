@@ -1,5 +1,5 @@
 use config::CmdConfig;
-use parser_core::{syntax_tree::{MetadataAccess, SyntaxNode, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey, PatchAction};
+use parser_core::{error_recovery::RecoveryPenalty, syntax_tree::{MetadataAccess, SyntaxNode, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey, ParseMode, PatchAction};
 
 mod config;
 
@@ -12,7 +12,11 @@ fn main() -> Result<(), anyhow::Error> {
     let source = std::fs::read_to_string(cmd_config.input.clone())?;
     let engine = sqlite_engine::create()?;
     let parser = parser_core::Parser::new(engine);
-    let tree = parser.parse(&source)?;
+    let parse_config = parser_core::ParserConfig {
+        mode: if cmd_config.enable_full_parse { ParseMode::Full } else { ParseMode::ByStatement },
+        penalty: RecoveryPenalty::default(),
+    };
+    let tree = parser.parse_with_config(&source, parse_config)?;
     
     println!("`{}`", source);
     println!("--------------------------------------------------------------------------------");

@@ -15,13 +15,17 @@ fn main() -> Result<(), anyhow::Error> {
     let engine = sqlite_engine::create()?;
     let mut capture = ParseEventCapture::create(&source, cmd_config.to_capture_config(), engine)?;
     
-    println!("`{}`", source);
-    println!("--------------------------------------------------------------------------------");
+    if ! cmd_config.quiet {
+        println!("`{}`", source);
+        println!("--------------------------------------------------------------------------------");
+    }
 
     while let Some(event) = capture.next()? {
-        match event {
-            CaptureEvent::Scan(event) => print_scan_event(&event, &cmd_config),
-            CaptureEvent::Parse(event) => print_parse_event(&event, &cmd_config),
+        if !cmd_config.quiet {
+            match event {
+                CaptureEvent::Scan(event) => print_scan_event(&event, &cmd_config),
+                CaptureEvent::Parse(event) => print_parse_event(&event, &cmd_config),
+            }
         }
     }
 
@@ -95,6 +99,11 @@ fn print_parse_event(event: &ParseEvent, config: &CmdConfig) {
             println!("     (kind) name: {}, id: {}", kind.text, kind.id);
             println!("    (state) current: {}, edit: {}", current_state, edit_state);
         }
+        ParseEvent::InvalidEmit { kind, edit_state, pop_count } => {
+            println!("[{}]", apply_parse_event_color(event, "Parse/InvalidEmit", config));
+            println!("     (kind) name: {}, id: {}, (pop_count) {}", kind.text, kind.id, pop_count);
+            println!("    (state) edit: {}", edit_state);
+        }
     }
 }
 
@@ -119,7 +128,7 @@ fn apply_parse_event_color(event: &ParseEvent, label: &str, config: &CmdConfig) 
         ParseEvent::Reduce { pop_count, .. } if *pop_count == 0 => {
             ansi_term::Color::RGB(128, 128, 128)
         }
-        ParseEvent::Emit { .. } => {
+        ParseEvent::Emit { .. } | ParseEvent::InvalidEmit { .. } => {
             ansi_term::Color::Purple
         }
         _ => ansi_term::Color::Cyan,

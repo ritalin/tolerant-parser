@@ -7,4 +7,6 @@ pub struct CmdConfig {
     pub input: String,
     #[arg(long)]
     pub no_color: bool,
+    #[arg(long)]
+    pub enable_full_parse: bool,
 }
