@@ -1,6 +1,6 @@
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 use engine_core::parser_engine::ParsingRuleSet;
-use crate::{NodeId, NodeMetadata, NodeMetadataKey, NodeType};
+use crate::{metadata::StatementMetadataMap, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
 use super::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxElement, SyntaxNodeData, SyntaxTokenSet};
 
 #[derive(Clone, Debug)]
@@ -11,9 +11,10 @@ pub struct SyntaxNode {
 impl SyntaxNode {
     pub fn new(
         raw: rowan::SyntaxNode<RowanLangageImpl>, 
-        metadata_map: Rc<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>,
+        metadata_table: Rc<Vec<StatementMetadataMap>>,
+        parse_mode: ParseMode,
         engine: ParsingRuleSet) -> Self {
-        Self { data: SyntaxNodeData::new(raw, metadata_map, engine) }
+        Self { data: SyntaxNodeData::new(raw, metadata_table, parse_mode, engine) }
     }
 
     pub fn into_raw(&self) -> rowan::SyntaxNode<RowanLangageImpl> {
@@ -30,7 +31,7 @@ impl SyntaxNode {
 
         match child.as_ref() {
             Some(node) => {
-                let data = self.data.with_raw(node);
+                let data = self.data.with_raw(node, self.data.parse_mode.clone());
 
                 match data.metadata().node_type {
                     NodeType::Node => {
@@ -56,7 +57,7 @@ impl MetadataAccess for SyntaxNode {
         self.data.metadata_key()
     }
 
-    fn metadata(&self) -> &NodeMetadata {
+    fn metadata(&self) -> NodeMetadata {
         self.data.metadata()
     }
 }
@@ -73,7 +74,7 @@ impl NodeOperation for SyntaxNode {
     fn parent(&self) -> Option<SyntaxNode> {
         match self.data.raw.parent() {
             Some(node) => {
-                Some(SyntaxNode::from_raw(self.data.with_raw(&node)))
+                Some(SyntaxNode::from_raw(self.data.with_raw(&node, self.data.parse_mode.clone())))
             }
             None => None
         }
@@ -90,7 +91,8 @@ impl NodeOperation for SyntaxNode {
 
 pub struct SyntaxNodeChildren {
     raw: rowan::SyntaxNodeChildren<RowanLangageImpl>,
-    metadata_map: Rc<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>,
+    metadata_table: Rc<Vec<StatementMetadataMap>>,
+    parse_mode: ParseMode,
     engine: ParsingRuleSet
 }
 
@@ -98,7 +100,8 @@ impl SyntaxNodeChildren {
     pub(crate) fn new(data: SyntaxNodeData) -> Self {
         Self { 
             raw: data.raw.children(),
-            metadata_map: data.metadata_map.clone(),
+            metadata_table: data.metadata_table.clone(),
+            parse_mode: data.parse_mode,
             engine: data.engine
         }
     }
@@ -110,7 +113,7 @@ impl Iterator for SyntaxNodeChildren {
     fn next(&mut self) -> Option<Self::Item> {
         match self.raw.next() {
             Some(node) => {
-                let data = SyntaxNodeData::new(node, self.metadata_map.clone(), self.engine);
+                let data = SyntaxNodeData::new(node, self.metadata_table.clone(), self.parse_mode.clone(), self.engine);
 
                 match data.metadata().node_type {
                     NodeType::Node => {

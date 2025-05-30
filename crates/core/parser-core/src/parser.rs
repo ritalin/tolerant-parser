@@ -27,7 +27,7 @@ impl DefaultPasrser {
 
         let mut scanner = Scanner::create(source, 0, self.engine.scanning_rules.clone())?;
         let mut dispatcher = ParseEventDispatcher::new(0, config.mode.clone(), self.engine.parsing_rules);
-        let mut tree_builder = SyntaxTreeBuilder::new(self.engine.parsing_rules, None);
+        let mut tree_builder = SyntaxTreeBuilder::new(self.engine.parsing_rules, config.mode.clone(), None);
         let mut recovery_handler = RecoveryEventDispatcher::new(config.penalty, self.engine.parsing_rules);
 
         loop { 
@@ -115,7 +115,7 @@ impl DefaultPasrser {
 ///     ├─ stmt
 ///     └─ ...
 ///   ```
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum ParseMode {
     Full,
     ByStatement,

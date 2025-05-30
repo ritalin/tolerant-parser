@@ -5,14 +5,14 @@ use crate::test_support::*;
 
 mod build_tree_tests {
     use engine_core::scanner_engine::ScanEvent;
-    use parser_core::{NodeType, PatchAction};
+    use parser_core::{NodeType, ParseMode, PatchAction};
     use scanner_core::Token;
     use super::*;
 
     #[test]
     fn test_create_empty_syntax() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
-        let handler = SyntaxTreeBuilder::new(engine.parsing_rules, None);
+        let handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
         let event = ParseEvent::Accept { kind: syntax_kind::r#input, last_state: 0, edit_state: 0 };
         assert_eq!(Err(NodeBuildError::EmptyTree), handler.build(event));
         Ok(())
@@ -22,7 +22,7 @@ mod build_tree_tests {
     fn test_create_eof_only() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
         let parsing_rules = engine.parsing_rules;
-        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, None);
+        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
         let event = ParseEvent::Shift { kind: syntax_kind::r#EOF, current_state: 0, next_state: 0, edit_state: 0 };
         assert_eq!(Ok(()), handler.add_kind_token(event));
         
@@ -63,7 +63,7 @@ mod build_tree_tests {
     fn test_create_token_for_main_only_lookahead() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
         let parsing_rules = engine.parsing_rules;
-        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, None);
+        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
 
         let events = vec![
             ParseEvent::Shift { kind: syntax_kind::r#INTEGER, current_state: 0, next_state: 18, edit_state: 0 },
@@ -121,7 +121,7 @@ mod build_tree_tests {
     fn test_create_token_with_leading_trivia() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
         let parsing_rules = engine.parsing_rules;
-        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, None);
+        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
 
         let events = vec![
             ParseEvent::Shift { kind: syntax_kind::r#INTEGER, current_state: 0, next_state: 18, edit_state: 0 },
@@ -197,7 +197,7 @@ mod build_tree_tests {
     fn test_create_token_with_trailing_trivia() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
         let parsing_rules = engine.parsing_rules;
-        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, None);
+        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
 
         let events = vec![
             ParseEvent::Shift { kind: syntax_kind::r#INTEGER, current_state: 0, next_state: 18, edit_state: 0 },
@@ -265,7 +265,7 @@ mod build_tree_tests {
     fn test_create_token_with_full_set() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
         let parsing_rules = engine.parsing_rules;
-        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, None);
+        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
 
         let events = vec![
             ParseEvent::Shift { kind: syntax_kind::r#INTEGER, current_state: 0, next_state: 18, edit_state: 0 },
@@ -343,7 +343,7 @@ mod build_tree_tests {
     fn test_create_patch_node_for_deleting_recovery() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
         let parsing_rules = engine.parsing_rules;
-        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, None);
+        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
 
         let lookaheads = vec![
             Token{
@@ -439,7 +439,7 @@ mod build_tree_tests {
     fn test_create_patch_node_for_shifting_recovery() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
         let parsing_rules = engine.parsing_rules;
-        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, None);
+        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
 
         let lookaheads = vec![
             Token{
@@ -581,7 +581,7 @@ mod build_tree_tests {
     fn test_create_patch_node_for_recovery_failed() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
         let parsing_rules = engine.parsing_rules;
-        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, None);
+        let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
 
         let lookaheads = vec![
             Token{

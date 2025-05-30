@@ -54,7 +54,7 @@ pub fn verify<'a>(actual: &ActualNode, expect_node: &ExpectNode, engine: Parsing
 }
 
 fn verify_member<'a>(member: &'a impl MetadataAccess, ExpectMetadata(key, metadata): &ExpectMetadata, engine: ParsingRuleSet, _actual_depth: usize) {
-    assert_eq!((key.of(engine), &metadata.of()), (member.metadata_key(), member.metadata()));
+    assert_eq!((key.of(engine), metadata.of()), (member.metadata_key(), member.metadata()));
 }
 
 fn verify_trivia(trivia_items: SyntaxTokenItems, actual_count: usize, expect: &[ExpectNode], engine: ParsingRuleSet, depth: usize) {

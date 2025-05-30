@@ -30,7 +30,7 @@ fn print_tree(root_node: &SyntaxNode, config: &CmdConfig) {
 }
 
 fn print_tree_internal(parent: &SyntaxNode, config: &CmdConfig, indent_level: usize) {
-    print_node(&parent.metadata_key(), parent.metadata(), None, config, indent_level);
+    print_node(parent.metadata_key(), parent.metadata(), None, config, indent_level);
 
     for child in parent.children() {
         match child {
@@ -45,21 +45,21 @@ fn print_tree_internal(parent: &SyntaxNode, config: &CmdConfig, indent_level: us
 }
 
 fn print_token_set(token_set: &SyntaxTokenSet, config: &CmdConfig, indent_level: usize) {
-    print_node(&token_set.metadata_key(), token_set.metadata(), None, config, indent_level);
+    print_node(token_set.metadata_key(), token_set.metadata(), None, config, indent_level);
 
     for item in token_set.leading_trivia() {
-        print_node(&item.metadata_key(), item.metadata(), Some(item.value()), config, indent_level + 1);
+        print_node(item.metadata_key(), item.metadata(), Some(item.value()), config, indent_level + 1);
     }
 
     let item = token_set.token();
-    print_node(&item.metadata_key(), item.metadata(), Some(item.value()), config, indent_level + 1);
+    print_node(item.metadata_key(), item.metadata(), Some(item.value()), config, indent_level + 1);
 
     for item in token_set.trailing_trivia() {
-        print_node(&item.metadata_key(), item.metadata(), Some(item.value()), config, indent_level + 1);
+        print_node(item.metadata_key(), item.metadata(), Some(item.value()), config, indent_level + 1);
     }
 }
 
-fn print_node(key: &NodeMetadataKey, metadata: &NodeMetadata, value: Option<&str>, config: &CmdConfig, indent_level: usize) {
+fn print_node(key: NodeMetadataKey, metadata: NodeMetadata, value: Option<&str>, config: &CmdConfig, indent_level: usize) {
     let range_str = format!("({}-{})", key.offset, key.offset + key.len);
     let node_type_str = match metadata.patch {
         PatchAction::None => metadata.node_type.to_string(),

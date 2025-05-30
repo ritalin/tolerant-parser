@@ -1,6 +1,6 @@
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 use engine_core::parser_engine::ParsingRuleSet;
-use crate::{NodeId, NodeMetadata, NodeMetadataKey};
+use crate::{metadata::StatementMetadataMap, NodeMetadata, NodeMetadataKey, ParseMode};
 
 mod tree;
 mod node;
@@ -27,7 +27,7 @@ impl rowan::Language for RowanLangageImpl {
 
 pub trait MetadataAccess {
     fn metadata_key(&self) -> NodeMetadataKey;
-    fn metadata(&self) -> &NodeMetadata;
+    fn metadata(&self) -> NodeMetadata;
 }
 
 pub trait NodeOperation {
@@ -41,29 +41,48 @@ pub trait NodeOperation {
 #[derive(Clone, Debug)]
 pub(crate) struct SyntaxNodeData {
     raw: rowan::SyntaxNode<RowanLangageImpl>,
-    metadata_map: Rc<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>,
+    metadata_table: Rc<Vec<StatementMetadataMap>>,
+    parse_mode: ParseMode,
     engine: ParsingRuleSet,
 }
 
 impl SyntaxNodeData {
     pub(crate) fn new(
         raw: rowan::SyntaxNode<RowanLangageImpl>, 
-        metadata_map: Rc<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>,
+        metadata_table: Rc<Vec<StatementMetadataMap>>,
+        parse_mode: ParseMode,
         engine: ParsingRuleSet) -> Self 
     {
         Self {
             raw,
-            metadata_map,
+            metadata_table,
+            parse_mode,
             engine,
         }
     }
 
-    pub(crate) fn with_raw(&self, raw: &rowan::SyntaxNode<RowanLangageImpl>) -> Self {
+    pub(crate) fn with_raw(&self, raw: &rowan::SyntaxNode<RowanLangageImpl>, parse_mode: ParseMode) -> Self {
         Self {
             raw: raw.clone(),
-            metadata_map: self.metadata_map.clone(),
+            metadata_table: self.metadata_table.clone(),
+            parse_mode,
             engine: self.engine,
         }
+    }
+
+    fn statement_index(&self) -> usize {
+        if self.parse_mode == ParseMode::Full {
+            return 0;
+        }
+
+        let stmt_symbol = self.engine.statement_emit_config().from_symbol;
+        let stmt = self.raw.ancestors().skip_while(|node| {
+            let kind = self.engine.from_kind_id(node.kind());
+            kind.id != stmt_symbol.id
+        })
+        .next();
+
+        stmt.map(|node| node.index()).unwrap_or_default()
     }
 }
 
@@ -78,19 +97,42 @@ impl MetadataAccess for SyntaxNodeData {
         }
     }
     
-    fn metadata(&self) -> &NodeMetadata {
-        let key = self.metadata_key();
-        self.metadata_map.get(&key)
+    fn metadata(&self) -> NodeMetadata {
+        let index = self.statement_index();
+        let stmt_metadta = &self.metadata_table[index];
+        let stmt_offset = if self.parse_mode == ParseMode::Full { 0 } else { stmt_metadta.byte_offset };
+        let key = self.metadata_key().into_local(stmt_offset);
+
+        stmt_metadta.map.get(&key)
         .map(|(_, metadata)| metadata)
-        .expect(&format!("All node/token must contain a metadata (key: {key:?})"))
+        .expect(&format!("All node/token must contain a metadata@{index} (key: {key:?}, stmt_offset: {stmt_offset})"))
+        .into_global(stmt_offset)
     }
 }
 
 #[derive(Clone, Debug)]
 pub(crate) struct SyntaxTokenData {
     raw: rowan::SyntaxToken<RowanLangageImpl>,
-    metadata_map: Rc<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>,
+    metadata_table: Rc<Vec<StatementMetadataMap>>,
+    parse_mode: ParseMode,
     engine: ParsingRuleSet,
+}
+
+impl SyntaxTokenData {
+    fn statement_index(&self) -> usize {
+        if self.parse_mode == ParseMode::Full {
+            return 0;
+        }
+
+        let stmt_symbol = self.engine.statement_emit_config().from_symbol;
+        let stmt = self.raw.parent_ancestors().skip_while(|node| {
+            let kind = self.engine.from_kind_id(node.kind());
+            kind.id != stmt_symbol.id
+        })
+        .next();
+
+        stmt.map(|node| node.index()).unwrap_or_default()
+    }
 }
 
 impl MetadataAccess for SyntaxTokenData {
@@ -104,22 +146,30 @@ impl MetadataAccess for SyntaxTokenData {
         }
     }
 
-    fn metadata(&self) -> &NodeMetadata {
-        self.metadata_map.get(&self.metadata_key())
+    fn metadata(&self) -> NodeMetadata {
+        let index = self.statement_index();
+        let stmt_metadta = &self.metadata_table[index];
+        let stmt_offset = if self.parse_mode == ParseMode::Full { 0 } else { stmt_metadta.byte_offset };
+        let key = self.metadata_key().into_local(stmt_offset);
+
+        stmt_metadta.map.get(&key)
         .map(|(_, metadata)| metadata)
-        .expect("All node/token must contain a metadata")
+        .expect(&format!("All node/token must contain a metadata@{index} (key: {key:?}, stmt_offset: {stmt_offset})"))
+        .into_global(stmt_offset)
     }
 }
 
 impl SyntaxTokenData {
     pub(crate) fn new(
         raw: rowan::SyntaxToken<RowanLangageImpl>, 
-        metadata_map: Rc<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>,
+        metadata_table: Rc<Vec<StatementMetadataMap>>,
+        parse_mode: ParseMode,
         engine: ParsingRuleSet) -> Self 
     {
         Self {
             raw,
-            metadata_map,
+            metadata_table,
+            parse_mode,
             engine,
         }
     }
@@ -149,7 +199,7 @@ impl<N, S> SyntaxElementDef<N, S> where N: MetadataAccess, S: MetadataAccess {
         self.as_accessor().metadata_key()
     }
 
-    pub fn metadata(&self) -> &NodeMetadata {
+    pub fn metadata(&self) -> NodeMetadata {
         self.as_accessor().metadata()
     }
 }
