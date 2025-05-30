@@ -57,7 +57,7 @@ impl MetadataAccess for SyntaxNode {
         self.data.metadata_key()
     }
 
-    fn metadata(&self) -> &NodeMetadata {
+    fn metadata(&self) -> NodeMetadata {
         self.data.metadata()
     }
 }

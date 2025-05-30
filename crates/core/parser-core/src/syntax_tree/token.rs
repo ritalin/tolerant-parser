@@ -25,7 +25,7 @@ impl MetadataAccess for SyntaxTokenSet {
         self.data.metadata_key()
     }
 
-    fn metadata(&self) -> &NodeMetadata {
+    fn metadata(&self) -> NodeMetadata {
         self.data.metadata()
     }
 }
@@ -74,7 +74,7 @@ impl MetadataAccess for SyntaxTokenItem {
         self.data.metadata_key()
     }
 
-    fn metadata(&self) -> &NodeMetadata {
+    fn metadata(&self) -> NodeMetadata {
         self.data.metadata()
     }
 }

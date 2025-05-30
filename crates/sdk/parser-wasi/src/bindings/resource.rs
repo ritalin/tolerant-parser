@@ -161,8 +161,8 @@ impl From<parser_core::NodeMetadataKey> for syntaxes::MetadataKey {
     }
 }
 
-impl From<&parser_core::NodeMetadata> for syntaxes::Metadata {
-    fn from(value: &parser_core::NodeMetadata) -> Self {
+impl From<parser_core::NodeMetadata> for syntaxes::Metadata {
+    fn from(value: parser_core::NodeMetadata) -> Self {
         Self {
             node_type: value.node_type.clone().into(),
             edit_state: value.edit_state as u64,

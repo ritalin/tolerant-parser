@@ -27,7 +27,7 @@ impl rowan::Language for RowanLangageImpl {
 
 pub trait MetadataAccess {
     fn metadata_key(&self) -> NodeMetadataKey;
-    fn metadata(&self) -> &NodeMetadata;
+    fn metadata(&self) -> NodeMetadata;
 }
 
 pub trait NodeOperation {
@@ -97,13 +97,16 @@ impl MetadataAccess for SyntaxNodeData {
         }
     }
     
-    fn metadata(&self) -> &NodeMetadata {
-        let key = self.metadata_key();
+    fn metadata(&self) -> NodeMetadata {
         let index = self.statement_index();
+        let stmt_metadta = &self.metadata_table[index];
+        let stmt_offset = if self.parse_mode == ParseMode::Full { 0 } else { stmt_metadta.byte_offset };
+        let key = self.metadata_key().into_local(stmt_offset);
 
-        self.metadata_table[index].map.get(&key)
+        stmt_metadta.map.get(&key)
         .map(|(_, metadata)| metadata)
-        .expect(&format!("All node/token must contain a metadata@{index} (key: {key:?})"))
+        .expect(&format!("All node/token must contain a metadata@{index} (key: {key:?}, stmt_offset: {stmt_offset})"))
+        .into_global(stmt_offset)
     }
 }
 
@@ -143,12 +146,16 @@ impl MetadataAccess for SyntaxTokenData {
         }
     }
 
-    fn metadata(&self) -> &NodeMetadata {
-        let key = self.metadata_key();
+    fn metadata(&self) -> NodeMetadata {
         let index = self.statement_index();
-        self.metadata_table[index].map.get(&key)
+        let stmt_metadta = &self.metadata_table[index];
+        let stmt_offset = if self.parse_mode == ParseMode::Full { 0 } else { stmt_metadta.byte_offset };
+        let key = self.metadata_key().into_local(stmt_offset);
+
+        stmt_metadta.map.get(&key)
         .map(|(_, metadata)| metadata)
-        .expect(&format!("All node/token must contain a metadata@{index} (key: {key:?})"))
+        .expect(&format!("All node/token must contain a metadata@{index} (key: {key:?}, stmt_offset: {stmt_offset})"))
+        .into_global(stmt_offset)
     }
 }
 
@@ -192,7 +199,7 @@ impl<N, S> SyntaxElementDef<N, S> where N: MetadataAccess, S: MetadataAccess {
         self.as_accessor().metadata_key()
     }
 
-    pub fn metadata(&self) -> &NodeMetadata {
+    pub fn metadata(&self) -> NodeMetadata {
         self.as_accessor().metadata()
     }
 }

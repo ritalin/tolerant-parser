@@ -188,7 +188,13 @@ impl SyntaxTreeBuilder {
         let (_, root) = create_node(kind, edit_state, self.element_stack.len(), PatchAction::None, self.engine, &mut self.element_stack, 0, &mut self.all_metadata_map);
         
         self.all_metadata_map.into_iter()
-            .for_each(|(id, (index, metadata, key))| {
+            .for_each(|(id, (index, mut metadata, mut key))| {
+                if self.mode == ParseMode::ByStatement {
+                    // adjust to the local offset
+                    let stmt_offset = metadata_table[index].byte_offset;
+                    key = key.into_local(stmt_offset);
+                    metadata = metadata.into_local(stmt_offset);
+                }
                 metadata_table[index].map.insert(key, (id, metadata));
             })
         ;
