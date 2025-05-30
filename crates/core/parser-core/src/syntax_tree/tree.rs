@@ -1,13 +1,13 @@
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 use engine_core::parser_engine::ParsingRuleSet;
-use crate::{NodeId, NodeMetadata, NodeMetadataKey, ParseMode};
+use crate::{metadata::StatementMetadataMap, ParseMode};
 use super::{RowanLangageImpl, SyntaxNode};
 
 
 #[derive(PartialEq, Debug)]
 pub struct SyntaxTree {
     root: rowan::SyntaxNode<RowanLangageImpl>,
-    metadata_table: Rc<Vec<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>>,
+    metadata_table: Rc<Vec<StatementMetadataMap>>,
     parse_mode: ParseMode,
     engine: ParsingRuleSet,
 }
@@ -21,7 +21,7 @@ impl SyntaxTree {
 impl SyntaxTree {
     pub (crate) fn new(
         root: rowan::GreenNode, 
-        metadata_table: Vec<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>,
+        metadata_table: Vec<StatementMetadataMap>,
         parse_mode: ParseMode,
         engine: ParsingRuleSet) -> Self 
     {
@@ -35,7 +35,7 @@ impl SyntaxTree {
 }
 
 impl SyntaxTree {
-    pub(crate) fn metadata_map(&self) -> Rc<Vec<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>> {
+    pub(crate) fn metadata_map(&self) -> Rc<Vec<StatementMetadataMap>> {
         self.metadata_table.clone()
     }
 }

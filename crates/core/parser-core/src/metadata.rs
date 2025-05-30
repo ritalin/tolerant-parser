@@ -1,4 +1,8 @@
+use std::collections::HashMap;
+
 use engine_core::SyntaxKind;
+
+use crate::NodeId;
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct NodeMetadataKey {
@@ -58,4 +62,11 @@ impl std::fmt::Display for NodeType {
 
         write!(f, "{name}")
     }
+}
+
+#[derive(PartialEq, Clone, Debug)]
+pub struct StatementMetadataMap {
+    pub byte_offset: usize,
+    pub char_offset: usize,
+    pub map: HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>
 }

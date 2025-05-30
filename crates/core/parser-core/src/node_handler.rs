@@ -3,7 +3,7 @@ use engine_core::{parser_engine::ParsingRuleSet, scanner_engine::ScanEvent, Symb
 use rowan::GreenNode;
 use scanner_core::Token;
 
-use crate::{event_dispatcher::ParseEvent, syntax_tree::SyntaxTree, NodeId, NodeMetadata, NodeMetadataKey, NodeType, ParseMode, PatchAction};
+use crate::{event_dispatcher::ParseEvent, metadata::StatementMetadataMap, syntax_tree::SyntaxTree, NodeId, NodeMetadata, NodeMetadataKey, NodeType, ParseMode, PatchAction};
 
 type ActiveIndex = usize;
 
@@ -181,15 +181,15 @@ impl SyntaxTreeBuilder {
             return Err(NodeBuildError::EmptyTree);
         }
 
-        let (_, root) = create_node(kind, edit_state, self.element_stack.len(), PatchAction::None, self.engine, &mut self.element_stack, 0, &mut self.all_metadata_map);
-
         let size = if self.mode == ParseMode::Full { 1 } else { self.active_map_index };
-        let mut metadata_table = Vec::<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>::with_capacity(size);
-        metadata_table.resize(size, Default::default());
+        let mut metadata_table = init_statement_metadata_table(size, &self.element_stack, &self.all_metadata_map);
+        
+        // Create a root node
+        let (_, root) = create_node(kind, edit_state, self.element_stack.len(), PatchAction::None, self.engine, &mut self.element_stack, 0, &mut self.all_metadata_map);
         
         self.all_metadata_map.into_iter()
             .for_each(|(id, (index, metadata, key))| {
-                metadata_table[index].insert(key, (id, metadata));
+                metadata_table[index].map.insert(key, (id, metadata));
             })
         ;
         Ok(SyntaxTree::new(root, metadata_table, self.mode, self.engine))
@@ -410,6 +410,29 @@ fn remap_alternative_symbol(
             }
         }
     }
+}
+
+fn init_statement_metadata_table(
+    size: usize, 
+    elements: &Vec<Option<(NodeId, StackEntry)>>, 
+    all_metadata_map: &HashMap<NodeId, (ActiveIndex, NodeMetadata, NodeMetadataKey)>) -> Vec<StatementMetadataMap> 
+{
+    let mut table = Vec::with_capacity(size);
+    table.resize(size, None);
+
+    elements.iter()
+        .flatten()
+        .filter_map(|(id, _)| all_metadata_map.get(id))
+        .for_each(|(index, metadata, keys)| {
+            table[*index] = Some(StatementMetadataMap {
+                byte_offset: keys.offset,
+                char_offset: metadata.char_offset,
+                map: Default::default(),
+            });
+        })
+    ;
+        
+    table.into_iter().flatten().collect()
 }
 
 enum StackEntry {

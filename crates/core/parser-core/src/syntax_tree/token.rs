@@ -1,6 +1,6 @@
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 use engine_core::parser_engine::ParsingRuleSet;
-use crate::{NodeId, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
+use crate::{metadata::StatementMetadataMap, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
 use super::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxNodeData, SyntaxTokenData};
 
 #[derive(Clone, Debug)]
@@ -97,7 +97,7 @@ impl NodeOperation for SyntaxTokenItem {
 
 pub struct SyntaxTokenItems {
     children: rowan::SyntaxElementChildren<RowanLangageImpl>,
-    metadata_table: Rc<Vec<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>>,
+    metadata_table: Rc<Vec<StatementMetadataMap>>,
     parse_mode: ParseMode,
     engine: ParsingRuleSet,
     node_type: NodeType,

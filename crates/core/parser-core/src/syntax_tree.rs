@@ -1,6 +1,6 @@
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 use engine_core::parser_engine::ParsingRuleSet;
-use crate::{NodeId, NodeMetadata, NodeMetadataKey, ParseMode};
+use crate::{metadata::StatementMetadataMap, NodeMetadata, NodeMetadataKey, ParseMode};
 
 mod tree;
 mod node;
@@ -41,7 +41,7 @@ pub trait NodeOperation {
 #[derive(Clone, Debug)]
 pub(crate) struct SyntaxNodeData {
     raw: rowan::SyntaxNode<RowanLangageImpl>,
-    metadata_table: Rc<Vec<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>>,
+    metadata_table: Rc<Vec<StatementMetadataMap>>,
     parse_mode: ParseMode,
     engine: ParsingRuleSet,
 }
@@ -49,7 +49,7 @@ pub(crate) struct SyntaxNodeData {
 impl SyntaxNodeData {
     pub(crate) fn new(
         raw: rowan::SyntaxNode<RowanLangageImpl>, 
-        metadata_table: Rc<Vec<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>>,
+        metadata_table: Rc<Vec<StatementMetadataMap>>,
         parse_mode: ParseMode,
         engine: ParsingRuleSet) -> Self 
     {
@@ -101,7 +101,7 @@ impl MetadataAccess for SyntaxNodeData {
         let key = self.metadata_key();
         let index = self.statement_index();
 
-        self.metadata_table[index].get(&key)
+        self.metadata_table[index].map.get(&key)
         .map(|(_, metadata)| metadata)
         .expect(&format!("All node/token must contain a metadata@{index} (key: {key:?})"))
     }
@@ -110,7 +110,7 @@ impl MetadataAccess for SyntaxNodeData {
 #[derive(Clone, Debug)]
 pub(crate) struct SyntaxTokenData {
     raw: rowan::SyntaxToken<RowanLangageImpl>,
-    metadata_table: Rc<Vec<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>>,
+    metadata_table: Rc<Vec<StatementMetadataMap>>,
     parse_mode: ParseMode,
     engine: ParsingRuleSet,
 }
@@ -146,7 +146,7 @@ impl MetadataAccess for SyntaxTokenData {
     fn metadata(&self) -> &NodeMetadata {
         let key = self.metadata_key();
         let index = self.statement_index();
-        self.metadata_table[index].get(&key)
+        self.metadata_table[index].map.get(&key)
         .map(|(_, metadata)| metadata)
         .expect(&format!("All node/token must contain a metadata@{index} (key: {key:?})"))
     }
@@ -155,7 +155,7 @@ impl MetadataAccess for SyntaxTokenData {
 impl SyntaxTokenData {
     pub(crate) fn new(
         raw: rowan::SyntaxToken<RowanLangageImpl>, 
-        metadata_table: Rc<Vec<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>>,
+        metadata_table: Rc<Vec<StatementMetadataMap>>,
         parse_mode: ParseMode,
         engine: ParsingRuleSet) -> Self 
     {
