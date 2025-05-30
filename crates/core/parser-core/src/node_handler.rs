@@ -3,23 +3,29 @@ use engine_core::{parser_engine::ParsingRuleSet, scanner_engine::ScanEvent, Symb
 use rowan::GreenNode;
 use scanner_core::Token;
 
-use crate::{event_dispatcher::ParseEvent, syntax_tree::SyntaxTree, NodeId, NodeMetadata, NodeMetadataKey, NodeType, PatchAction};
+use crate::{event_dispatcher::ParseEvent, syntax_tree::SyntaxTree, NodeId, NodeMetadata, NodeMetadataKey, NodeType, ParseMode, PatchAction};
+
+type ActiveIndex = usize;
 
 pub struct SyntaxTreeBuilder {
     element_stack: Vec<Option<(NodeId, StackEntry)>>,
     water_mark: usize,
-    metadata_map: HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>,
+    all_metadata_map: HashMap<NodeId, (ActiveIndex, NodeMetadata, NodeMetadataKey)>,
+    active_map_index: usize,
     engine: ParsingRuleSet,
+    mode: ParseMode,
     prev_id: Option<NodeId>,
 }
 
 impl SyntaxTreeBuilder {
-    pub fn new(engine: ParsingRuleSet, prev_id: Option<NodeId>) -> Self {
+    pub fn new(engine: ParsingRuleSet, mode: ParseMode, prev_id: Option<NodeId>) -> Self {
         Self {
             element_stack: Default::default(),
             water_mark: 0,
-            metadata_map: Default::default(),
+            all_metadata_map: Default::default(),
+            active_map_index: 0,
             engine,
+            mode,
             prev_id,
         }
     }
@@ -36,7 +42,7 @@ impl SyntaxTreeBuilder {
             return Err(NodeBuildError::TokenSetFailed);
         };
         
-        let (id, node) = create_token_set(edit_state, lookahead, patch, self.prev_id.clone(), &mut self.metadata_map);
+        let (id, node) = create_token_set(edit_state, lookahead, patch, self.prev_id.clone(), self.active_map_index, &mut self.all_metadata_map);
         self.element_stack.push(Some((id, StackEntry::Node(node))));
         self.prev_id = Some(id);
         Ok(())
@@ -54,7 +60,7 @@ impl SyntaxTreeBuilder {
             return Err(NodeBuildError::TokenSetFailed);
         };
         
-        let (id, node) = create_token_set(edit_state, lookahead, patch, self.prev_id.clone(), &mut self.metadata_map);
+        let (id, node) = create_token_set(edit_state, lookahead, patch, self.prev_id.clone(), self.active_map_index, &mut self.all_metadata_map);
         self.element_stack.push(Some((id, StackEntry::Invisible(node))));
         self.prev_id = Some(id);
         Ok(())
@@ -65,7 +71,7 @@ impl SyntaxTreeBuilder {
             return Err(NodeBuildError::TokenSetFailed);
         };
 
-        let offset = match get_node_metadata_key(&self.metadata_map, self.element_stack.last()) {
+        let offset = match get_node_metadata_key(&self.all_metadata_map, self.element_stack.last()) {
             Some(key) => key.offset + key.len,
             None => 0,
         };
@@ -75,7 +81,7 @@ impl SyntaxTreeBuilder {
             trailing_trivia: None,
         };
 
-        let (id, node) = create_token_set(edit_state, &lookahead, PatchAction::Shift, self.prev_id.clone(), &mut self.metadata_map);
+        let (id, node) = create_token_set(edit_state, &lookahead, PatchAction::Shift, self.prev_id.clone(), self.active_map_index, &mut self.all_metadata_map);
         self.element_stack.push(Some((id, StackEntry::Node(node))));
         self.prev_id = Some(id);
         Ok(())
@@ -86,7 +92,7 @@ impl SyntaxTreeBuilder {
             return Err(NodeBuildError::TokenSetFailed);
         };
 
-        let offset = match get_node_metadata_key(&self.metadata_map, self.element_stack.last()) {
+        let offset = match get_node_metadata_key(&self.all_metadata_map, self.element_stack.last()) {
             Some(key) => key.offset + key.len,
             None => 0,
         };
@@ -98,7 +104,7 @@ impl SyntaxTreeBuilder {
             trailing_trivia: None,
         };
 
-        let (id, node) = create_token_set(edit_state, &lookahead, PatchAction::None, self.prev_id.clone(), &mut self.metadata_map);
+        let (id, node) = create_token_set(edit_state, &lookahead, PatchAction::None, self.prev_id.clone(), self.active_map_index, &mut self.all_metadata_map);
         self.element_stack.push(Some((id, StackEntry::Node(node))));
         self.prev_id = Some(id);
         Ok(())
@@ -111,19 +117,19 @@ impl SyntaxTreeBuilder {
                 Ok(())
             }
             ParseEvent::Reduce { kind, pop_count, edit_state, .. } => {
-                let (id, node) = create_node(kind, edit_state, pop_count, PatchAction::None, self.engine, &mut self.element_stack, &mut self.metadata_map);
+                let (id, node) = create_node(kind, edit_state, pop_count, PatchAction::None, self.engine, &mut self.element_stack, self.active_map_index, &mut self.all_metadata_map);
                 self.element_stack.push(Some((id, StackEntry::Node(node))));
                 self.prev_id = Some(id);
                 Ok(())
             }
             ParseEvent::Accept { kind, edit_state, .. } => {
-                let (id, node) = create_node(kind, edit_state, self.element_stack.len(), PatchAction::None, self.engine, &mut self.element_stack, &mut self.metadata_map);
+                let (id, node) = create_node(kind, edit_state, self.element_stack.len(), PatchAction::None, self.engine, &mut self.element_stack, self.active_map_index, &mut self.all_metadata_map);
                 self.element_stack.push(Some((id, StackEntry::Node(node))));
                 self.prev_id = Some(id);
                 Ok(())
             }
             ParseEvent::PatchReduce { kind, pop_count, edit_state, .. } => {
-                let (id, node) = create_node(kind, edit_state, pop_count, PatchAction::Shift, self.engine, &mut self.element_stack, &mut self.metadata_map);
+                let (id, node) = create_node(kind, edit_state, pop_count, PatchAction::Shift, self.engine, &mut self.element_stack, self.active_map_index, &mut self.all_metadata_map);
                 self.element_stack.push(Some((id, StackEntry::Node(node))));
                 self.prev_id = Some(id);
                 Ok(())
@@ -150,9 +156,14 @@ impl SyntaxTreeBuilder {
             }
         };
             
-        let (id, node) = create_node(kind, edit_state, pop_count, PatchAction::None, self.engine, &mut self.element_stack, &mut self.metadata_map);
+        let (id, node) = create_node(kind, edit_state, pop_count, PatchAction::None, self.engine, &mut self.element_stack, self.active_map_index, &mut self.all_metadata_map);
         self.element_stack.push(Some((id, StackEntry::Node(node))));
         self.water_mark = self.element_stack.len();
+
+        if self.mode == ParseMode::ByStatement {
+            // switch active metadata map
+            self.active_map_index += 1;
+        }
 
         Ok(())
     }
@@ -170,12 +181,18 @@ impl SyntaxTreeBuilder {
             return Err(NodeBuildError::EmptyTree);
         }
 
-        let (_, root) = create_node(kind, edit_state, self.element_stack.len(), PatchAction::None, self.engine, &mut self.element_stack, &mut self.metadata_map);
+        let (_, root) = create_node(kind, edit_state, self.element_stack.len(), PatchAction::None, self.engine, &mut self.element_stack, 0, &mut self.all_metadata_map);
 
-        let metadata_map = HashMap::<NodeMetadataKey, (NodeId, NodeMetadata)>::from_iter(
-            self.metadata_map.into_iter().map(|(id, (metadata, key))| (key, (id, metadata)))
-        );
-        Ok(SyntaxTree::new(root, metadata_map, self.engine))
+        let size = if self.mode == ParseMode::Full { 1 } else { self.active_map_index };
+        let mut metadata_table = Vec::<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>::with_capacity(size);
+        metadata_table.resize(size, Default::default());
+        
+        self.all_metadata_map.into_iter()
+            .for_each(|(id, (index, metadata, key))| {
+                metadata_table[index].insert(key, (id, metadata));
+            })
+        ;
+        Ok(SyntaxTree::new(root, metadata_table, self.mode, self.engine))
     }
 }
 
@@ -193,7 +210,8 @@ fn next_node_id() -> NodeId {
 type NodeElement = rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>;
 fn create_token_set(
     state: usize, lookahead: &Token, patch: PatchAction, mut last_id: Option<NodeId>,
-    metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenNode)
+    active_index: ActiveIndex,
+    metadata_map: &mut HashMap<NodeId, (ActiveIndex, NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenNode)
 {
     let mut children: Vec<(NodeId, NodeElement)> = vec![];
     let id = next_node_id();
@@ -202,7 +220,7 @@ fn create_token_set(
     'leading_trivia: {
         if let Some(leadings) = lookahead.leading_trivia.as_ref() {
             for trivia in leadings {
-                let (child_id, child_node) = create_token_item(state, trivia, NodeType::LeadingToken, patch.clone(), last_id.as_ref(), metadata_map);
+                let (child_id, child_node) = create_token_item(state, trivia, NodeType::LeadingToken, patch.clone(), last_id.as_ref(), active_index, metadata_map);
                 children.push((child_id, NodeElement::Token(child_node)));
                 last_id = Some(child_id);
             }
@@ -210,7 +228,7 @@ fn create_token_set(
         break 'leading_trivia;
     }
     'main_token_item: {
-        let (child_id, child_node) = create_token_item(state, &lookahead.main, NodeType::TokenItem, patch.clone(), last_id.as_ref(), metadata_map);
+        let (child_id, child_node) = create_token_item(state, &lookahead.main, NodeType::TokenItem, patch.clone(), last_id.as_ref(), active_index, metadata_map);
         children.push((child_id, NodeElement::Token(child_node)));
         last_id = Some(child_id);
         break 'main_token_item;
@@ -218,7 +236,7 @@ fn create_token_set(
     'trailing_trivia: {
         if let Some(trailings) = lookahead.trailing_trivia.as_ref() {
             for trivia in trailings {
-                let (child_id, child_node) = create_token_item(state, trivia, NodeType::TrailingToken, patch.clone(), last_id.as_ref(), metadata_map);
+                let (child_id, child_node) = create_token_item(state, trivia, NodeType::TrailingToken, patch.clone(), last_id.as_ref(), active_index, metadata_map);
                 children.push((child_id, NodeElement::Token(child_node)));
                 last_id = Some(child_id);
             }
@@ -240,7 +258,7 @@ fn create_token_set(
             edit_state: state, node_type: NodeType::TokenSet, patch, 
             char_offset, char_len
         };
-        metadata_map.insert(id, (metadata, metadata_key));
+        metadata_map.insert(id, (active_index, metadata, metadata_key));
 
         break 'node_set (id, element)
     }
@@ -248,17 +266,17 @@ fn create_token_set(
 
 fn resolve_token_items_range<'a>(
     child_ids: Vec<NodeId>,
-    metadata_map: &HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> ((usize, usize), (usize, usize)) 
+    metadata_map: &HashMap<NodeId, (ActiveIndex, NodeMetadata, NodeMetadataKey)>) -> ((usize, usize), (usize, usize)) 
 {
     let (offset, char_offset) = child_ids.first()
         .and_then(|id| metadata_map.get(&id))
-        .map(|(metadata, key)| (key.offset, metadata.char_offset))
+        .map(|(_, metadata, key)| (key.offset, metadata.char_offset))
         .unwrap_or((0, 0))
     ;
 
     let (len, char_len) = child_ids.into_iter()
         .filter_map(|id| metadata_map.get(&id))
-        .fold((0, 0), |(len, char_len), (metadata, key)| (len + key.len, char_len + metadata.char_len))
+        .fold((0, 0), |(len, char_len), (_, metadata, key)| (len + key.len, char_len + metadata.char_len))
     ;
 
     ((offset, len), (char_offset, char_len))
@@ -267,7 +285,8 @@ fn resolve_token_items_range<'a>(
 fn create_token_item(
     state: usize, lookahead: &ScanEvent, node_type: NodeType, patch: PatchAction,
     last_id: Option<&NodeId>,
-    metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenToken) 
+    active_index: ActiveIndex,
+    metadata_map: &mut HashMap<NodeId, (ActiveIndex, NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenToken) 
 {
     let id = next_node_id();
     let node = rowan::GreenToken::new(
@@ -275,21 +294,23 @@ fn create_token_item(
         &lookahead.value.clone().unwrap_or_else (|| "".into())
     );
 
-    let (metadata_key, metadata) = create_token_metadata_pair(lookahead, state, node_type, patch, last_id.and_then(|id| metadata_map.get(&id)));
-    metadata_map.insert(id, (metadata, metadata_key));
+    let (metadata_key, metadata) = create_token_metadata_pair(
+        lookahead, state, node_type, patch, 
+        last_id.and_then(|id| metadata_map.get(&id))
+    );
+    metadata_map.insert(id, (active_index, metadata, metadata_key));
 
     (id, node)
 }
 
-fn create_token_metadata_pair(event: &ScanEvent, state: usize, node_type: NodeType, patch: PatchAction, last_metadata: Option<&(NodeMetadata, NodeMetadataKey)>) -> (NodeMetadataKey, NodeMetadata) {
+fn create_token_metadata_pair(event: &ScanEvent, state: usize, node_type: NodeType, patch: PatchAction, last_metadata: Option<&(ActiveIndex, NodeMetadata, NodeMetadataKey)>) -> (NodeMetadataKey, NodeMetadata) {
     let char_len = event.value.as_ref().map(|s| s.chars().count()).unwrap_or(0);
 
     let char_offset = match last_metadata {
-        Some((metadata, _)) => metadata.char_offset + metadata.char_len,
+        Some((_, metadata, _)) => metadata.char_offset + metadata.char_len,
         None => 0,
     };
     
-    // add metadata
     let key = NodeMetadataKey{ kind: event.kind, offset: event.offset, len: event.len, is_leaf: true };
     let metadata = NodeMetadata{ 
         edit_state: state, node_type, patch, 
@@ -303,7 +324,8 @@ fn create_node(
     kind: SyntaxKind, state: usize, pop_count: usize, patch: PatchAction, 
     engine: ParsingRuleSet,
     element_stack: &mut Vec<Option<(NodeId, StackEntry)>>,
-    metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenNode)
+    active_index: ActiveIndex,
+    metadata_map: &mut HashMap<NodeId, (ActiveIndex, NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenNode)
 {
     let id = next_node_id();
     let (child_ids, mut child_nodes) = pop_node_from_stack(element_stack, pop_count);
@@ -319,7 +341,7 @@ fn create_node(
         edit_state: state, node_type: NodeType::Node, patch,
         char_offset, char_len,
     };
-    metadata_map.insert(id, (metadata, key));
+    metadata_map.insert(id, (active_index, metadata, key));
     
     (id, node)
 }
@@ -355,11 +377,11 @@ fn pop_node_from_stack(element_stack: &mut Vec<Option<(NodeId, StackEntry)>>, mu
 }
 
 fn get_node_metadata_key<'a>(
-    metadata_map: &'a HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>, 
+    metadata_map: &'a HashMap<NodeId, (ActiveIndex, NodeMetadata, NodeMetadataKey)>, 
     node_entry: Option<&'a Option<(NodeId, StackEntry)>>) -> Option<&'a NodeMetadataKey> 
 {
     if let Some(Some((id, _))) = node_entry {
-        return metadata_map.get(id).map(|(_, key)| key);
+        return metadata_map.get(id).map(|(_, _, key)| key);
     }
     
     None
@@ -367,7 +389,7 @@ fn get_node_metadata_key<'a>(
 
 fn remap_alternative_symbol(
     child_nodes: &mut Vec<rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>>, 
-    metadata_map: &mut HashMap<NodeId, (NodeMetadata, NodeMetadataKey)>,
+    metadata_map: &mut HashMap<NodeId, (ActiveIndex, NodeMetadata, NodeMetadataKey)>,
     child_ids: &[NodeId], 
     parent_kind: SyntaxKind, 
     engine: ParsingRuleSet) 
@@ -376,7 +398,7 @@ fn remap_alternative_symbol(
         let child_kind = engine.from_kind_id(child_nodes[i].kind().0 as u32);
 
         if let (Some(alt), rowan::NodeOrToken::Node(node)) = (engine.from_alt_symbol(parent_kind, child_kind), child_nodes[i].clone()) {
-            if let Some((metadata, key)) = metadata_map.remove(&child_ids[i]) {
+            if let Some((index, metadata, key)) = metadata_map.remove(&child_ids[i]) {
                 let grand_children = node.children()
                     .map(|node| node.to_owned())
                     .collect::<Vec<_>>()
@@ -384,7 +406,7 @@ fn remap_alternative_symbol(
                 let new_key = NodeMetadataKey{kind: *alt, ..key};
 
                 child_nodes[i] = rowan::NodeOrToken::Node(rowan::GreenNode::new(rowan::SyntaxKind(alt.id as u16), grand_children));
-                metadata_map.insert(child_ids[i], (metadata, new_key));
+                metadata_map.insert(child_ids[i], (index, metadata, new_key));
             }
         }
     }

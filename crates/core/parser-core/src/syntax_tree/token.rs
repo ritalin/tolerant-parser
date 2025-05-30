@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 use engine_core::parser_engine::ParsingRuleSet;
-use crate::{NodeId, NodeMetadata, NodeMetadataKey, NodeType};
+use crate::{NodeId, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
 use super::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxNodeData, SyntaxTokenData};
 
 #[derive(Clone, Debug)]
@@ -97,7 +97,8 @@ impl NodeOperation for SyntaxTokenItem {
 
 pub struct SyntaxTokenItems {
     children: rowan::SyntaxElementChildren<RowanLangageImpl>,
-    metadata_map: Rc<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>,
+    metadata_table: Rc<Vec<HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>>>,
+    parse_mode: ParseMode,
     engine: ParsingRuleSet,
     node_type: NodeType,
 }
@@ -107,7 +108,7 @@ impl Iterator for SyntaxTokenItems {
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(rowan::NodeOrToken::Token(item)) = self.children.next() {
-            let data = SyntaxTokenData::new(item, self.metadata_map.clone(), self.engine);
+            let data = SyntaxTokenData::new(item, self.metadata_table.clone(), self.parse_mode.clone(), self.engine);
             let metadata = data.metadata();
 
             if metadata.node_type == self.node_type {
@@ -123,7 +124,8 @@ impl SyntaxTokenItems {
     pub(crate) fn new(data: &SyntaxNodeData, node_type: NodeType) -> Self {
         Self {
             children: data.raw.children_with_tokens(),
-            metadata_map: data.metadata_map.clone(),
+            metadata_table: data.metadata_table.clone(),
+            parse_mode: data.parse_mode.clone(),
             engine: data.engine,
             node_type,
         }
