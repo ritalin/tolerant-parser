@@ -208,7 +208,7 @@ mod dispatcher_support_tests {
 
     use engine_core::{scanner_engine::ScanEvent, SyntaxKind};
     use parser_core::{error_recovery::{RecoveryEvent, RecoveryEventDispatcher, RecoveryEventPayload, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher}, ParseMode};
-    use scanner_core::{LookaheadIterator, Token};
+    use scanner_core::{iter::LookaheadIterator, Token};
     use sqlite_engine::syntax_kind;
 
     fn prepare_dispatcher_state(dispatcher: &mut ParseEventDispatcher, requests: &[(SyntaxKind, usize)]) -> Result<(), anyhow::Error> {
@@ -453,7 +453,7 @@ mod dispatcher_support_tests {
             },
         ]);
 
-        let recover_events = recovery_handler.handle_as_invalid(LookaheadIterator::new(&lookaheads, lookaheads.len()));
+        let recover_events = recovery_handler.handle_as_invalid(LookaheadIterator::new(&lookaheads, 0, lookaheads.len()));
         dispatcher.post_recovery_event(&recover_events);
 
         'next_state: {

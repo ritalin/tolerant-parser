@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use engine_core::scanner_engine::{self, AcceptableRegexSet, ScanEvent};
+use engine_core::scanner_engine::{self, AcceptableRegexSet, ScanEvent, ScanningRuleSet};
 use engine_core::SyntaxKind;
 use crate::Token;
 use crate::event_dispatch::ScanEventDispatcher;
@@ -36,25 +36,18 @@ impl Scanner {
         lookahead
     }
 
-    pub fn prefetch(&mut self, terminate_synbol: SyntaxKind) -> LookaheadIterator {
+    pub fn prefetch(&mut self, terminate_synbol: SyntaxKind) -> crate::iter::LookaheadIterator {
         // Find prefetch queue
-        if let Some(p) = self.lookaheads.iter().position(|tk| tk.main.kind == terminate_synbol) {
-            return LookaheadIterator::new(&self.lookaheads, p+1);
-        }
+        let len = prefetch_internal(terminate_synbol, &mut self.dispatcher, &mut self.lookaheads);
+        crate::iter::LookaheadIterator::new(&self.lookaheads, 0, len)
+    }
 
-        while let Some(next_lookahead) = handle_scan_event(&mut self.dispatcher) {
-            match next_lookahead {
-                lookahead if lookahead.main.kind.id == terminate_synbol.id => {
-                    self.lookaheads.push_back(lookahead);
-                    break;
-                }
-                lookahead => {
-                    self.lookaheads.push_back(lookahead);
-                }
-            }
-        }
-        
-        LookaheadIterator::new(&self.lookaheads, self.lookaheads.len())
+    pub fn statement_scanners(&self, terminate_symbol: SyntaxKind) -> crate::iter::StatementScannerIterator {
+        crate::iter::StatementScannerIterator::new(
+            self.lookaheads.clone(),
+            self.dispatcher.clone(),
+            terminate_symbol
+        )
     }
 
     pub fn save_scope(&self) -> ScannerScope {
@@ -66,64 +59,6 @@ impl Scanner {
         for token in scope.lookaheads.into_iter().rev() {
             self.lookaheads.push_front(token);
         }
-    }
-}
-
-#[derive(PartialEq, Clone, Debug)]
-pub struct LookaheadIterator<'a> {
-    inner: &'a VecDeque<Token>,
-    index: usize,
-    size: usize,
-}
-
-impl<'a> LookaheadIterator<'a> {
-    pub fn new(lookaheads: &'a VecDeque<Token>, size: usize) -> Self {
-        Self {
-            inner: lookaheads,
-            index: 0,
-            size,
-        }
-    }
-
-    pub fn peek(&self) -> Option<&'a Token> {
-        self.inner.get(self.index)
-    }
-
-    pub fn len(&self) -> usize {
-        self.inner.len()
-    }
-}
-
-impl<'a> Iterator for LookaheadIterator<'a> {
-    type Item = &'a Token;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.size {
-            return None;
-        }
-
-        let token = self.inner.get(self.index);
-        self.index += 1;
-
-        token
-    }
-}
-
-pub struct ScannerScope {
-    lookaheads: Vec<Token>,
-}
-
-impl ScannerScope {
-    pub fn new() -> Self {
-        Self { lookaheads: Default::default()}
-    }
-
-    pub fn cache_lookahead(&mut self, lookahead: Option<Token>) -> Option<Token> {
-        if let Some(token) = lookahead.as_ref() {
-            self.lookaheads.push(token.clone());
-        }
-
-        lookahead
     }
 }
 
@@ -152,4 +87,42 @@ fn handle_scan_trivia_event(dispatcher: &mut ScanEventDispatcher, regex_set: Acc
     }
     
     (trivias.len() > 0).then(|| trivias)
+}
+
+pub(crate) fn prefetch_internal(terminate_synbol: SyntaxKind, dispatcher: &mut ScanEventDispatcher, lookaheads: &mut VecDeque<Token>) -> usize {
+    if let Some(p) = lookaheads.iter().position(|tk| tk.main.kind == terminate_synbol) {
+        return p+1;
+    }
+
+    while let Some(next_lookahead) = handle_scan_event(dispatcher) {
+        match next_lookahead {
+            lookahead if lookahead.main.kind.id == terminate_synbol.id => {
+                lookaheads.push_back(lookahead);
+                break;
+            }
+            lookahead => {
+                lookaheads.push_back(lookahead);
+            }
+        }
+    }
+
+    lookaheads.len()
+}
+
+pub struct ScannerScope {
+    lookaheads: Vec<Token>,
+}
+
+impl ScannerScope {
+    pub fn new() -> Self {
+        Self { lookaheads: Default::default()}
+    }
+
+    pub fn cache_lookahead(&mut self, lookahead: Option<Token>) -> Option<Token> {
+        if let Some(token) = lookahead.as_ref() {
+            self.lookaheads.push(token.clone());
+        }
+
+        lookahead
+    }
 }

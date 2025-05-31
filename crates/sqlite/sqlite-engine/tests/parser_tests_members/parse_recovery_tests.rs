@@ -333,7 +333,7 @@ mod recovery_tests {
 
     use engine_core::scanner_engine::ScanEvent;
     use parser_core::error_recovery::{RecoveryEvent, RecoveryEventDispatcher, RecoveryEventPayload, RecoveryPenalty};
-    use scanner_core::{LookaheadIterator, Token};
+    use scanner_core::{iter::LookaheadIterator, Token};
     use sqlite_engine::syntax_kind;
 
     #[test]
@@ -369,7 +369,7 @@ mod recovery_tests {
         ]);
 
         let mut handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
-        let Some(events) = handler.handle_from_history(state_histories, LookaheadIterator::new(&lookaheads, lookaheads.len())) else {
+        let Some(events) = handler.handle_from_history(state_histories, LookaheadIterator::new(&lookaheads, 0, lookaheads.len())) else {
             panic!("Actual value must be returned");
         };
 
@@ -433,7 +433,7 @@ mod recovery_tests {
         ]);
 
         let mut handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
-        let Some(events) = handler.handle_from_history(state_histories, LookaheadIterator::new(&lookaheads, lookaheads.len())) else {
+        let Some(events) = handler.handle_from_history(state_histories, LookaheadIterator::new(&lookaheads, 0, lookaheads.len())) else {
             panic!("Actual value must be returned");
         };
 
@@ -493,7 +493,7 @@ mod recovery_tests {
         ]);
 
         let mut handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
-        let events = handler.handle_from_history(state_histories, LookaheadIterator::new(&lookaheads, lookaheads.len()));
+        let events = handler.handle_from_history(state_histories, LookaheadIterator::new(&lookaheads, 0, lookaheads.len()));
 
         assert_eq!(None, events);
 
@@ -539,7 +539,7 @@ mod recovery_tests {
         ]);
 
         let handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
-        let events = handler.handle_as_invalid(LookaheadIterator::new(&lookaheads, lookaheads.len()));
+        let events = handler.handle_as_invalid(LookaheadIterator::new(&lookaheads, 0, lookaheads.len()));
 
         let expect_events = vec![
             RecoveryEvent::Invalid { kind: syntax_kind::SELECT, need_emit: false },
