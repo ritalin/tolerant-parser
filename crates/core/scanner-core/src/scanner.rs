@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use engine_core::scanner_engine::{self, AcceptableRegexSet, ScanEvent, ScanningRuleSet};
+use engine_core::scanner_engine::{self, AcceptableRegexSet, ScanEvent};
 use engine_core::SyntaxKind;
 use crate::Token;
 use crate::event_dispatch::ScanEventDispatcher;
@@ -17,29 +17,6 @@ impl Scanner {
         let lookahead = handle_scan_event(&mut dispatcher).ok_or(crate::ScannerError::CreateFailed)?;
 
         Ok(Self { dispatcher, lookaheads: VecDeque::from_iter([lookahead].into_iter()) })
-    }
-
-    /// Peek current lookahead
-    pub fn lookahead(&self) -> Option<&Token> {
-        self.lookaheads.front()
-    }
-
-    /// Return current lookahead and proceed lookahead
-    pub fn shift(&mut self) -> Option<Token> {
-        let lookahead = self.lookaheads.pop_front();
-        if self.lookaheads.is_empty() {
-            if let Some(next_lookahead) = handle_scan_event(&mut self.dispatcher) {
-                self.lookaheads.push_back(next_lookahead);
-            }
-        }
-
-        lookahead
-    }
-
-    pub fn prefetch(&mut self, terminate_synbol: SyntaxKind) -> crate::iter::LookaheadIterator {
-        // Find prefetch queue
-        let len = prefetch_internal(terminate_synbol, &mut self.dispatcher, &mut self.lookaheads);
-        crate::iter::LookaheadIterator::new(&self.lookaheads, 0, len)
     }
 
     pub fn statement_scanners(&self, terminate_symbol: SyntaxKind) -> crate::iter::StatementScannerIterator {
@@ -59,6 +36,37 @@ impl Scanner {
         for token in scope.lookaheads.into_iter().rev() {
             self.lookaheads.push_front(token);
         }
+    }
+}
+
+pub trait ScannerAccess {
+    fn lookahead(&self) -> Option<&Token>;
+    fn shift(&mut self) -> Option<Token>;
+    fn prefetch_iter(&mut self, terminate_synbol: SyntaxKind) -> crate::iter::LookaheadIterator;
+}
+
+impl ScannerAccess for Scanner {
+    /// Peek current lookahead
+    fn lookahead(&self) -> Option<&Token> {
+        self.lookaheads.front()
+    }
+
+    /// Return current lookahead and proceed lookahead
+    fn shift(&mut self) -> Option<Token> {
+        let lookahead = self.lookaheads.pop_front();
+        if self.lookaheads.is_empty() {
+            if let Some(next_lookahead) = handle_scan_event(&mut self.dispatcher) {
+                self.lookaheads.push_back(next_lookahead);
+            }
+        }
+
+        lookahead
+    }
+    
+    fn prefetch_iter(&mut self, terminate_synbol: SyntaxKind) -> crate::iter::LookaheadIterator {
+        // Find prefetch queue
+        let len = prefetch_internal(terminate_synbol, &mut self.dispatcher, &mut self.lookaheads);
+        crate::iter::LookaheadIterator::new(&self.lookaheads, 0, len)
     }
 }
 
@@ -107,6 +115,42 @@ pub(crate) fn prefetch_internal(terminate_synbol: SyntaxKind, dispatcher: &mut S
     }
 
     lookaheads.len()
+}
+
+pub struct StatementScannerView<'a> {
+    lookaheads: &'a VecDeque<Token>,
+    index: usize,
+    end: usize,
+}
+
+impl<'a> StatementScannerView<'a> {
+    pub fn new(lookaheads: &'a VecDeque<Token>, index: usize, size: usize) -> Self {
+        Self {
+            lookaheads,
+            index,
+            end: index + size,
+        }
+    }
+}
+
+impl<'a> ScannerAccess for StatementScannerView<'a> {
+    fn lookahead(&self) -> Option<&Token> {
+        self.lookaheads.get(self.index)
+    }
+
+    fn shift(&mut self) -> Option<Token> {
+        if self.index >= self.end {
+            return None;
+        }
+
+        let token = self.lookaheads.get(self.index).cloned();
+        self.index += 1;
+        token
+    }
+
+    fn prefetch_iter(&mut self, _terminate_synbol: SyntaxKind) -> crate::iter::LookaheadIterator {
+        crate::iter::LookaheadIterator::new(self.lookaheads, self.index, self.end - self.index)
+    }
 }
 
 pub struct ScannerScope {

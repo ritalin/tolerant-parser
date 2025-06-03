@@ -1,7 +1,7 @@
 pub mod event_dispatch;
 
 mod scanner;
-pub use scanner::Scanner;
+pub use scanner::{Scanner, StatementScannerView, ScannerAccess};
 pub mod iter;
 
 use engine_core::scanner_engine::ScanEvent;

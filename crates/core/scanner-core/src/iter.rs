@@ -50,17 +50,17 @@ pub struct StatementScanner {
 }
 
 impl StatementScanner {
-    pub fn prefetch<'a>(&'a self, offset: usize, len: usize) -> LookaheadIterator<'a> {
+    pub fn as_view<'a>(&'a self, range: std::ops::Range<usize>) -> crate::scanner::StatementScannerView<'a> {
         let (from, to) = self.lookaheads.iter().enumerate()
-            .skip_while(|(_, la)| la.highest_offset() <= offset)
-            .take_while(|(_, la)| la.lowest_offset() < offset + len)
+            .skip_while(|(_, la)| la.highest_offset() <= range.start)
+            .take_while(|(_, la)| la.lowest_offset() < range.end)
             .fold((usize::MAX, 0), |(from, to), (i, _)| {
                 (usize::min(i, from), usize::max(i, to))
             })
         ;
         let len = if from == usize::MAX { 0 } else { to - from + 1 };
 
-        LookaheadIterator::new(&self.lookaheads, from, len)
+        crate::scanner::StatementScannerView::new(&self.lookaheads, from, len)
     }
 }
 
