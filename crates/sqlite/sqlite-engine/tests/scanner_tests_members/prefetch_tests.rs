@@ -6,6 +6,8 @@ use sqlite_engine::syntax_kind;
 
 
 mod prefetch_token_tests {
+    use scanner_core::ScannerAccess;
+
     use super::*;
 
     #[test]
@@ -18,7 +20,7 @@ mod prefetch_token_tests {
         scanner.shift();
         
         let terminate_symbol = engine.parsing_rules.full_emit_config().to_symbol;
-        let lookaheads = scanner.prefetch(terminate_symbol);
+        let lookaheads = scanner.prefetch_iter(terminate_symbol);
 
         let expected_lookaheads = VecDeque::from([
             Token{
@@ -95,7 +97,7 @@ mod prefetch_token_tests {
         scanner.shift();
 
         let terminate_symbol = engine.parsing_rules.statement_emit_config().to_symbol;
-        let lookaheads = scanner.prefetch(terminate_symbol);
+        let lookaheads = scanner.prefetch_iter(terminate_symbol);
 
         let expected_lookaheads = VecDeque::from([
             Token{
@@ -148,8 +150,8 @@ mod prefetch_token_tests {
         scanner.shift();
 
         let terminate_symbol = engine.parsing_rules.statement_emit_config().to_symbol;
-        scanner.prefetch(terminate_symbol);
-        let lookaheads = scanner.prefetch(terminate_symbol);
+        scanner.prefetch_iter(terminate_symbol);
+        let lookaheads = scanner.prefetch_iter(terminate_symbol);
 
         let expected_lookaheads = VecDeque::from([
             Token{
@@ -194,6 +196,8 @@ mod prefetch_token_tests {
 }
 
 mod pregetch_stmt_tests {
+    use scanner_core::ScannerAccess;
+
     use super::*;
 
     #[test]
@@ -205,14 +209,16 @@ mod pregetch_stmt_tests {
         assert_eq!(2, stmt_scanners.len());
 
         'prefetch: {
-            let iter = stmt_scanners[0].prefetch(0, 30);
+            let mut view = stmt_scanners[0].as_view(0..30);
+            let iter = view.prefetch_iter(syntax_kind::SEMI);
             assert_eq!(5, iter.len());
             assert_eq!(5, iter.count());
             break 'prefetch;
         }
         'prefetch: {
             // EOF only
-            let iter = stmt_scanners[1].prefetch(0, 30);
+            let mut view = stmt_scanners[1].as_view(0..30);
+            let iter = view.prefetch_iter(syntax_kind::SEMI);
             assert_eq!(1, iter.len());
             assert_eq!(1, iter.count());
             break 'prefetch;
@@ -229,7 +235,8 @@ mod pregetch_stmt_tests {
         assert_eq!(2, stmt_scanners.len());
 
         'prefetch: {
-            let iter = stmt_scanners[0].prefetch(7, 3);
+            let mut view = stmt_scanners[0].as_view(7..10);
+            let iter = view.prefetch_iter(syntax_kind::SEMI);
             assert_eq!(2, iter.len());
 
             let lookaheads = iter.collect::<Vec<_>>();
@@ -240,7 +247,8 @@ mod pregetch_stmt_tests {
         }
         'prefetch: {
             // EOF only
-            let iter = stmt_scanners[1].prefetch(7, 3);
+            let mut view = stmt_scanners[1].as_view(7..10);
+            let iter = view.prefetch_iter(syntax_kind::SEMI);
             assert_eq!(0, iter.len());
             assert_eq!(0, iter.count());
             break 'prefetch;
@@ -258,7 +266,8 @@ mod pregetch_stmt_tests {
         assert_eq!(3, stmt_scanners.len());
 
         'prefetch: {
-            let iter = stmt_scanners[0].prefetch(10, 16);
+            let mut view = stmt_scanners[0].as_view(10..26);
+            let iter = view.prefetch_iter(syntax_kind::SEMI);
             assert_eq!(3, iter.len());
 
             let lookaheads = iter.collect::<Vec<_>>();
@@ -269,7 +278,8 @@ mod pregetch_stmt_tests {
             break 'prefetch;
         }
         'prefetch: {
-            let iter = stmt_scanners[1].prefetch(10, 16);
+            let mut view = stmt_scanners[1].as_view(10..26);
+            let iter = view.prefetch_iter(syntax_kind::SEMI);
             assert_eq!(2, iter.len());
 
             let lookaheads = iter.collect::<Vec<_>>();
@@ -280,7 +290,8 @@ mod pregetch_stmt_tests {
         }
         'prefetch: {
             // EOF only
-            let iter = stmt_scanners[2].prefetch(10, 16);
+            let mut view = stmt_scanners[2].as_view(10..26);
+            let iter = view.prefetch_iter(syntax_kind::SEMI);
             assert_eq!(0, iter.len());
             assert_eq!(0, iter.count());
             break 'prefetch;
@@ -298,7 +309,8 @@ mod pregetch_stmt_tests {
         assert_eq!(4, stmt_scanners.len());
 
         'prefetch: {
-            let iter = stmt_scanners[0].prefetch(17, 16);
+            let mut view = stmt_scanners[0].as_view(17..33);
+            let iter = view.prefetch_iter(syntax_kind::SEMI);
             assert_eq!(1, iter.len());
 
             let lookaheads = iter.collect::<Vec<_>>();
@@ -307,7 +319,8 @@ mod pregetch_stmt_tests {
             break 'prefetch;
         }
         'prefetch: {
-            let iter = stmt_scanners[1].prefetch(17, 16);
+            let mut view = stmt_scanners[1].as_view(17..33);
+            let iter = view.prefetch_iter(syntax_kind::SEMI);
             assert_eq!(3, iter.len());
 
             let lookaheads = iter.collect::<Vec<_>>();
@@ -318,7 +331,8 @@ mod pregetch_stmt_tests {
             break 'prefetch;
         }
         'prefetch: {
-            let iter = stmt_scanners[2].prefetch(17, 16);
+            let mut view = stmt_scanners[2].as_view(17..33);
+            let iter = view.prefetch_iter(syntax_kind::SEMI);
             assert_eq!(1, iter.len());
 
             let lookaheads = iter.collect::<Vec<_>>();

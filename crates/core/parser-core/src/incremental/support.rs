@@ -7,16 +7,33 @@ pub struct TreeGardener {
 }
 
 impl TreeGardener {
-    pub fn left_hand_token_for(&self, offset: rowan::TextSize) -> Option<FoundToken> {
-        todo!()
-    }
-
-    pub fn right_hand_token_for(&self, offset: rowan::TextSize) -> Option<FoundToken> {
-        todo!()
+    pub fn pick_token(&self, offset: rowan::TextSize) -> Option<FoundToken> {
+        match self.stmt_node.token_at_offset(offset) {
+            rowan::TokenAtOffset::None => return None,
+            rowan::TokenAtOffset::Single(token) | rowan::TokenAtOffset::Between(_, token) => {
+                Some(FoundToken{ token })
+            }
+        }
     }
 
     pub fn common_anscestor(&self, lhs: Option<FoundToken>, rhs: Option<FoundToken>, except_kind: SyntaxKind) -> Option<rowan::SyntaxNode<RowanLangageImpl>> {
-        todo!()
+        let (Some(lhs), Some(rhs)) = (lhs, rhs) else { return None; };
+
+        // expand left hand token
+        let left_neighbor = lhs.into_prev(&self.stmt_node, except_kind);
+        // expand right hand token
+        let right_beighbor = rhs.into_next(&self.stmt_node, except_kind);
+
+        // Find least common anscestor
+        let left_anscestors = left_neighbor.token.parent_ancestors().collect::<Vec<_>>();
+        let right_anscestors = right_beighbor.token.parent_ancestors().collect::<Vec<_>>();
+        let (lca, _) = left_anscestors.into_iter().rev().zip(right_anscestors.into_iter().rev())
+            .take_while(|(lhs, rhs)| *lhs == *rhs)
+            .last()
+            .unzip()
+        ;
+        
+        lca
     }
 
     pub fn replace_with_new_node(
@@ -41,33 +58,38 @@ impl TreeGardener {
     }
 }
 
+#[derive(Clone)]
 pub struct FoundToken {
     pub token: rowan::SyntaxToken<RowanLangageImpl>
 }
 
 impl FoundToken {
-    pub fn prev_token(
-        &self,
-        stmt: &rowan::SyntaxNode<RowanLangageImpl>, 
-        except_kind: SyntaxKind) -> Option<rowan::SyntaxToken<RowanLangageImpl>> 
-    {
-        todo!()
+    pub fn into_prev(self, stmt: &rowan::SyntaxNode<RowanLangageImpl>, _except_kind: SyntaxKind) -> Self {
+        let parent = self.token.parent().unwrap();
+        let token = parent.first_token().unwrap();
+        
+        token.prev_token().map(|token| Self{ token })
+        .filter(|x| x.is_ascendant(stmt))
+        .unwrap_or(self)
     }
 
-    pub fn next_token(
-        &self,
-        stmt: &rowan::SyntaxNode<RowanLangageImpl>, 
-        except_kind: SyntaxKind) -> Option<rowan::SyntaxToken<RowanLangageImpl>> 
-    {
-        todo!()
-    }
-}
+    pub fn into_next(self, stmt: &rowan::SyntaxNode<RowanLangageImpl>, except_kind: SyntaxKind) -> Self {
+        if self.token.kind() == except_kind.id { return self; };
 
-fn is_descendant(
-    stmt: &rowan::SyntaxNode<RowanLangageImpl>, 
-    node: Option<&rowan::SyntaxNode<RowanLangageImpl>>) -> bool 
-{
-    todo!()
+        let parent = self.token.parent().unwrap();
+        let token = parent.last_token().unwrap();
+        
+        token.next_token().map(|token| Self{ token })
+        .filter(|x| x.is_ascendant(stmt))
+        .unwrap_or(self)
+    }
+
+    pub fn is_ascendant(
+        &self,
+        stmt: &rowan::SyntaxNode<RowanLangageImpl>) -> bool 
+    {
+        self.token.parent_ancestors().any(|x| x == *stmt)
+    }
 }
 
     // /// Extend the existing byte tange to include the neighboring nodes for the specified node.

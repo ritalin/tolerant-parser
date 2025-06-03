@@ -10,6 +10,7 @@ mod parser_tests_members {
     mod parse_dispatcher_tests;
     mod node_handler_tests;
     mod parse_recovery_tests;
+    mod incrementa_parse_tests;
 }
 
 #[test]
