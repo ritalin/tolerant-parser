@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use engine_core::{Engine, SyntaxKind};
-use scanner_core::{Scanner, Token};
+use scanner_core::{Scanner, ScannerAccess, Token};
 
 use crate::{error_recovery::{RecoveryEventDispatcher, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher, ParseEventError}, parser::{ParseError, ParseMode}};
 
@@ -125,7 +125,7 @@ impl ParseEventCapture {
 
     fn try_recover(&mut self) -> Result<(), ParseError> {
         let state_stack = self.dispatcher.borrow_stack();
-        let prefetch = self.scanner.prefetch(self.stmt_term_kind);
+        let prefetch = self.scanner.prefetch_iter(self.stmt_term_kind);
 
         match self.recovery_handler.handle(state_stack, prefetch.clone()) {
             Some(events) => {

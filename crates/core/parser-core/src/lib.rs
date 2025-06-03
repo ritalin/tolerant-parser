@@ -14,4 +14,6 @@ pub use parser::DefaultPasrser as Parser;
 pub use parser::{ParseMode, ParserConfig};
 pub use error_recovery::RecoveryPenalty;
 
+pub mod incremental;
+
 pub type NodeId = (std::time::Instant, u64); 

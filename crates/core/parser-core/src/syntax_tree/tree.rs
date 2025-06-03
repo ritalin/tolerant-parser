@@ -4,7 +4,7 @@ use crate::{metadata::StatementMetadataMap, ParseMode};
 use super::{RowanLangageImpl, SyntaxNode};
 
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct SyntaxTree {
     root: rowan::SyntaxNode<RowanLangageImpl>,
     metadata_table: Rc<Vec<StatementMetadataMap>>,
@@ -35,7 +35,7 @@ impl SyntaxTree {
 }
 
 impl SyntaxTree {
-    pub(crate) fn metadata_map(&self) -> Rc<Vec<StatementMetadataMap>> {
+    pub(crate) fn metadata_table(&self) -> Rc<Vec<StatementMetadataMap>> {
         self.metadata_table.clone()
     }
 }
