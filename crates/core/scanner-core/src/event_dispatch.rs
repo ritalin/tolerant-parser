@@ -101,5 +101,9 @@ impl ScanEventDispatcher {
     pub fn has_more(&self) -> bool {
         self.index < self.source.len()
     }
+
+    pub fn index(&self) -> usize {
+        self.index
+    }
 }
 

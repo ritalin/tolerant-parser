@@ -1,7 +1,7 @@
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
-use scanner_core::{Scanner, StatementScannerView};
-use crate::{metadata::StatementMetadataMap, node_handler::SyntaxTreeBuilder, syntax_tree::{RowanLangageImpl, SyntaxTree}, ParserConfig};
+use scanner_core::{Scanner, ScannerAccess, StatementScannerView};
+use crate::{event_dispatcher::ParseEventDispatcher, metadata::StatementMetadataMap, node_handler::SyntaxTreeBuilder, syntax_tree::{RowanLangageImpl, SyntaxTree}, NodeId, NodeMetadata, NodeMetadataKey, ParserConfig};
 
 pub mod support;
 
@@ -31,43 +31,75 @@ impl Parser {
     }
 
     pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<SyntaxTree, crate::parser::ParseError> {
-        let scanner = Scanner::create(source, self.scope.start_byte_offset as u32, self.engine.scanning_rules.clone())?;
+        let scan_from = self.statements.first().map(|stmt| u32::from(stmt.text_range().start())).unwrap_or_default();
+        let scanner = Scanner::create(source, scan_from, self.engine.scanning_rules.clone())?;
         let terminate_symbol = self.engine.parsing_rules.statement_emit_config().to_symbol;
 
         let mut new_children = vec![];
         let mut new_metadata_table = vec![];
         let stmts = self.statements.iter().map(Some).chain(std::iter::repeat(None));
+        let iter = scanner.statement_scanners(terminate_symbol)
+            .filter(|scanner| {
+                scanner.as_view(std::ops::RangeFull).lookahead().is_some()
+            })
+            .zip(stmts)
+        ;
 
-        for (stmt_scanner, stmt) in scanner.statement_scanners(terminate_symbol).zip(stmts) {
+        for (stmt_scanner, stmt) in iter {
             match stmt {
                 Some(stmt) => {
                     let stmt_index = stmt.index();
                     let stmt = stmt.clone_subtree();
-                    let gardener = support::TreeGardener{ stmt_node: stmt.clone() };
-                    let (lowest, highest) = self.scope.adjust_scope(stmt);
+                    let gardener = support::TreeGardener{ node: stmt.clone() };
+                    let (lowest, highest) = self.scope.adjust_offset(self.scope.old_byte_len, stmt);
                     // Find common anscestor
-                    let common_anscestor = 
-                        gardener.common_anscestor(
-                            gardener.left_hand_token_for(lowest.into()), 
-                            gardener.left_hand_token_for(highest.into()),
+                    let common_anscestor = support::TreeGardener{ 
+                        node: gardener.common_anscestor(
+                            gardener.pick_token(lowest.into()), 
+                            gardener.pick_token(highest.into()),
                             terminate_symbol
                         )
                         .expect("At least, must exist")
-                    ;
-                    let anscestor_range: std::ops::Range<usize> = common_anscestor.text_range().into();
-                    let stmt_scanner = stmt_scanner.as_view(anscestor_range.start..(anscestor_range.end + 1));
-                    let old_metadata_map = self.metadata_table.get(stmt_index);
-                    let (new_node, new_matadata_map) = parse_internal(stmt_scanner, &config, self.engine.parsing_rules)?;
+                    };
+
+                    let mut anscestor_range: std::ops::Range<usize> = common_anscestor.node.text_range().into();
+                    // Adgust by the edit distance
+                    anscestor_range.end = anscestor_range.end - self.scope.old_byte_len + self.scope.new_byte_len;
                     
-                    new_children.push(gardener.replace_with_new_node(new_node, &common_anscestor));
-                    new_metadata_table.push(gardener.merge_metadata_map(common_anscestor, old_metadata_map, new_matadata_map));
+                    let terminate_kind = common_anscestor.pick_terminate_kind(self.engine.parsing_rules);
+
+                    // Memo: Because A last token is reduce, it scans one more token.
+                    let stmt_scanner = stmt_scanner.as_view(anscestor_range.start..(anscestor_range.end + 1));
+                    let old_metadata_map = &self.metadata_table[stmt_index + 1]; // Index: 1 is a root node metadata
+                    let (_, metadata) = old_metadata_map.map
+                        .get(&&NodeMetadataKey::from_raw_node(&common_anscestor.node, self.engine.parsing_rules))
+                        .expect("All node have metadata")
+                    ;
+
+                    let (new_node, new_matadata_map) = parse_internal(stmt_scanner, &config, metadata.edit_state, terminate_kind, self.engine.parsing_rules)?;
+                    
+                    new_children.push(gardener.replace_with_new_node(new_node.clone(), &common_anscestor.node));
+                    new_metadata_table.push(gardener.merge_metadata_map(
+                        &self.scope, 
+                        Some((common_anscestor.node, &old_metadata_map.map)),
+                        new_node.into_node().map(|x| (x, new_matadata_map)).unwrap(),
+                        old_metadata_map.byte_offset, old_metadata_map.char_offset, metadata.char_offset,
+                        self.engine.parsing_rules
+                    ));
                 }
-                None => todo!(),
+                None => {
+                    todo!()
+                }
             }
         }
         
         let root = self.root.green().splice_children(self.replace_from..(self.replace_from + self.statements.len()), new_children);
-        let metadata_table = update_metadata_table(root.children(), self.metadata_table.as_ref(), new_metadata_table, self.replace_from, self.statements.len());
+        let metadata_table = update_metadata_table(
+            root.children(), 
+            self.metadata_table.as_ref(), new_metadata_table,
+            self.replace_from, self.statements.len(),
+            self.engine.parsing_rules
+        );
 
         Ok(SyntaxTree::new(root, metadata_table, config.mode, self.engine.parsing_rules))
     }
@@ -81,14 +113,14 @@ pub struct EditScope {
 }
 
 impl EditScope {
-    pub fn adjust_scope(&self, node: rowan::SyntaxNode<RowanLangageImpl>) -> (u32, u32) {
+    pub fn adjust_offset(&self, len: usize, node: rowan::SyntaxNode<RowanLangageImpl>) -> (u32, u32) {
         let range = node.text_range();
         let lowest_offset = 
             u32::max(self.start_byte_offset as u32, range.start().into())
         ;
         let highest_offset = 
             u32::min(
-                (self.start_byte_offset + usize::max(self.old_byte_len, self.new_byte_len)) as u32, 
+                (self.start_byte_offset + len - 1) as u32, 
                 range.end().into()
             )
         ;
@@ -130,26 +162,58 @@ impl crate::parser::ParseStrategy for IncrementalParserStrategy {
 fn parse_internal(
     mut scanner: StatementScannerView, 
     config: &ParserConfig,
-    engine: ParsingRuleSet) -> Result<(rowan::GreenNode, StatementMetadataMap), crate::parser::ParseError> 
+    edit_state: usize,
+    terminate_kind: SyntaxKind,
+    engine: ParsingRuleSet) -> Result<(rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>, HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>), crate::parser::ParseError> 
 {
+    let mut dispatcher = ParseEventDispatcher::new(edit_state, config.mode.clone(), engine);
     let mut tree_builder = SyntaxTreeBuilder::new(engine, config.mode.clone(), None);
-    let strategy = IncrementalParserStrategy{ terminate_kind: engine.statement_emit_config().to_symbol };
+    let strategy = IncrementalParserStrategy{ terminate_kind };
 
-    let event = super::parser::parse_with_config_internal(&mut scanner, &mut tree_builder, config, engine, strategy)?;
+    super::parser::parse_with_config_internal(&mut scanner, &mut dispatcher, &mut tree_builder, config, engine, strategy)?;
 
-    todo!()
+    Ok(tree_builder.build_branch()?)
 }
 
 fn update_metadata_table<'a>(
-    children: impl Iterator<Item = rowan::NodeOrToken<&'a rowan::GreenNodeData, &'a rowan::GreenTokenData>>,
+    children: impl Iterator<Item = rowan::NodeOrToken<&'a rowan::GreenNodeData , &'a rowan::GreenTokenData>>,
     old_table: &[StatementMetadataMap], 
     changed_maps: Vec<StatementMetadataMap>, 
-    replace_from: usize, old_len: usize) -> Vec<StatementMetadataMap> 
+    replace_from: usize, old_len: usize,
+    engine: ParsingRuleSet) -> Vec<StatementMetadataMap>
 {
     let mut metadata_table = Vec::from_iter(old_table.iter().cloned());
-    metadata_table.splice(replace_from..(replace_from + old_len), changed_maps);
+    let (mut byte_offset, mut char_offset) = (0, 0);
 
-    // update offset
+    metadata_table.splice((replace_from + 1)..(replace_from + 1 + old_len), changed_maps);
 
-    todo!()
+    for (i, child) in children.enumerate() {
+        if let Some(entry) = metadata_table.get_mut(i + 1) {
+            entry.byte_offset = byte_offset;
+            entry.char_offset = char_offset;
+        }
+
+        let key = NodeMetadataKey{ 
+            kind: engine.from_kind_id(child.kind().0 as u32), 
+            offset: 0, 
+            len: child.text_len().into(), 
+            is_leaf: false 
+        };
+        let (_, metadata) = metadata_table[i + 1].map.get(&key).unwrap();
+        byte_offset += key.len;
+        char_offset += metadata.char_len;
+    }
+    
+    // Update root node metadata
+    let root_metadata = &old_table[0];
+    let (mut key, (id, mut metadata)) = root_metadata.map.iter()
+        .map(|(key, (id, metadata))| (key.clone(), (id.clone(), metadata.clone())))
+        .next()
+        .expect("Not found Root node metadata")
+    ;
+    key.len = byte_offset;
+    metadata.char_len = char_offset;
+    metadata_table[0].map.insert(key, (id, metadata));
+
+    metadata_table
 }

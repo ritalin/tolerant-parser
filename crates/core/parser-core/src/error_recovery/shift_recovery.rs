@@ -76,7 +76,7 @@ fn next_candidates(prev_candidates: impl Iterator<Item = Packet>, lookahead: &To
         }
         if next_wait_list.len() >= limit { continue }
 
-        if prev.report.depth < penalty.shift_limit - penalty.shift_decay {
+        if prev.report.depth + penalty.shift_decay < penalty.shift_limit {
             // make next wait list
 
             let prev_kind = match prev.is_reduce {

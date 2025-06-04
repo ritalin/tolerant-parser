@@ -135,6 +135,10 @@ impl<'a> StatementScannerView<'a> {
 
 impl<'a> ScannerAccess for StatementScannerView<'a> {
     fn lookahead(&self) -> Option<&Token> {
+        if self.index >= self.end {
+            return None;
+        }
+
         self.lookaheads.get(self.index)
     }
 

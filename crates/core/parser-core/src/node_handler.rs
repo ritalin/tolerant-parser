@@ -23,7 +23,7 @@ impl SyntaxTreeBuilder {
             element_stack: Default::default(),
             water_mark: 0,
             all_metadata_map: Default::default(),
-            active_map_index: 0,
+            active_map_index: if mode == ParseMode::Full { 0 } else { 1 }, // In by-statement mode, statement node starts from 1 
             engine,
             mode,
             prev_id,
@@ -199,6 +199,16 @@ impl SyntaxTreeBuilder {
             })
         ;
         Ok(SyntaxTree::new(root, metadata_table, self.mode, self.engine))
+    }
+
+    pub fn build_branch(mut self) -> Result<(rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>, HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>), NodeBuildError> {
+        let (_, children) = pop_node_from_stack(&mut self.element_stack, 1);
+        let Some(node) = children.first() else {
+            return Err(NodeBuildError::EmptyTree);
+        };
+        let metadata = HashMap::from_iter(self.all_metadata_map.into_iter().map(|(id, (_, metadata, key))| (key, (id, metadata))));
+
+        Ok((node.clone(), metadata))
     }
 }
 
@@ -426,6 +436,7 @@ fn init_statement_metadata_table(
     let mut table = Vec::with_capacity(size);
     table.resize(size, None);
 
+    // init statement metadata map
     elements.iter()
         .flatten()
         .filter_map(|(id, _)| all_metadata_map.get(id))
@@ -437,7 +448,15 @@ fn init_statement_metadata_table(
             });
         })
     ;
-        
+
+    if table[0].is_none() {
+        table[0] = Some(StatementMetadataMap {
+            byte_offset: 0,
+            char_offset: 0,
+            map: Default::default(),
+        });
+    }    
+
     table.into_iter().flatten().collect()
 }
 

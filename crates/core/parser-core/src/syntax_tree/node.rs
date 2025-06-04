@@ -1,9 +1,9 @@
 use std::rc::Rc;
 use engine_core::parser_engine::ParsingRuleSet;
 use crate::{metadata::StatementMetadataMap, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
-use super::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxElement, SyntaxNodeData, SyntaxTokenSet};
+use super::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxElement, SyntaxNodeData, SyntaxTokenData, SyntaxTokenItem, SyntaxTokenSet};
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct SyntaxNode {
     data: SyntaxNodeData,
 }
@@ -49,6 +49,23 @@ impl SyntaxNode {
 
     pub fn children(&self) -> SyntaxNodeChildren {
         SyntaxNodeChildren::new(self.data.clone())
+    }
+
+    pub fn token_at_offset(&self, offset: usize) -> Option<SyntaxTokenItem> {
+        let token = match self.data.raw.token_at_offset((offset as u32).into()) {
+            rowan::TokenAtOffset::None => None,
+            rowan::TokenAtOffset::Single(token) => Some(token),
+            rowan::TokenAtOffset::Between(_, token) => Some(token),
+        };
+
+        token.map(|raw| {
+            SyntaxTokenItem::from_raw(SyntaxTokenData::new(
+                raw, 
+                self.data.metadata_table.clone(), 
+                self.data.parse_mode.clone(), 
+                self.data.engine
+            ))
+        })
     }
 }
 

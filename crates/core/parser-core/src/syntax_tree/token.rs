@@ -1,9 +1,9 @@
 use std::rc::Rc;
 use engine_core::parser_engine::ParsingRuleSet;
 use crate::{metadata::StatementMetadataMap, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
-use super::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxNodeData, SyntaxTokenData};
+use super::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxNode, SyntaxNodeData, SyntaxTokenData};
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct SyntaxTokenSet {
     data: SyntaxNodeData,
 }
@@ -52,7 +52,7 @@ impl SyntaxTokenSet {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct SyntaxTokenItem {
     data: SyntaxTokenData,
 }
@@ -83,15 +83,39 @@ impl NodeOperation for SyntaxTokenItem {
     type Item = SyntaxTokenItem;
 
     fn parent(&self) -> Option<super::SyntaxNode> {
-        todo!()
+        self.data.raw.parent()
+        .map(|raw| {
+            SyntaxNode::from_raw(SyntaxNodeData::new(
+                raw, 
+                self.data.metadata_table.clone(), 
+                self.data.parse_mode.clone(), 
+                self.data.engine
+            ))
+        })
     }
 
     fn prev_sibling(&self) -> Option<Self::Item> {
-        todo!()
+        self.data.raw.prev_token()
+        .map(|raw| {
+            SyntaxTokenItem::from_raw(SyntaxTokenData::new(
+                raw, 
+                self.data.metadata_table.clone(), 
+                self.data.parse_mode.clone(), 
+                self.data.engine
+            ))
+        })
     }
 
     fn next_sibling(&self) -> Option<Self::Item> {
-        todo!()
+        self.data.raw.next_token()
+        .map(|raw| {
+            SyntaxTokenItem::from_raw(SyntaxTokenData::new(
+                raw, 
+                self.data.metadata_table.clone(), 
+                self.data.parse_mode.clone(), 
+                self.data.engine
+            ))
+        })
     }
 }
 

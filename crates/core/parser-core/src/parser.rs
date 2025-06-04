@@ -24,9 +24,10 @@ impl DefaultPasrser {
 
     pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<super::syntax_tree::SyntaxTree, ParseError> {
         let mut scanner = Scanner::create(source, 0, self.engine.scanning_rules.clone())?;
+        let mut dispatcher = ParseEventDispatcher::new(0, config.mode.clone(), self.engine.parsing_rules);
         let mut tree_builder = SyntaxTreeBuilder::new(self.engine.parsing_rules, config.mode.clone(), None);
  
-        match parse_with_config_internal(&mut scanner, &mut tree_builder, &config, self.engine.parsing_rules, DefaultParserStrategy)? {
+        match parse_with_config_internal(&mut scanner, &mut dispatcher, &mut tree_builder, &config, self.engine.parsing_rules, DefaultParserStrategy)? {
             Some(ParseEvent::Accept { kind, last_state, edit_state  }) => {
                 Ok(tree_builder.build(ParseEvent::Accept { kind, last_state, edit_state  })?)
             }
@@ -56,12 +57,11 @@ impl ParseStrategy for DefaultParserStrategy {
     }
 }
 
-pub(crate) fn parse_with_config_internal<S>(scanner: &mut S, tree_builder: &mut SyntaxTreeBuilder, config: &ParserConfig, engine: ParsingRuleSet, strategy: impl ParseStrategy) -> Result<Option<ParseEvent>, ParseError> 
+pub(crate) fn parse_with_config_internal<S>(scanner: &mut S, dispatcher: &mut ParseEventDispatcher, tree_builder: &mut SyntaxTreeBuilder, config: &ParserConfig, engine: ParsingRuleSet, strategy: impl ParseStrategy) -> Result<Option<ParseEvent>, ParseError> 
 where S: scanner_core::ScannerAccess
 {
     let terminate_symbol = engine.statement_emit_config().to_symbol;
 
-    let mut dispatcher = ParseEventDispatcher::new(0, config.mode.clone(), engine);
     let mut recovery_handler = RecoveryEventDispatcher::new(config.penalty.clone(), engine);
 
     loop { 

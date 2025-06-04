@@ -8,9 +8,9 @@ mod expand_region_tests {
     fn extend_to_neighbors(scope: &EditScope, root: Option<&SyntaxNode>, except_kind: SyntaxKind) -> EditScope {
         let Some(root) = root else { return scope.clone() };
 
-        let (lowest_offset, highest_offset) = scope.adjust_scope(root.into_raw());
+        let (lowest_offset, highest_offset) = scope.adjust_offset(scope.old_byte_len, root.into_raw());
 
-        let gardener = parser_core::incremental::support::TreeGardener{ stmt_node: root.into_raw() };
+        let gardener = parser_core::incremental::support::TreeGardener{ node: root.into_raw() };
         let anscestor = gardener.common_anscestor(
             gardener.pick_token(lowest_offset.into()),
             gardener.pick_token(highest_offset.into()),
@@ -196,12 +196,12 @@ mod incremental_support_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let gardener = support::TreeGardener{ stmt_node: tree.root().into_raw() };
+        let gardener = support::TreeGardener{ node: tree.root().into_raw() };
         let token = gardener.pick_token(11.into());
         assert_eq!(Some(syntax_kind::AS.id), token.as_ref().map(|x| x.token.kind()));
         assert_eq!(true, token.as_ref().unwrap().clone().token.text_range().contains(11.into()));
 
-        let neighbor = token.as_ref().map(|x| x.clone().into_prev(&gardener.stmt_node, syntax_kind::SEMI));
+        let neighbor = token.as_ref().map(|x| x.clone().into_prev(&gardener.node, syntax_kind::SEMI));
         assert_eq!(Some(syntax_kind::SPACE), neighbor.as_ref().map(|x| engine.parsing_rules.from_kind_id(x.token.kind())));
         assert_eq!(true, neighbor.as_ref().unwrap().clone().token.text_range().contains(10.into()));
 
@@ -216,12 +216,12 @@ mod incremental_support_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let gardener = support::TreeGardener{ stmt_node: tree.root().into_raw() };
+        let gardener = support::TreeGardener{ node: tree.root().into_raw() };
         let token = gardener.pick_token(10.into());
         assert_eq!(Some(syntax_kind::SPACE.id), token.as_ref().map(|x| x.token.kind()));
         assert_eq!(true, token.as_ref().unwrap().clone().token.text_range().contains(10.into()));
 
-        let neighbor = token.as_ref().map(|x| x.clone().into_prev(&gardener.stmt_node, syntax_kind::SEMI));
+        let neighbor = token.as_ref().map(|x| x.clone().into_prev(&gardener.node, syntax_kind::SEMI));
         assert_eq!(Some(syntax_kind::SPACE), neighbor.as_ref().map(|x| engine.parsing_rules.from_kind_id(x.token.kind())));
         assert_eq!(true, neighbor.as_ref().unwrap().clone().token.text_range().contains(6.into()));
 
@@ -236,12 +236,12 @@ mod incremental_support_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let gardener = support::TreeGardener{ stmt_node: tree.root().into_raw() };
+        let gardener = support::TreeGardener{ node: tree.root().into_raw() };
         let token = gardener.pick_token(26.into());
         assert_eq!(Some(syntax_kind::SEMI.id), token.as_ref().map(|x| x.token.kind()));
         assert_eq!(true, token.as_ref().unwrap().clone().token.text_range().contains(26.into()));
 
-        let neighbor = token.as_ref().map(|x| x.clone().into_prev(&gardener.stmt_node, syntax_kind::SEMI));
+        let neighbor = token.as_ref().map(|x| x.clone().into_prev(&gardener.node, syntax_kind::SEMI));
         assert_eq!(Some(syntax_kind::ID), neighbor.as_ref().map(|x| engine.parsing_rules.from_kind_id(x.token.kind())));
         assert_eq!(true, neighbor.as_ref().unwrap().clone().token.text_range().contains(25.into()));
 
@@ -256,12 +256,12 @@ mod incremental_support_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let gardener = support::TreeGardener{ stmt_node: tree.root().into_raw() };
+        let gardener = support::TreeGardener{ node: tree.root().into_raw() };
         let token = gardener.pick_token(11.into());
         assert_eq!(Some(syntax_kind::AS.id), token.as_ref().map(|x| x.token.kind()));
         assert_eq!(true, token.as_ref().unwrap().clone().token.text_range().contains(11.into()));
 
-        let neighbor = token.as_ref().map(|x| x.clone().into_next(&gardener.stmt_node, syntax_kind::SEMI));
+        let neighbor = token.as_ref().map(|x| x.clone().into_next(&gardener.node, syntax_kind::SEMI));
         assert_eq!(Some(syntax_kind::ID), neighbor.as_ref().map(|x| engine.parsing_rules.from_kind_id(x.token.kind())));
         assert_eq!(true, neighbor.as_ref().unwrap().clone().token.text_range().contains(14.into()));
 
@@ -276,12 +276,12 @@ mod incremental_support_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let gardener = support::TreeGardener{ stmt_node: tree.root().into_raw() };
+        let gardener = support::TreeGardener{ node: tree.root().into_raw() };
         let token = gardener.pick_token(11.into());
         assert_eq!(Some(syntax_kind::COMMENT.id), token.as_ref().map(|x| x.token.kind()));
         assert_eq!(true, token.as_ref().unwrap().clone().token.text_range().contains(11.into()));
 
-        let neighbor = token.as_ref().map(|x| x.clone().into_next(&gardener.stmt_node, syntax_kind::SEMI));
+        let neighbor = token.as_ref().map(|x| x.clone().into_next(&gardener.node, syntax_kind::SEMI));
         assert_eq!(Some(syntax_kind::AS), neighbor.as_ref().map(|x| engine.parsing_rules.from_kind_id(x.token.kind())));
         assert_eq!(true, neighbor.as_ref().unwrap().clone().token.text_range().contains(20.into()));
 
@@ -296,12 +296,12 @@ mod incremental_support_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let gardener = support::TreeGardener{ stmt_node: tree.root().into_raw() };
+        let gardener = support::TreeGardener{ node: tree.root().into_raw() };
         let token = gardener.pick_token(26.into());
         assert_eq!(Some(syntax_kind::SEMI.id), token.as_ref().map(|x| x.token.kind()));
         assert_eq!(true, token.as_ref().unwrap().clone().token.text_range().contains(26.into()));
 
-        let neighbor = token.as_ref().map(|x| x.clone().into_next(&gardener.stmt_node, syntax_kind::SEMI));
+        let neighbor = token.as_ref().map(|x| x.clone().into_next(&gardener.node, syntax_kind::SEMI));
         assert_eq!(Some(syntax_kind::SEMI), neighbor.as_ref().map(|x| engine.parsing_rules.from_kind_id(x.token.kind())));
         assert_eq!(true, neighbor.as_ref().unwrap().clone().token.text_range().contains(26.into()));
 
@@ -316,7 +316,7 @@ mod incremental_support_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let gardener = support::TreeGardener{ stmt_node: tree.root().into_raw().first_child().unwrap() };
+        let gardener = support::TreeGardener{ node: tree.root().into_raw().first_child().unwrap() };
         
         let lhs = gardener.pick_token(11.into());
         let rhs = gardener.pick_token(12.into());
@@ -328,11 +328,23 @@ mod incremental_support_tests {
 }
 
 mod parser_tests {
-    use parser_core::{incremental, ParseMode, ParserConfig, RecoveryPenalty};
+    use parser_core::{syntax_tree::{NodeOperation, SyntaxTokenItem}, ParseMode, ParserConfig, RecoveryPenalty};
 
     use crate::test_support::{self, _ExpectNode};
 
     use super::*;
+
+    fn rebuild_source(token: Option<SyntaxTokenItem>) -> String {
+        let mut tokens = vec![];
+        let mut next_token = token;
+
+        while let Some(x) = next_token {
+            tokens.push(x.value().to_string());
+            next_token = x.next_sibling().clone();
+        }
+
+        tokens.join("")
+    }
 
     #[test]
     fn test_parse_single_statement_with_inserting() -> Result<(), anyhow::Error> {
@@ -342,17 +354,20 @@ mod parser_tests {
 
     #[test]
     fn test_parse_single_statement_with_deleting() -> Result<(), anyhow::Error> {
-        let source = "SELECT 42 AS x FROM foo u;";
-        let new_source = "SELECT 101 AS x FROM foo u;";
+        let source =     "SELECT 42 AS x FROM foo u;";
+        let new_source = "SELECT 42 x FROM foo u;";
 
         let engine = sqlite_engine::create()?;
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
+        let rebuilded_source = rebuild_source(tree.root().token_at_offset(0));
+        assert_eq!(source, rebuilded_source);
+
         let scope = EditScope{
-            start_byte_offset: 7,
-            old_byte_len: 2,
-            new_byte_len: 3,
+            start_byte_offset: 10,
+            old_byte_len: 3,
+            new_byte_len: 0,
         };
         let config = ParserConfig{
             mode: ParseMode::ByStatement,
@@ -361,6 +376,9 @@ mod parser_tests {
 
         let new_tree = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
         let expect_node = serde_json::from_str::<Vec<_ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_single_statement_with_deleting.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_offset(0));
+        assert_eq!(new_source, rebuilded_source);
 
         test_support::verify_new(new_tree.root(), &expect_node);
 
@@ -374,6 +392,21 @@ mod parser_tests {
 
     #[test]
     fn test_parse_append_statment() -> Result<(), anyhow::Error> {
+        todo!()
+    }
+
+    #[test]
+    fn test_parse_with_maltibyte_char() -> Result<(), anyhow::Error> {
+        todo!()
+    }
+
+    #[test]
+    fn test_parse_remove_all() -> Result<(), anyhow::Error> {
+        todo!()
+    }
+
+    #[test]
+    fn test_parse_insert_from_empty() -> Result<(), anyhow::Error> {
         todo!()
     }
 }

@@ -1,8 +1,6 @@
 use std::collections::HashMap;
-
-use engine_core::SyntaxKind;
-
-use crate::NodeId;
+use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
+use crate::{syntax_tree::RowanLangageImpl, NodeId};
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct NodeMetadataKey {
@@ -13,6 +11,26 @@ pub struct NodeMetadataKey {
 }
 
 impl NodeMetadataKey {
+    pub fn from_raw_node(node: &rowan::SyntaxNode<RowanLangageImpl>, engine: ParsingRuleSet) -> Self {
+        let range = node.text_range();
+        Self {
+            kind: engine.from_kind_id(node.kind()),
+            offset: range.start().into(),
+            len: range.len().into(),
+            is_leaf: false,
+        }
+    }
+
+    pub fn from_raw_token(node: &rowan::SyntaxToken<RowanLangageImpl>, engine: ParsingRuleSet) -> Self {
+        let range = node.text_range();
+        Self {
+            kind: engine.from_kind_id(node.kind()),
+            offset: range.start().into(),
+            len: range.len().into(),
+            is_leaf: true,
+        }
+    }
+
     pub fn into_local(self, stmt_offset: usize) -> Self {
         Self {
             kind: self.kind,
@@ -43,22 +61,32 @@ pub struct NodeMetadata {
 
 impl NodeMetadata {
     pub fn into_local(self, stmt_offset: usize) -> Self {
-        Self {
-            edit_state: self.edit_state,
-            node_type: self.node_type,
-            patch: self.patch,
-            char_offset: self.char_offset - stmt_offset,
-            char_len: self.char_len,
+        match stmt_offset {
+            0 => self,
+            _ => {
+                Self {
+                    edit_state: self.edit_state,
+                    node_type: self.node_type,
+                    patch: self.patch,
+                    char_offset: self.char_offset - stmt_offset,
+                    char_len: self.char_len,
+                }
+            }
         }
     }
 
     pub fn into_global(&self, stmt_offset: usize) -> Self {
-        Self {
-            edit_state: self.edit_state,
-            node_type: self.node_type.clone(),
-            patch: self.patch.clone(),
-            char_offset: self.char_offset + stmt_offset,
-            char_len: self.char_len,
+        match stmt_offset {
+            0 => self.clone(),
+            _ => {
+                Self {
+                    edit_state: self.edit_state,
+                    node_type: self.node_type.clone(),
+                    patch: self.patch.clone(),
+                    char_offset: self.char_offset + stmt_offset,
+                    char_len: self.char_len,
+                }
+            }
         }
     }
 }

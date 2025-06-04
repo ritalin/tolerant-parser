@@ -38,7 +38,7 @@ pub trait NodeOperation {
     fn next_sibling(&self) -> Option<Self::Item>;
 }
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub(crate) struct SyntaxNodeData {
     raw: rowan::SyntaxNode<RowanLangageImpl>,
     metadata_table: Rc<Vec<StatementMetadataMap>>,
@@ -82,7 +82,7 @@ impl SyntaxNodeData {
         })
         .next();
 
-        stmt.map(|node| node.index()).unwrap_or_default()
+        stmt.map(|node| node.index() + 1).unwrap_or_default()
     }
 }
 
@@ -110,7 +110,7 @@ impl MetadataAccess for SyntaxNodeData {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub(crate) struct SyntaxTokenData {
     raw: rowan::SyntaxToken<RowanLangageImpl>,
     metadata_table: Rc<Vec<StatementMetadataMap>>,
@@ -131,7 +131,7 @@ impl SyntaxTokenData {
         })
         .next();
 
-        stmt.map(|node| node.index()).unwrap_or_default()
+        stmt.map(|node| node.index() + 1).unwrap_or_default()
     }
 }
 
