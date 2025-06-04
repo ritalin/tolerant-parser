@@ -19,6 +19,12 @@ impl Scanner {
         Ok(Self { dispatcher, lookaheads: VecDeque::from_iter([lookahead].into_iter()) })
     }
 
+    pub fn create_without_scan(source: &str, index: u32, engine: scanner_engine::ScanningRuleSet) -> Result<Self, crate::ScannerError> {
+        let dispatcher = ScanEventDispatcher::new(source, index, engine);
+        Ok(Self { dispatcher, lookaheads: VecDeque::new() })
+        
+    }
+
     pub fn statement_scanners(&self, terminate_symbol: SyntaxKind) -> crate::iter::StatementScannerIterator {
         crate::iter::StatementScannerIterator::new(
             self.lookaheads.clone(),

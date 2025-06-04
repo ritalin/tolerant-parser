@@ -32,21 +32,24 @@ impl Parser {
 
     pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<SyntaxTree, crate::parser::ParseError> {
         let scan_from = self.statements.first().map(|stmt| u32::from(stmt.text_range().start())).unwrap_or_default();
-        let scanner = Scanner::create(source, scan_from, self.engine.scanning_rules.clone())?;
-        let terminate_symbol = self.engine.parsing_rules.statement_emit_config().to_symbol;
+        let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone())?;
+        let emit_symbol = self.engine.parsing_rules.statement_emit_config().to_symbol;
+        let full_emit_symbol = self.engine.parsing_rules.full_emit_config().to_symbol;
 
+        // Determine first statement offset (byte/char)
+        let (mut global_byte_offset, mut global_char_offset) = self.metadata_table.get(self.replace_from + 1)
+            .map(|entry| (entry.byte_offset, entry.char_offset))
+            .unwrap_or_else(|| (0, 0))
+        ;
+        
+        let stmts = self.statements.iter().map(Some).chain(std::iter::repeat(None));
+        let scanners = scanner.statement_scanners(emit_symbol);
+        
         let mut new_children = vec![];
         let mut new_metadata_table = vec![];
-        let stmts = self.statements.iter().map(Some).chain(std::iter::repeat(None));
-        let iter = scanner.statement_scanners(terminate_symbol)
-            .filter(|scanner| {
-                scanner.as_view(std::ops::RangeFull).lookahead().is_some()
-            })
-            .zip(stmts)
-        ;
 
-        for (stmt_scanner, stmt) in iter {
-            match stmt {
+        for (stmt_scanner, stmt) in scanners.zip(stmts).filter(|(s, _)| s.as_view(std::ops::RangeFull).lookahead().is_some()) {
+            let (new_stmt, new_metadata_entry) = match stmt {
                 Some(stmt) => {
                     let stmt_index = stmt.index();
                     let stmt = stmt.clone_subtree();
@@ -57,7 +60,7 @@ impl Parser {
                         node: gardener.common_anscestor(
                             gardener.pick_token(lowest.into()), 
                             gardener.pick_token(highest.into()),
-                            terminate_symbol
+                            emit_symbol
                         )
                         .expect("At least, must exist")
                     };
@@ -78,19 +81,38 @@ impl Parser {
 
                     let (new_node, new_matadata_map) = parse_internal(stmt_scanner, &config, metadata.edit_state, terminate_kind, self.engine.parsing_rules)?;
                     
-                    new_children.push(gardener.replace_with_new_node(new_node.clone(), &common_anscestor.node));
-                    new_metadata_table.push(gardener.merge_metadata_map(
-                        &self.scope, 
+                    let new_stmt = gardener.replace_with_new_node(new_node.clone(), &common_anscestor.node);
+                    let metadata_entry = support::merge_metadata_map(
                         Some((common_anscestor.node, &old_metadata_map.map)),
                         new_node.into_node().map(|x| (x, new_matadata_map)).unwrap(),
-                        old_metadata_map.byte_offset, old_metadata_map.char_offset, metadata.char_offset,
+                        global_byte_offset, global_char_offset, metadata.char_offset,
                         self.engine.parsing_rules
-                    ));
+                    );
+
+                    (new_stmt, metadata_entry)
                 }
                 None => {
-                    todo!()
+                    let stmt_scanner = stmt_scanner.as_view(std::ops::RangeFull);
+                    let (new_stmt, new_matadata_map) = parse_internal(stmt_scanner, &config, 0, full_emit_symbol, self.engine.parsing_rules)?;
+
+                    let metadata_entry = support::merge_metadata_map(
+                        None,
+                        new_stmt.clone().into_node().map(|x| (x, new_matadata_map)).unwrap(),
+                        global_byte_offset, global_char_offset, 0,
+                        self.engine.parsing_rules
+                    );
+
+                    (new_stmt, metadata_entry)
                 }
-            }
+            };
+
+            let key = make_key_from_green_stmt(new_stmt.as_node(), self.engine.parsing_rules).expect("Statement key is not found");
+            let (_, metadata) = new_metadata_entry.map.get(&key).expect("Statement metadata is not found");
+            global_byte_offset += key.len; 
+            global_char_offset = metadata.char_len;
+
+            new_children.push(new_stmt);
+            new_metadata_table.push(new_metadata_entry);
         }
         
         let root = self.root.green().splice_children(self.replace_from..(self.replace_from + self.statements.len()), new_children);
@@ -199,7 +221,7 @@ fn update_metadata_table<'a>(
             len: child.text_len().into(), 
             is_leaf: false 
         };
-        let (_, metadata) = metadata_table[i + 1].map.get(&key).unwrap();
+        let (_, metadata) = metadata_table[i + 1].map.get(&key).expect(&format!("Failed to update metadata of incremental parse. (key: {:?})", key));
         byte_offset += key.len;
         char_offset += metadata.char_len;
     }
@@ -216,4 +238,15 @@ fn update_metadata_table<'a>(
     metadata_table[0].map.insert(key, (id, metadata));
 
     metadata_table
+}
+
+fn make_key_from_green_stmt(stmt: Option<&rowan::GreenNode>, engine: ParsingRuleSet) -> Option<NodeMetadataKey> {
+    stmt.map(|node| {
+        NodeMetadataKey{ 
+            kind: engine.from_kind_id(node.kind().0 as u32), 
+            offset: 0, 
+            len: node.text_len().into(), 
+            is_leaf: false 
+        }
+    })
 }

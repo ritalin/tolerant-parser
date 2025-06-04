@@ -4,9 +4,6 @@ use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
 use rowan::NodeOrToken;
 use crate::{metadata::{StatementMetadataMap}, syntax_tree::RowanLangageImpl, NodeId, NodeMetadata, NodeMetadataKey};
 
-use super::EditScope;
-
-
 pub struct TreeGardener {
     pub node: rowan::SyntaxNode<RowanLangageImpl>,
 }
@@ -66,74 +63,6 @@ impl TreeGardener {
         rowan::NodeOrToken::Node(parent.replace_with(green_node))
     }
 
-    pub fn merge_metadata_map(
-        &self,
-        scope: &EditScope,
-        old_pair: Option<(rowan::SyntaxNode<RowanLangageImpl>, &HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>)>,
-        (new_anscestor, new_metadata): (rowan::GreenNode, HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>),
-        global_byte_offset: usize, global_char_offset: usize, local_char_offset: usize,
-        engine: ParsingRuleSet) -> StatementMetadataMap
-    {
-        let mut new_metadata_map = HashMap::from_iter(
-            new_metadata.into_iter()
-            .map(|(key, (id, metadata))| {
-                (key.into_local(global_byte_offset), (id, metadata.into_local(global_char_offset).into_global(local_char_offset)))
-            })
-        );
-
-        if let Some((old_anscestor, old_metadata)) = old_pair {
-            let anscestor_range: std::ops::Range<usize> = old_anscestor.text_range().into();
-            let old_char_len = measure_char_len(old_anscestor.green().as_ref());
-            let new_char_len = measure_char_len(std::borrow::Borrow::borrow(&new_anscestor));
-            let anscestor_path = old_anscestor.ancestors()
-                .map(|x| NodeMetadataKey::from_raw_node(&x, engine).into_local(global_byte_offset))
-                .collect::<HashSet<_>>()
-            ;
-
-            // Phase1: merge metadata except anscestors
-            old_metadata.iter()
-                .filter(|(key, _)| {
-                    !anscestor_path.contains(key)
-                })
-                .filter_map(|(key, (id, metadata))| match (key.offset, key.len) {
-                    (offset, len) if offset + len <= anscestor_range.start => {
-                        // Before anscestor nodes descendants
-                        Some((key.clone(), (id.clone(), metadata.clone())))
-                    }
-                    (offset, _) if offset >= anscestor_range.end => {
-                        // After anscestor node descendants
-                        let key = NodeMetadataKey{ offset: key.offset + scope.new_byte_len - scope.old_byte_len, ..key.clone() };
-                        let metadata = NodeMetadata { char_offset: metadata.char_offset + new_char_len - old_char_len, ..metadata.clone() };
-                        Some((key, (id.clone(), metadata)))
-                    }
-                    _ => {
-                        // Ignore anscestor node descendants
-                        None
-                    }
-                })
-                .for_each(|(key, (id, metadata))| {
-                    new_metadata_map.insert(key, (id, metadata));
-                })
-            ;
-
-            // Phase2: regenerate anscestors metadata
-            for node in old_anscestor.ancestors() {                
-                let mut key = NodeMetadataKey::from_raw_node(&node, engine).into_local(global_byte_offset);
-                let (id, mut metadata) = old_metadata.get(&key).expect("All of nodes need to have a metadata").clone();
-
-                key.len = key.len + scope.new_byte_len - scope.old_byte_len;
-                metadata.char_len = metadata.char_len + new_char_len - old_char_len;
-
-                new_metadata_map.insert(key, (id, metadata));
-            }
-        }
-
-        return StatementMetadataMap {
-            byte_offset: global_byte_offset,
-            char_offset: global_char_offset,
-            map: new_metadata_map,
-        };
-    }
 }
 
 #[derive(Clone)]
@@ -168,6 +97,77 @@ impl FoundToken {
     {
         self.token.parent_ancestors().any(|x| x == *stmt)
     }
+}
+
+pub fn merge_metadata_map(
+    old_pair: Option<(rowan::SyntaxNode<RowanLangageImpl>, &HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>)>,
+    (new_anscestor, new_metadata): (rowan::GreenNode, HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>),
+    global_byte_offset: usize, global_char_offset: usize, local_char_offset: usize,
+    engine: ParsingRuleSet) -> StatementMetadataMap
+{
+    let mut new_metadata_map = HashMap::from_iter(
+        new_metadata.into_iter()
+        .map(|(key, (id, metadata))| {
+            (key.into_local(global_byte_offset), (id, metadata.into_local(global_char_offset).into_global(local_char_offset)))
+        })
+    );
+
+    if let Some((old_anscestor, old_metadata)) = old_pair {
+        let anscestor_range: std::ops::Range<usize> = old_anscestor.text_range().into();
+        let old_char_len = measure_char_len(old_anscestor.green().as_ref());
+        let new_char_len = measure_char_len(std::borrow::Borrow::borrow(&new_anscestor));
+
+        let old_byte_len: usize = anscestor_range.len();
+        let new_byte_len: usize = new_anscestor.text_len().into();
+
+        let anscestor_path = old_anscestor.ancestors()
+            .map(|x| NodeMetadataKey::from_raw_node(&x, engine).into_local(global_byte_offset))
+            .collect::<HashSet<_>>()
+        ;
+
+        // Phase1: merge metadata except anscestors
+        old_metadata.iter()
+            .filter(|(key, _)| {
+                !anscestor_path.contains(key)
+            })
+            .filter_map(|(key, (id, metadata))| match (key.offset, key.len) {
+                (offset, len) if offset + len <= anscestor_range.start => {
+                    // Before anscestor nodes descendants
+                    Some((key.clone(), (id.clone(), metadata.clone())))
+                }
+                (offset, _) if offset >= anscestor_range.end => {
+                    // After anscestor node descendants
+                    let key = NodeMetadataKey{ offset: key.offset + new_byte_len - old_byte_len, ..key.clone() };
+                    let metadata = NodeMetadata { char_offset: metadata.char_offset + new_char_len - old_char_len, ..metadata.clone() };
+                    Some((key, (id.clone(), metadata)))
+                }
+                _ => {
+                    // Ignore anscestor node descendants
+                    None
+                }
+            })
+            .for_each(|(key, (id, metadata))| {
+                new_metadata_map.insert(key, (id, metadata));
+            })
+        ;
+
+        // Phase2: regenerate anscestors metadata
+        for node in old_anscestor.ancestors() {                
+            let mut key = NodeMetadataKey::from_raw_node(&node, engine).into_local(global_byte_offset);
+            let (id, mut metadata) = old_metadata.get(&key).expect("All of nodes need to have a metadata").clone();
+
+            key.len = key.len + new_byte_len - old_byte_len;
+            metadata.char_len = metadata.char_len + new_char_len - old_char_len;
+
+            new_metadata_map.insert(key, (id, metadata));
+        }
+    }
+
+    return StatementMetadataMap {
+        byte_offset: global_byte_offset,
+        char_offset: global_char_offset,
+        map: new_metadata_map,
+    };
 }
 
 fn measure_char_len(node: &rowan::GreenNodeData) -> usize {
