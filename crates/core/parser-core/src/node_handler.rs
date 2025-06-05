@@ -191,9 +191,9 @@ impl SyntaxTreeBuilder {
             .for_each(|(id, (index, mut metadata, mut key))| {
                 if self.mode == ParseMode::ByStatement {
                     // adjust to the local offset
-                    let stmt_offset = metadata_table[index].byte_offset;
-                    key = key.into_local(stmt_offset);
-                    metadata = metadata.into_local(stmt_offset);
+                    let entry = &metadata_table[index];
+                    key = key.into_local(entry.byte_offset);
+                    metadata = metadata.into_local(entry.char_offset);
                 }
                 metadata_table[index].map.insert(key, (id, metadata));
             })

@@ -480,7 +480,35 @@ mod parser_tests {
 
     #[test]
     fn test_parse_with_maltibyte_char() -> Result<(), anyhow::Error> {
-        todo!()
+        let source = "/* 日本語コメント */SELECT 42 AS a;";
+        let new_source = "/* 日本語コメント */SELECT 42 /* ASを取り除いた */ a;";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let rebuilded_source = rebuild_source(tree.root().token_at_offset(0));
+        assert_eq!(source, rebuilded_source);
+
+        let scope = EditScope{
+            start_byte_offset: 31,
+            old_byte_len: 2,
+            new_byte_len: 26,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let new_tree = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let expect_node = serde_json::from_str::<Vec<_ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_with_maltibyte_char.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify_new(new_tree.root(), &expect_node);
+
+        Ok(())
     }
 
     #[test]
