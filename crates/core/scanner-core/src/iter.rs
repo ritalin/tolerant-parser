@@ -75,6 +75,10 @@ impl StatementScanner {
 
         crate::scanner::StatementScannerView::new(&self.lookaheads, from, len)
     }
+
+    pub fn index(&self) -> usize {
+        self.source_from
+    }
 }
 
 pub struct StatementScannerIterator {

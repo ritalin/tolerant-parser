@@ -8,7 +8,7 @@ mod expand_region_tests {
     fn extend_to_neighbors(scope: &EditScope, root: Option<&SyntaxNode>, except_kind: SyntaxKind) -> EditScope {
         let Some(root) = root else { return scope.clone() };
 
-        let (lowest_offset, highest_offset) = scope.adjust_offset(scope.old_byte_len, root.into_raw());
+        let (lowest_offset, highest_offset) = scope.adjust_range(scope.old_byte_len, &root.into_raw());
 
         let gardener = parser_core::incremental::support::TreeGardener{ node: root.into_raw() };
         let anscestor = gardener.common_anscestor(
@@ -414,7 +414,35 @@ mod parser_tests {
 
     #[test]
     fn test_parse_single_with_cross_over_2_statements() -> Result<(), anyhow::Error> {
-        todo!()
+        let source = "SELECT '101'; SELECT 42 x FROM foo u;";
+        let new_source = "SELECT 42; SELECT p, 42 x FROM foo u;";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let rebuilded_source = rebuild_source(tree.root().token_at_offset(0));
+        assert_eq!(source, rebuilded_source);
+
+        let scope = EditScope{
+            start_byte_offset: 7,
+            old_byte_len: 14,
+            new_byte_len: 14,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let new_tree = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let expect_node = serde_json::from_str::<Vec<_ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_single_with_cross_over_2_statements.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify_new(new_tree.root(), &expect_node);
+
+        Ok(())
     }
 
     #[test]
@@ -521,7 +549,7 @@ mod parser_tests {
         Ok(())
     }
 
-    // fn test_parse_split_statement_on_inserting_semicolon() // SELECT 1 AS y -> SELECT 1 AS y; SELECT 2 AS x
+    // fn test_parse_split_statement_on_inserting_semicolon() // SELECT 1 AS x -> SELECT 1 AS y; SELECT 2 AS x
     // fn test_parse_concat_statement_on_removing_semicolon() // SELECT 1; SELECT 2; -> SELECT 1 SELECT 2;
     // fn test_parse_brolken_keyword() // SELECT -> ELECT
 }

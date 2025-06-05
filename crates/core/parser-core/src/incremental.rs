@@ -58,9 +58,10 @@ impl Parser {
             let (new_stmt, new_metadata_entry) = match stmt {
                 Some(stmt) => {
                     let stmt_index = stmt.index();
-                    let stmt = stmt.clone_subtree();
-                    let gardener = support::TreeGardener{ node: stmt.clone() };
-                    let (lowest, highest) = self.scope.adjust_offset(self.scope.old_byte_len, stmt);
+                    let (lowest, highest) = self.scope.adjust_range(self.scope.old_byte_len, &stmt);
+                    let old_stmt_offset = usize::from(stmt.text_range().start());
+
+                    let gardener = support::TreeGardener{ node: stmt.clone_subtree() };
                     // Find common anscestor
                     let common_anscestor = support::TreeGardener{ 
                         node: gardener.common_anscestor(
@@ -71,13 +72,21 @@ impl Parser {
                         .expect("At least, must exist")
                     };
 
-                    let mut anscestor_range: std::ops::Range<usize> = common_anscestor.node.text_range().into();
+                    // text_range is local coordicate because of clone_subtree()
+                    let mut range: std::ops::Range<usize> = common_anscestor.node.text_range().into();
+                    (range.start, range.end) = (range.start + global_byte_offset, range.end + global_byte_offset);
                     // Adgust by the edit distance
-                    anscestor_range.end = anscestor_range.end - self.scope.old_byte_len + self.scope.new_byte_len;
+                    let anscestor_range = std::ops::Range {
+                        start: range.start,
+                        end: match self.scope.old_range().contains(&range.start) { 
+                            true => range.end + old_stmt_offset - stmt_scanner.index(),
+                            false => range.end + self.scope.new_byte_len - self.scope.old_byte_len
+                        },
+                    };
                     
                     let terminate_kind = common_anscestor.pick_terminate_kind(self.engine.parsing_rules);
 
-                    // Memo: Because A last token is reduce, it scans one more token.
+                    // Memo: Because a last token is reduce, it scans one more token.
                     let stmt_scanner = stmt_scanner.as_view(anscestor_range.start..(anscestor_range.end + 1));
                     let old_metadata_map = &self.metadata_table[stmt_index + 1]; // Index: 1 is a root node metadata
                     let (_, metadata) = old_metadata_map.map
@@ -140,7 +149,16 @@ pub struct EditScope {
 }
 
 impl EditScope {
-    pub fn adjust_offset(&self, len: usize, node: rowan::SyntaxNode<RowanLangageImpl>) -> (u32, u32) {
+    pub fn adjust_offset(&self, offset: usize) -> EditScope {
+        let offset = usize::max(self.start_byte_offset, offset);
+        Self {
+            start_byte_offset: offset,
+            old_byte_len: self.old_byte_len + offset - self.start_byte_offset,
+            new_byte_len: self.new_byte_len + offset - self.start_byte_offset,
+        }
+    }
+
+    pub fn adjust_range(&self, len: usize, node: &rowan::SyntaxNode<RowanLangageImpl>) -> (u32, u32) {
         let range = node.text_range();
         let lowest_offset = 
             u32::max(self.start_byte_offset as u32, range.start().into())
@@ -152,6 +170,10 @@ impl EditScope {
             )
         ;
         (lowest_offset, highest_offset)
+    }
+
+    pub fn old_range(&self) -> std::ops::Range<usize> {
+        std::ops::Range { start: self.start_byte_offset, end: self.start_byte_offset + self.old_byte_len }
     }
 }
 

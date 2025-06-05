@@ -206,7 +206,10 @@ impl SyntaxTreeBuilder {
         let Some(node) = children.first() else {
             return Err(NodeBuildError::EmptyTree);
         };
-        let metadata = HashMap::from_iter(self.all_metadata_map.into_iter().map(|(id, (_, metadata, key))| (key, (id, metadata))));
+        let metadata = HashMap::from_iter(self.all_metadata_map.into_iter()
+            .map(|(id, (_, metadata, key))| {
+                (key, (id, metadata))}
+            ));
 
         Ok((node.clone(), metadata))
     }

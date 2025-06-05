@@ -35,7 +35,10 @@ impl TreeGardener {
             .unzip()
         ;
         
-        lca
+        lca.and_then(|node| {
+            let needle = node.text_range();
+            node.ancestors().take_while(|anscestor| anscestor.text_range() == needle).last()
+        })
     }
 
     pub fn pick_terminate_kind(&self, engine: ParsingRuleSet) -> SyntaxKind {
@@ -121,7 +124,7 @@ pub fn merge_metadata_map(
         let new_byte_len: usize = new_anscestor.text_len().into();
 
         let anscestor_path = old_anscestor.ancestors()
-            .map(|x| NodeMetadataKey::from_raw_node(&x, engine).into_local(global_byte_offset))
+            .map(|x| NodeMetadataKey::from_raw_node(&x, engine))
             .collect::<HashSet<_>>()
         ;
 
@@ -153,7 +156,7 @@ pub fn merge_metadata_map(
 
         // Phase2: regenerate anscestors metadata
         for node in old_anscestor.ancestors() {                
-            let mut key = NodeMetadataKey::from_raw_node(&node, engine).into_local(global_byte_offset);
+            let mut key = NodeMetadataKey::from_raw_node(&node, engine);
             let (id, mut metadata) = old_metadata.get(&key).expect("All of nodes need to have a metadata").clone();
 
             key.len = key.len + new_byte_len - old_byte_len;
