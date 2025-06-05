@@ -419,7 +419,35 @@ mod parser_tests {
 
     #[test]
     fn test_parse_append_statment() -> Result<(), anyhow::Error> {
-        todo!()
+        let source = "SELECT '101';";
+        let new_source = "SELECT '101'; SELECT 42 x FROM foo u;";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let rebuilded_source = rebuild_source(tree.root().token_at_offset(0));
+        assert_eq!(source, rebuilded_source);
+
+        let scope = EditScope{
+            start_byte_offset: 13,
+            old_byte_len: 0,
+            new_byte_len: 24,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let new_tree = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let expect_node = serde_json::from_str::<Vec<_ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_append_statment.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify_new(new_tree.root(), &expect_node);
+
+        Ok(())
     }
 
     #[test]
@@ -492,4 +520,8 @@ mod parser_tests {
 
         Ok(())
     }
+
+    // fn test_parse_split_statement_on_inserting_semicolon() // SELECT 1 AS y -> SELECT 1 AS y; SELECT 2 AS x
+    // fn test_parse_concat_statement_on_removing_semicolon() // SELECT 1; SELECT 2; -> SELECT 1 SELECT 2;
+    // fn test_parse_brolken_keyword() // SELECT -> ELECT
 }

@@ -101,21 +101,21 @@ impl FoundToken {
 
 pub fn merge_metadata_map(
     old_pair: Option<(rowan::SyntaxNode<RowanLangageImpl>, &HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>)>,
-    (new_anscestor, new_metadata): (rowan::GreenNode, HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>),
-    global_byte_offset: usize, global_char_offset: usize, local_char_offset: usize,
+    (new_anscestor, new_metadata): (&rowan::GreenNode, HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>),
+    global_byte_offset: usize, local_char_offset: usize,
     engine: ParsingRuleSet) -> StatementMetadataMap
 {
     let mut new_metadata_map = HashMap::from_iter(
         new_metadata.into_iter()
         .map(|(key, (id, metadata))| {
-            (key.into_local(global_byte_offset), (id, metadata.into_local(global_char_offset).into_global(local_char_offset)))
+            (key.into_local(global_byte_offset), (id, metadata.into_global(local_char_offset)))
         })
     );
 
     if let Some((old_anscestor, old_metadata)) = old_pair {
         let anscestor_range: std::ops::Range<usize> = old_anscestor.text_range().into();
         let old_char_len = measure_char_len(old_anscestor.green().as_ref());
-        let new_char_len = measure_char_len(std::borrow::Borrow::borrow(&new_anscestor));
+        let new_char_len = measure_char_len(std::borrow::Borrow::borrow(new_anscestor));
 
         let old_byte_len: usize = anscestor_range.len();
         let new_byte_len: usize = new_anscestor.text_len().into();
@@ -163,9 +163,10 @@ pub fn merge_metadata_map(
         }
     }
 
+    // each offsets is updated latter
     return StatementMetadataMap {
-        byte_offset: global_byte_offset,
-        char_offset: global_char_offset,
+        byte_offset: 0,
+        char_offset: 0,
         map: new_metadata_map,
     };
 }

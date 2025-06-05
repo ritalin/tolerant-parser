@@ -18,7 +18,13 @@ impl Parser {
     pub fn new(old_tree: &SyntaxTree, scope: EditScope, engine: engine_core::Engine) -> Self {
         let root = old_tree.root().into_raw();
         let statements = find_edit_statements(old_tree, &scope).collect::<Vec<_>>();
-        let replace_from = statements.first().map(|stmt| stmt.index()).unwrap_or_default();
+        let replace_from = statements.first()
+            .map(|stmt| stmt.index())
+            .or_else(|| {
+                old_tree.metadata_table().iter().skip(1).position(|x| x.byte_offset >= scope.start_byte_offset)
+            })
+            .unwrap_or_default()
+        ;
 
         Self {
             scope,
@@ -31,17 +37,17 @@ impl Parser {
     }
 
     pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<SyntaxTree, crate::parser::ParseError> {
-        let scan_from = self.statements.first().map(|stmt| u32::from(stmt.text_range().start())).unwrap_or_default();
+        // Determine first statement offset (byte/char)
+        let mut global_byte_offset = self.metadata_table.get(self.replace_from + 1)
+            .map(|entry| entry.byte_offset)
+            .unwrap_or_else(|| 0)
+        ;
+        
+        let scan_from = self.statements.first().map(|stmt| u32::from(stmt.text_range().start())).unwrap_or(self.scope.start_byte_offset as u32);
         let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone())?;
         let emit_symbol = self.engine.parsing_rules.statement_emit_config().to_symbol;
         let full_emit_symbol = self.engine.parsing_rules.full_emit_config().to_symbol;
 
-        // Determine first statement offset (byte/char)
-        let (mut global_byte_offset, mut global_char_offset) = self.metadata_table.get(self.replace_from + 1)
-            .map(|entry| (entry.byte_offset, entry.char_offset))
-            .unwrap_or_else(|| (0, 0))
-        ;
-        
         let stmts = self.statements.iter().map(Some).chain(std::iter::repeat(None));
         let scanners = scanner.statement_scanners(emit_symbol);
         
@@ -84,8 +90,8 @@ impl Parser {
                     let new_stmt = gardener.replace_with_new_node(new_node.clone(), &common_anscestor.node);
                     let metadata_entry = support::merge_metadata_map(
                         Some((common_anscestor.node, &old_metadata_map.map)),
-                        new_node.into_node().map(|x| (x, new_matadata_map)).unwrap(),
-                        global_byte_offset, global_char_offset, metadata.char_offset,
+                        new_node.as_node().map(|x| (x, new_matadata_map)).unwrap(),
+                        global_byte_offset, metadata.char_offset,
                         self.engine.parsing_rules
                     );
 
@@ -97,8 +103,9 @@ impl Parser {
 
                     let metadata_entry = support::merge_metadata_map(
                         None,
-                        new_stmt.clone().into_node().map(|x| (x, new_matadata_map)).unwrap(),
-                        global_byte_offset, global_char_offset, 0,
+                        new_stmt.as_node().map(|x| (x, new_matadata_map)).unwrap(),
+                        global_byte_offset, // Because lookahead is contained global_byte_offset
+                        0, // Because always global_char_offset = 0 in the statement
                         self.engine.parsing_rules
                     );
 
@@ -107,9 +114,7 @@ impl Parser {
             };
 
             let key = make_key_from_green_stmt(new_stmt.as_node(), self.engine.parsing_rules).expect("Statement key is not found");
-            let (_, metadata) = new_metadata_entry.map.get(&key).expect("Statement metadata is not found");
             global_byte_offset += key.len; 
-            global_char_offset = metadata.char_len;
 
             new_children.push(new_stmt);
             new_metadata_table.push(new_metadata_entry);
@@ -163,7 +168,7 @@ pub fn find_edit_statements(old_tree: &SyntaxTree, scope: &EditScope) -> impl It
         crate::syntax_tree::SyntaxElementDef::TokenSet(_) => None
     })
     .skip_while(move |(_, key)| {
-        key.offset + key.len < range_from
+        key.offset + key.len <= range_from
     })
     .take_while(move |(_, key)| {
         key.offset < range_to
