@@ -92,6 +92,7 @@ pub mod builder {
             .regex_rule(get_regex_pattern, get_acceptable_regex_indexes)
             .symbol_lookup(get_symbol)
             .eof_id(super::syntax_kind::r#EOF.id)
+            .stmt_end_id(super::syntax_kind::r#SEMI.id)
             .invalid_id(super::syntax_kind::r#ILLEGAL.id)
         ;
 

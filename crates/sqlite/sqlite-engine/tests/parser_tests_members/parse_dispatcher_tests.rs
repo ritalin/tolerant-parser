@@ -208,7 +208,7 @@ mod dispatcher_support_tests {
 
     use engine_core::{scanner_engine::ScanEvent, SyntaxKind};
     use parser_core::{error_recovery::{RecoveryEvent, RecoveryEventDispatcher, RecoveryEventPayload, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher}, ParseMode};
-    use scanner_core::{LookaheadIterator, Token};
+    use scanner_core::{iter::LookaheadIterator, Token};
     use sqlite_engine::syntax_kind;
 
     fn prepare_dispatcher_state(dispatcher: &mut ParseEventDispatcher, requests: &[(SyntaxKind, usize)]) -> Result<(), anyhow::Error> {
@@ -311,7 +311,7 @@ mod dispatcher_support_tests {
         'next_state: {
             let lookahead = lookaheads.peek().map(|x| x.kind);
             let event = dispatcher.next(lookahead)?;
-            let expect_event = ParseEvent::Reduce { kind:syntax_kind::selcollist, current_state:579, next_state:145, edit_state:71, pop_count:5 };
+            let expect_event = ParseEvent::Reduce { kind:syntax_kind::selcollist, current_state:579, next_state:145, edit_state:18, pop_count:5 };
             assert_eq!(expect_event, event);
             break 'next_state;
         }
@@ -453,7 +453,7 @@ mod dispatcher_support_tests {
             },
         ]);
 
-        let recover_events = recovery_handler.handle_as_invalid(LookaheadIterator::new(&lookaheads, lookaheads.len()));
+        let recover_events = recovery_handler.handle_as_invalid(LookaheadIterator::new(&lookaheads, 0, lookaheads.len()));
         dispatcher.post_recovery_event(&recover_events);
 
         'next_state: {

@@ -38,7 +38,7 @@ pub trait NodeOperation {
     fn next_sibling(&self) -> Option<Self::Item>;
 }
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub(crate) struct SyntaxNodeData {
     raw: rowan::SyntaxNode<RowanLangageImpl>,
     metadata_table: Rc<Vec<StatementMetadataMap>>,
@@ -82,7 +82,7 @@ impl SyntaxNodeData {
         })
         .next();
 
-        stmt.map(|node| node.index()).unwrap_or_default()
+        stmt.map(|node| node.index() + 1).unwrap_or_default()
     }
 }
 
@@ -100,17 +100,17 @@ impl MetadataAccess for SyntaxNodeData {
     fn metadata(&self) -> NodeMetadata {
         let index = self.statement_index();
         let stmt_metadta = &self.metadata_table[index];
-        let stmt_offset = if self.parse_mode == ParseMode::Full { 0 } else { stmt_metadta.byte_offset };
-        let key = self.metadata_key().into_local(stmt_offset);
+        let (byte_offset, char_offset ) = if self.parse_mode == ParseMode::Full { (0, 0) } else { (stmt_metadta.byte_offset, stmt_metadta.char_offset) };
+        let key = self.metadata_key().into_local(byte_offset);
 
         stmt_metadta.map.get(&key)
         .map(|(_, metadata)| metadata)
-        .expect(&format!("All node/token must contain a metadata@{index} (key: {key:?}, stmt_offset: {stmt_offset})"))
-        .into_global(stmt_offset)
+        .expect(&format!("All node/token must contain a metadata@{index} (key: {key:?}, byte_offset: {byte_offset})"))
+        .into_global(char_offset)
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub(crate) struct SyntaxTokenData {
     raw: rowan::SyntaxToken<RowanLangageImpl>,
     metadata_table: Rc<Vec<StatementMetadataMap>>,
@@ -131,7 +131,7 @@ impl SyntaxTokenData {
         })
         .next();
 
-        stmt.map(|node| node.index()).unwrap_or_default()
+        stmt.map(|node| node.index() + 1).unwrap_or_default()
     }
 }
 
@@ -149,13 +149,13 @@ impl MetadataAccess for SyntaxTokenData {
     fn metadata(&self) -> NodeMetadata {
         let index = self.statement_index();
         let stmt_metadta = &self.metadata_table[index];
-        let stmt_offset = if self.parse_mode == ParseMode::Full { 0 } else { stmt_metadta.byte_offset };
-        let key = self.metadata_key().into_local(stmt_offset);
+        let (byte_offset, char_offset ) = if self.parse_mode == ParseMode::Full { (0, 0) } else { (stmt_metadta.byte_offset, stmt_metadta.char_offset) };
+        let key = self.metadata_key().into_local(byte_offset);
 
         stmt_metadta.map.get(&key)
         .map(|(_, metadata)| metadata)
-        .expect(&format!("All node/token must contain a metadata@{index} (key: {key:?}, stmt_offset: {stmt_offset})"))
-        .into_global(stmt_offset)
+        .expect(&format!("All node/token must contain a metadata@{index} (key: {key:?}, byte_offset: {byte_offset})"))
+        .into_global(char_offset)
     }
 }
 

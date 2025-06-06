@@ -1,5 +1,5 @@
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
-use scanner_core::LookaheadIterator;
+use scanner_core::iter::LookaheadIterator;
 use stitch_handler::StitchRecoveryHandler;
 use crate::state_stack::StateStack;
 

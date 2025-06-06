@@ -2,11 +2,29 @@ use engine_core::parser_engine::ParsingRuleSet;
 use parser_core::{syntax_tree::{MetadataAccess, SyntaxElement, SyntaxNode, SyntaxTokenItem, SyntaxTokenItems, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey, PatchAction};
 use serde::ser::SerializeStruct;
 
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 pub enum ActualNode {
     Node(SyntaxNode),
     TokenSet(SyntaxTokenSet),
     TokenItem(SyntaxTokenItem),
+}
+
+impl MetadataAccess for ActualNode {
+    fn metadata_key(&self) -> NodeMetadataKey {
+        match self {
+            ActualNode::Node(node) => node.metadata_key(),
+            ActualNode::TokenSet(token_set) => token_set.metadata_key(),
+            ActualNode::TokenItem(token_item) => token_item.metadata_key(),
+        }
+    }
+
+    fn metadata(&self) -> NodeMetadata {
+        match self {
+            ActualNode::Node(node) => node.metadata(),
+            ActualNode::TokenSet(token_set) => token_set.metadata(),
+            ActualNode::TokenItem(token_item) => token_item.metadata(),
+        }
+    }
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -145,5 +163,121 @@ impl ExpectMetadataValue {
 impl From<&NodeMetadata> for ExpectMetadataValue {
     fn from(value: &NodeMetadata) -> Self {
         Self { edit_state: value.edit_state, node_type: value.node_type.clone(), patch: value.patch.clone(), char_offset: value.char_offset, char_len: value.char_len }
+    }
+}
+
+#[derive(PartialEq, Debug, serde::Deserialize)]
+pub struct _ExpectNode {
+    path: Vec<String>,
+    meta_key: _ExpectMetadataKey,
+    meta_obj: _ExpectMetadataValue,
+    value: Option<String>,
+}
+
+#[derive(PartialEq, Debug, serde::Deserialize)]
+pub struct _ExpectMetadataKey {
+    pub byte_offset: usize,
+    pub byte_len: usize,
+    pub is_leaf: bool,
+}
+
+impl From<NodeMetadataKey> for _ExpectMetadataKey {
+    fn from(value: NodeMetadataKey) -> Self {
+        Self {
+            byte_offset: value.offset,
+            byte_len: value.len,
+            is_leaf: value.is_leaf,
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, serde::Deserialize)]
+pub struct _ExpectMetadataValue {
+    pub char_offset: usize,
+    pub char_len: usize,
+    pub node_type: parser_core::NodeType,
+    pub patch: PatchAction,
+    pub edit_state: usize,
+}
+
+impl From<NodeMetadata> for _ExpectMetadataValue {
+    fn from(value: NodeMetadata) -> Self {
+        Self {
+            char_offset: value.char_offset,
+            char_len: value.char_len,
+            node_type: value.node_type,
+            patch: value.patch,
+            edit_state: value.edit_state,
+        }
+    }
+}
+
+pub fn verify_new(actual_node: SyntaxNode, expect_nodes: &[_ExpectNode]) {
+    let mut stack = vec![(vec![actual_node.metadata_key().kind.text.to_string()], ActualNode::Node(actual_node))];
+
+    let mut i = 0;
+
+    while let Some((path, node)) = stack.pop() {
+        let expect = &expect_nodes[i];
+        assert_eq!(expect.path, path);
+        assert_eq!(expect.meta_key, _ExpectMetadataKey::from(node.metadata_key()), "Unmatch key for {:?}", &path);
+        assert_eq!(expect.meta_obj, _ExpectMetadataValue::from(node.metadata()), "Unmatch metadata for {:?}", &path);
+
+        match node {
+            ActualNode::Node(node) => {
+                stack.extend(
+                    node.children()
+                    .map(|x| match x {
+                        parser_core::syntax_tree::SyntaxElementDef::Node(item) => {
+                            let mut new_path = path.clone();
+                            new_path.push(item.metadata_key().kind.text.to_string());
+
+                            (new_path, ActualNode::Node(item))
+                        }
+                        parser_core::syntax_tree::SyntaxElementDef::TokenSet(item) => {
+                            let mut new_path = path.clone();
+                            new_path.push(item.metadata_key().kind.text.to_string());
+
+                            (new_path, (ActualNode::TokenSet(item)))
+                        }
+                    })
+                    .collect::<Vec<_>>().into_iter()
+                    .rev()
+                );
+            }
+            ActualNode::TokenSet(token_set) => {
+                let mut members = vec![];
+                members.extend(
+                    token_set.leading_trivia().map(|item| {
+                        let mut new_path = path.clone();
+                        new_path.push(item.metadata_key().kind.text.to_string());
+
+                        (new_path, ActualNode::TokenItem(item))
+                    })
+                );
+                members.push({
+                    let item = token_set.token();
+                    let mut new_path = path.clone();
+                    new_path.push(item.metadata_key().kind.text.to_string());
+
+                    (new_path, ActualNode::TokenItem(item))
+                });
+                members.extend(
+                    token_set.trailing_trivia().map(|item| {
+                        let mut new_path = path.clone();
+                        new_path.push(item.metadata_key().kind.text.to_string());
+
+                        (new_path, ActualNode::TokenItem(item))
+                    })
+                );
+
+                stack.extend(members.into_iter().rev());
+            }
+            ActualNode::TokenItem(token_item) => {
+                let v = token_item.value().to_string();
+                assert_eq!(expect.value, (!v.is_empty()).then(|| v), "unmatch item value for {:?}", &path);
+            }
+        }
+        i += 1;
     }
 }

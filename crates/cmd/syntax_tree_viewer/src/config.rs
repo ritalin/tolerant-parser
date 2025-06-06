@@ -8,5 +8,7 @@ pub struct CmdConfig {
     #[arg(long)]
     pub no_color: bool,
     #[arg(long)]
+    pub show_state: bool,
+    #[arg(long)]
     pub enable_full_parse: bool,
 }

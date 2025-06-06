@@ -1,5 +1,6 @@
 use engine_core::scanner_engine::{self, AcceptableRegexSet, ScanEvent};
 
+#[derive(Clone)]
 pub struct ScanEventDispatcher {
     source: String,
     index: usize,
@@ -99,6 +100,10 @@ impl ScanEventDispatcher {
 
     pub fn has_more(&self) -> bool {
         self.index < self.source.len()
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
     }
 }
 

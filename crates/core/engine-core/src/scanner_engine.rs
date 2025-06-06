@@ -9,6 +9,7 @@ pub struct ScanningRuleSet {
     acceptable_regex: fn(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]>,
     symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
     eof_id: u32,
+    stmt_end_id: u32,
     invalid_id: u32,
     #[builder(setter(name = "regex_rule", custom))]
     regex_cache: Rc<HashMap<usize, RegexScanPattern>>,
@@ -27,21 +28,6 @@ impl ScanningRuleSetBuilder {
 }
 
 impl ScanningRuleSet {
-    // pub fn new(
-    //     lexme_rule: fn(prefix: char) -> Option<&'static [ScanPattern]>,
-    //     regex_rule: fn(index: usize) -> Option<&'static ScanPattern>,
-    //     acceptable_regex: fn(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]>,
-    //     symbol_lookup: fn(id: u32) -> &'static crate::SyntaxKind,
-    //     eof_id: u32) -> Self
-    // {
-    //     let regex_cache = init_regex_cache(regex_rule, acceptable_regex);
-
-    //     Self { 
-    //         lexme_rule, acceptable_regex, symbol_lookup, eof_id,
-    //         regex_cache: Rc::new(regex_cache),
-    //     }
-    // }
-
     pub fn scan_by_lexme(&self, source: &str, offset: usize) -> Option<ScanEvent> {
         let Some(prefix) = source.chars().nth(0) else {
             return None;
@@ -51,7 +37,7 @@ impl ScanningRuleSet {
         };
 
         for pattern in patterns {
-            if source.starts_with(pattern.pattern) {
+            if source.chars().zip(pattern.pattern.chars()).all(|(haystack, needle)| haystack.to_lowercase().eq(needle.to_lowercase())) {
                 let kind = (self.symbol_lookup)(pattern.id).clone();
                 let value = source.get(0..pattern.len).map(String::from);
                 return Some(ScanEvent{ kind, offset, len: pattern.len, value });
@@ -82,6 +68,10 @@ impl ScanningRuleSet {
 
     pub fn eof(&self) -> SyntaxKind {
         (self.symbol_lookup)(self.eof_id).clone()
+    }
+
+    pub fn statement_end_id(&self) -> SyntaxKind {
+        (self.symbol_lookup)(self.stmt_end_id).clone()
     }
 
     pub fn invalid(&self) -> SyntaxKind {
@@ -134,6 +124,7 @@ impl Default for ScanningRuleSet {
             acceptable_regex: default_acceptable_regex_lookup,
             symbol_lookup: default_symbol_lookup,
             eof_id: 0,
+            stmt_end_id: 0,
             invalid_id: 0,
             regex_cache: Default::default(),
         }

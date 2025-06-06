@@ -1,7 +1,7 @@
 #![cfg(not(engine_ungenerated))]
 
 use engine_core::scanner_engine::ScanEvent;
-use scanner_core::{Scanner, Token};
+use scanner_core::{Scanner, ScannerAccess, Token};
 use sqlite_engine::syntax_kind;
 
 mod scanner_tests_members {
