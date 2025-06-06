@@ -1,5 +1,5 @@
 use engine_core::{parser_engine::ParsingRuleSet, Engine, SyntaxKind};
-use scanner_core::{Scanner, ScannerError};
+use scanner_core::{Scanner, ScannerAccess, ScannerError};
 
 use crate::{error_recovery::{RecoveryEventDispatcher, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher, ParseEventError}, incremental::EditScope, node_handler::{NodeBuildError, SyntaxTreeBuilder}, syntax_tree::SyntaxTree};
 pub(crate) use crate::error_recovery::RecoveryEvent;
@@ -46,13 +46,13 @@ impl DefaultPasrser {
 }
 
 pub(crate) trait ParseStrategy {
-    fn is_terminated_kind(&self, kind: SyntaxKind) -> bool;
+    fn is_terminated_kind(&self, kind: SyntaxKind, scanner: &impl ScannerAccess) -> bool;
 }
 
 struct DefaultParserStrategy;
 
 impl ParseStrategy for DefaultParserStrategy {
-    fn is_terminated_kind(&self, _kind: SyntaxKind) -> bool {
+    fn is_terminated_kind(&self, _kind: SyntaxKind, _scanner: &impl ScannerAccess) -> bool {
         false
     }
 }
@@ -75,7 +75,7 @@ where S: scanner_core::ScannerAccess
         match event {
             Ok(ParseEvent::Shift { kind, .. }) => {
                 scanner.shift();
-                if scanner.lookahead().is_none() && strategy.is_terminated_kind(kind) {
+                if strategy.is_terminated_kind(kind, scanner) {
                     // Do not shift and break loop
                     break;
                 }

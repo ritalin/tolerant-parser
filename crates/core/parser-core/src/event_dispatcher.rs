@@ -71,7 +71,7 @@ impl ParseEventDispatcher {
         match self.engine.next_lookahead_state(lookahead_kind.id, state) {
             Some(Transition::Shift { next_state }) => {
                 self.state_stack.push_state(*next_state);
-                let edit_state = self.state_stack.mark_checkpoint(state);
+                let edit_state = self.state_stack.mark_checkpoint(state, true);
 
                 Ok(ParseEvent::Shift { kind: lookahead_kind, current_state: state, next_state: *next_state, edit_state })
             }
@@ -87,7 +87,7 @@ impl ParseEventDispatcher {
                 self.state_stack.push_state(*goto_state);
                 let edit_state = self.state_stack
                     .resolve_checkpoint(*pop_count)
-                    .unwrap_or_else(|| self.state_stack.mark_checkpoint(state))
+                    .unwrap_or_else(|| self.state_stack.mark_checkpoint(state, false))
                 ;
 
                 Ok(ParseEvent::Reduce { kind: lhs_kind, current_state: state, next_state: *goto_state, pop_count: *pop_count, edit_state })
@@ -120,7 +120,7 @@ impl ParseEventDispatcher {
                 }
                 RecoveryEvent::PatchShift(RecoveryEventPayload::Shift { kind, state, next_state }) => {
                     self.state_stack.push_state(*next_state);
-                    let edit_state = self.state_stack.mark_checkpoint(*state);
+                    let edit_state = self.state_stack.mark_checkpoint(*state, true);
                     
                     self.event_queue.push_back(
                         ParseEvent::PatchShift { kind: *kind, current_state: *state, next_state: *next_state, edit_state }
@@ -132,7 +132,7 @@ impl ParseEventDispatcher {
 
                     let edit_state = self.state_stack
                         .resolve_checkpoint(*pop_count)
-                        .unwrap_or_else(|| self.state_stack.mark_checkpoint(*state))
+                        .unwrap_or_else(|| self.state_stack.mark_checkpoint(*state, false))
                     ;
                     
                     self.event_queue.push_back(
@@ -145,7 +145,7 @@ impl ParseEventDispatcher {
                 }
                 RecoveryEvent::Stitch(RecoveryEventPayload::Shift { kind, state, next_state }) => {
                     self.state_stack.push_state(*next_state);
-                    let edit_state = self.state_stack.mark_checkpoint(*state);
+                    let edit_state = self.state_stack.mark_checkpoint(*state, true);
 
                     self.event_queue.push_back(
                         ParseEvent::Shift { kind: *kind, current_state: *state, next_state: *next_state, edit_state }
@@ -157,7 +157,7 @@ impl ParseEventDispatcher {
 
                     let edit_state = self.state_stack
                         .resolve_checkpoint(*pop_count)
-                        .unwrap_or_else(|| self.state_stack.mark_checkpoint(*state))
+                        .unwrap_or_else(|| self.state_stack.mark_checkpoint(*state, false))
                     ;
                     
                     self.event_queue.push_back(

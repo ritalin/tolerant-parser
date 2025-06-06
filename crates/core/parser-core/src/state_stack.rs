@@ -4,7 +4,7 @@ use cactus::Cactus;
 pub struct StateStack {
     initial_state: usize,
     stack: Cactus<usize>,
-    checkpoint: Cactus<usize>,
+    checkpoint: Cactus<(usize, bool)>,
 }
 
 impl StateStack {
@@ -55,8 +55,8 @@ impl StateStack {
         self.stack.vals().cloned().collect()
     }
 
-    pub fn mark_checkpoint(&mut self, state: usize) -> usize {
-        self.checkpoint = self.checkpoint.child(state);
+    pub fn mark_checkpoint(&mut self, state: usize, is_shift: bool) -> usize {
+        self.checkpoint = self.checkpoint.child((state, is_shift));
         state
     }
     pub fn resolve_checkpoint(&mut self, mut pop_count: usize) -> Option<usize> {
@@ -68,7 +68,21 @@ impl StateStack {
             self.checkpoint = self.checkpoint.parent().unwrap_or_default();
             pop_count -= 1;
         }
-        self.checkpoint.val().cloned()
 
+        match self.checkpoint.val() {
+            Some((state, is_shift)) if *is_shift => {
+                // Use the top of the stack (i.e., the last shift) as the resume point.
+                Some(*state)
+            }
+            Some(_) => {
+                // Use the first state after a shift as the resume point (do not pop it).
+                self.checkpoint.vals()
+                .take_while(|(_, is_shift)| !is_shift)
+                .map(|(state, _)| state)
+                .last()
+                .cloned()   
+            }
+            None => None
+        }
     }
 }

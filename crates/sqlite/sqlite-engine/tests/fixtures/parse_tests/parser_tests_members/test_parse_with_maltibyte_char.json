@@ -60,7 +60,7 @@
 {
     "path": ["input", "ecmd", "cmdx", "cmd", "select", "selectnowith", "oneselect", "selcollist"],
     "meta_key": { "byte_offset":34, "byte_len":31, "is_leaf":false },
-    "meta_obj": { "char_offset":20, "char_len":19, "node_type":"Node", "patch":"None", "edit_state":71 }
+    "meta_obj": { "char_offset":20, "char_len":19, "node_type":"Node", "patch":"None", "edit_state":18 }
 },
 {
     "path": ["input", "ecmd", "cmdx", "cmd", "select", "selectnowith", "oneselect", "selcollist", "expr"],

@@ -202,7 +202,8 @@ impl SyntaxTreeBuilder {
     }
 
     pub fn build_branch(mut self) -> Result<(rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>, HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>), NodeBuildError> {
-        let (_, children) = pop_node_from_stack(&mut self.element_stack, 1);
+        let len = self.element_stack.len();
+        let (_, children) = pop_node_from_stack(&mut self.element_stack, len);
         let Some(node) = children.first() else {
             return Err(NodeBuildError::EmptyTree);
         };

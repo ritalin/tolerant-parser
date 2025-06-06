@@ -311,7 +311,7 @@ mod dispatcher_support_tests {
         'next_state: {
             let lookahead = lookaheads.peek().map(|x| x.kind);
             let event = dispatcher.next(lookahead)?;
-            let expect_event = ParseEvent::Reduce { kind:syntax_kind::selcollist, current_state:579, next_state:145, edit_state:71, pop_count:5 };
+            let expect_event = ParseEvent::Reduce { kind:syntax_kind::selcollist, current_state:579, next_state:145, edit_state:18, pop_count:5 };
             assert_eq!(expect_event, event);
             break 'next_state;
         }

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
-use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
+use engine_core::{parser_engine::ParsingRuleSet};
 use scanner_core::{Scanner, ScannerAccess, StatementScannerView};
-use crate::{event_dispatcher::ParseEventDispatcher, metadata::StatementMetadataMap, node_handler::SyntaxTreeBuilder, syntax_tree::{RowanLangageImpl, SyntaxTree}, NodeId, NodeMetadata, NodeMetadataKey, ParserConfig};
+use crate::{event_dispatcher::ParseEventDispatcher, incremental::support::{IncludeEnd, IncrementalParserStrategy}, metadata::StatementMetadataMap, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{RowanLangageImpl, SyntaxTree}, NodeId, NodeMetadata, NodeMetadataKey, ParserConfig};
 
 pub mod support;
 
@@ -46,7 +46,6 @@ impl Parser {
         let scan_from = self.statements.first().map(|stmt| u32::from(stmt.text_range().start())).unwrap_or(self.scope.start_byte_offset as u32);
         let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone())?;
         let emit_symbol = self.engine.parsing_rules.statement_emit_config().to_symbol;
-        let full_emit_symbol = self.engine.parsing_rules.full_emit_config().to_symbol;
 
         let stmts = self.statements.iter().map(Some).chain(std::iter::repeat(None));
         let scanners = scanner.statement_scanners(emit_symbol);
@@ -58,8 +57,11 @@ impl Parser {
             let (new_stmt, new_metadata_entry) = match stmt {
                 Some(stmt) => {
                     let stmt_index = stmt.index();
-                    let (lowest, highest) = self.scope.adjust_range(self.scope.old_byte_len, &stmt);
-                    let old_stmt_offset = usize::from(stmt.text_range().start());
+                    let old_stmt_range: std::ops::Range<usize> = stmt.text_range().into();
+                    let (lowest, highest) = self.scope.adjust_range(
+                        if self.scope.new_range().include_end().contains(&old_stmt_range.end) { self.scope.new_byte_len } else { self.scope.old_byte_len }, 
+                        &stmt
+                    );
 
                     let gardener = support::TreeGardener{ node: stmt.clone_subtree() };
                     // Find common anscestor
@@ -79,22 +81,22 @@ impl Parser {
                     let anscestor_range = std::ops::Range {
                         start: range.start,
                         end: match self.scope.old_range().contains(&range.start) { 
-                            true => range.end + old_stmt_offset - stmt_scanner.index(),
+                            true => range.end + old_stmt_range.start - stmt_scanner.index(),
                             false => range.end + self.scope.new_byte_len - self.scope.old_byte_len
                         },
                     };
                     
-                    let terminate_kind = common_anscestor.pick_terminate_kind(self.engine.parsing_rules);
+                    let strategy = common_anscestor.pick_terminate_kind(self.engine.parsing_rules);
 
                     // Memo: Because a last token is reduce, it scans one more token.
-                    let stmt_scanner = stmt_scanner.as_view(anscestor_range.start..(anscestor_range.end + 1));
+                    let scanner_view = stmt_scanner.as_view(anscestor_range.start..(anscestor_range.end + 1));
                     let old_metadata_map = &self.metadata_table[stmt_index + 1]; // Index: 1 is a root node metadata
                     let (_, metadata) = old_metadata_map.map
                         .get(&&NodeMetadataKey::from_raw_node(&common_anscestor.node, self.engine.parsing_rules))
                         .expect("All node have metadata")
                     ;
 
-                    let (new_node, new_matadata_map) = parse_internal(stmt_scanner, &config, metadata.edit_state, terminate_kind, self.engine.parsing_rules)?;
+                    let (new_node, new_matadata_map) = parse_internal(scanner_view, &config, metadata.edit_state, strategy, self.engine.parsing_rules)?;
                     
                     let new_stmt = gardener.replace_with_new_node(new_node.clone(), &common_anscestor.node);
                     let metadata_entry = support::merge_metadata_map(
@@ -107,8 +109,9 @@ impl Parser {
                     (new_stmt, metadata_entry)
                 }
                 None => {
-                    let stmt_scanner = stmt_scanner.as_view(std::ops::RangeFull);
-                    let (new_stmt, new_matadata_map) = parse_internal(stmt_scanner, &config, 0, full_emit_symbol, self.engine.parsing_rules)?;
+                    let scanner_view = stmt_scanner.as_view(std::ops::RangeFull);
+                    let strategy = IncrementalParserStrategy::default_strategy(self.engine.parsing_rules);
+                    let (new_stmt, new_matadata_map) = parse_internal(scanner_view, &config, 0, strategy, self.engine.parsing_rules)?;
 
                     let metadata_entry = support::merge_metadata_map(
                         None,
@@ -175,6 +178,10 @@ impl EditScope {
     pub fn old_range(&self) -> std::ops::Range<usize> {
         std::ops::Range { start: self.start_byte_offset, end: self.start_byte_offset + self.old_byte_len }
     }
+
+    pub fn new_range(&self) -> std::ops::Range<usize> {
+        std::ops::Range { start: self.start_byte_offset, end: self.start_byte_offset + self.new_byte_len }
+    }
 }
 
 pub fn find_edit_statements(old_tree: &SyntaxTree, scope: &EditScope) -> impl Iterator<Item = rowan::api::SyntaxNode<RowanLangageImpl>> {
@@ -198,30 +205,31 @@ pub fn find_edit_statements(old_tree: &SyntaxTree, scope: &EditScope) -> impl It
     .map(|(node, _)| node.into_raw())
 }
 
-struct IncrementalParserStrategy {
-    terminate_kind: SyntaxKind,
-}
-
-impl crate::parser::ParseStrategy for IncrementalParserStrategy {
-    fn is_terminated_kind(&self, kind: SyntaxKind) -> bool {
-        self.terminate_kind == kind
-    }
-}
-
 fn parse_internal(
     mut scanner: StatementScannerView, 
     config: &ParserConfig,
     edit_state: usize,
-    terminate_kind: SyntaxKind,
+    parse_strategy: impl crate::parser::ParseStrategy,
     engine: ParsingRuleSet) -> Result<(rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>, HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>), crate::parser::ParseError> 
 {
     let mut dispatcher = ParseEventDispatcher::new(edit_state, config.mode.clone(), engine);
     let mut tree_builder = SyntaxTreeBuilder::new(engine, config.mode.clone(), None);
-    let strategy = IncrementalParserStrategy{ terminate_kind };
 
-    super::parser::parse_with_config_internal(&mut scanner, &mut dispatcher, &mut tree_builder, config, engine, strategy)?;
-
-    Ok(tree_builder.build_branch()?)
+    match super::parser::parse_with_config_internal(&mut scanner, &mut dispatcher, &mut tree_builder, config, engine, parse_strategy) {
+        Ok(_) => {
+            Ok(tree_builder.build_branch()?)
+        }
+        Err(ParseError::ByEvent(crate::event_dispatcher::ParseEventError::NoMoreState{..})) => {
+            // In incremental parsing mode, this mismatch may occur when the target node starts
+            // from the middle of a production rule (i.e., not from the first symbol).
+            // In such cases, a reduce may expect more items to pop than are available.
+            //
+            // This is allowed in incremental mode, since the parser stack doesn't contain
+            // the nodes before the target.
+            Ok(tree_builder.build_branch()?)
+        }
+        Err(err) => Err(err)
+    }
 }
 
 fn update_metadata_table<'a>(
