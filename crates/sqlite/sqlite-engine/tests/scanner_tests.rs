@@ -237,15 +237,15 @@ fn test_has_invalid_token() -> Result<(), anyhow::Error> {
 }
 
 #[test]
-fn test_scan_scope() -> Result<(), anyhow::Error> {
-    let source = "INSERT OR REPLACE  INTO";
+fn test_scan_semicollonless() -> Result<(), anyhow::Error> {
+    let source = "select 1 a";
     let engine = sqlite_engine::create()?;
     let mut scanner = Scanner::create(source, 0, engine.scanning_rules)?;
 
     'scanning: {
         let expect_token = Token {
             leading_trivia: None,
-            main: ScanEvent { kind: syntax_kind::r#INSERT, offset: 0, len: 6, value: Some("INSERT".into()) },
+            main: ScanEvent { kind: syntax_kind::r#SELECT, offset: 0, len: 6, value: Some("select".into()) },
             trailing_trivia: Some(vec![
                 ScanEvent { kind: syntax_kind::r#SPACE, offset: 6, len: 1, value: Some(" ".into()) }
             ]),
@@ -253,63 +253,12 @@ fn test_scan_scope() -> Result<(), anyhow::Error> {
         assert_eq!(Some(expect_token), scanner.shift());
         break 'scanning;
     }
-    let mut scope = 'save_scope: {
-        break 'save_scope scanner.save_scope();
-    };
     'scanning: {
         let expect_token = Token {
             leading_trivia: None,
-            main: ScanEvent { kind: syntax_kind::r#OR, offset: 7, len: 2, value: Some("OR".into()) },
+            main: ScanEvent { kind: syntax_kind::r#INTEGER, offset: 7, len: 1, value: Some("1".into()) },
             trailing_trivia: Some(vec![
-                ScanEvent { kind: syntax_kind::r#SPACE, offset: 9, len: 1, value: Some(" ".into()) }
-            ]),
-        };
-        assert_eq!(Some(expect_token), scope.cache_lookahead(scanner.shift()));
-        break 'scanning;
-    }
-    'scanning: {
-        let expect_token = Token {
-            leading_trivia: None,
-            main: ScanEvent { kind: syntax_kind::r#REPLACE, offset: 10, len: 7, value: Some("REPLACE".into()) },
-            trailing_trivia: Some(vec![
-                ScanEvent { kind: syntax_kind::r#SPACE, offset: 17, len: 2, value: Some("  ".into()) }
-            ]),
-        };
-        assert_eq!(Some(expect_token), scope.cache_lookahead(scanner.shift()));
-        break 'scanning;
-    }
-    'scanning: {
-        let expect_token = Token {
-            leading_trivia: None,
-            main: ScanEvent { kind: syntax_kind::r#INTO, offset: 19, len: 4, value: Some("INTO".into()) },
-            trailing_trivia: None,
-        };
-        assert_eq!(Some(expect_token), scope.cache_lookahead(scanner.shift()));
-        break 'scanning;
-    }
-    'scanning: {
-        let expect_token = Token {
-            leading_trivia: None,
-            main: ScanEvent { kind: syntax_kind::r#EOF, offset: 23, len: 0, value: None },
-            trailing_trivia: None,
-        };
-        assert_eq!(Some(expect_token), scope.cache_lookahead(scanner.shift()));
-        break 'scanning;
-    }
-    'scanning: {
-        assert_eq!(None, scope.cache_lookahead(scanner.shift()));
-        break 'scanning;
-    }
-    'restore_scope: {
-        scanner.restore_scope(scope);
-        break 'restore_scope;
-    }
-    'scanning: {
-        let expect_token = Token {
-            leading_trivia: None,
-            main: ScanEvent { kind: syntax_kind::r#OR, offset: 7, len: 2, value: Some("OR".into()) },
-            trailing_trivia: Some(vec![
-                ScanEvent { kind: syntax_kind::r#SPACE, offset: 9, len: 1, value: Some(" ".into()) }
+                ScanEvent { kind: syntax_kind::r#SPACE, offset: 8, len: 1, value: Some(" ".into()) }
             ]),
         };
         assert_eq!(Some(expect_token), scanner.shift());
@@ -318,34 +267,10 @@ fn test_scan_scope() -> Result<(), anyhow::Error> {
     'scanning: {
         let expect_token = Token {
             leading_trivia: None,
-            main: ScanEvent { kind: syntax_kind::r#REPLACE, offset: 10, len: 7, value: Some("REPLACE".into()) },
-            trailing_trivia: Some(vec![
-                ScanEvent { kind: syntax_kind::r#SPACE, offset: 17, len: 2, value: Some("  ".into()) }
-            ]),
-        };
-        assert_eq!(Some(expect_token), scanner.shift());
-        break 'scanning;
-    }
-    'scanning: {
-        let expect_token = Token {
-            leading_trivia: None,
-            main: ScanEvent { kind: syntax_kind::r#INTO, offset: 19, len: 4, value: Some("INTO".into()) },
+            main: ScanEvent { kind: syntax_kind::r#ID, offset: 9, len: 1, value: Some("a".into()) },
             trailing_trivia: None,
         };
         assert_eq!(Some(expect_token), scanner.shift());
-        break 'scanning;
-    }
-    'scanning: {
-        let expect_token = Token {
-            leading_trivia: None,
-            main: ScanEvent { kind: syntax_kind::r#EOF, offset: 23, len: 0, value: None },
-            trailing_trivia: None,
-        };
-        assert_eq!(Some(expect_token), scanner.shift());
-        break 'scanning;
-    }
-    'scanning: {
-        assert_eq!(None, scanner.shift());
         break 'scanning;
     }
 

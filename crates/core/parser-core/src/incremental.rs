@@ -43,7 +43,7 @@ impl Parser {
             .unwrap_or_else(|| 0)
         ;
         
-        let scan_from = self.statements.first().map(|stmt| u32::from(stmt.text_range().start())).unwrap_or(self.scope.start_byte_offset as u32);
+        let scan_from = self.statements.first().map(|stmt| usize::from(stmt.text_range().start())).unwrap_or(self.scope.start_byte_offset);
         let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone())?;
         let emit_symbol = self.engine.parsing_rules.statement_emit_config().to_symbol;
 

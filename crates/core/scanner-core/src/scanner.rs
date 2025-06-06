@@ -12,14 +12,14 @@ pub struct Scanner {
 
 impl Scanner {
     /// Create new scanner instance
-    pub fn create(source: &str, index: u32, engine: scanner_engine::ScanningRuleSet) -> Result<Self, crate::ScannerError> {
+    pub fn create(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet) -> Result<Self, crate::ScannerError> {
         let mut dispatcher = ScanEventDispatcher::new(source, index, engine);
         let lookahead = handle_scan_event(&mut dispatcher).ok_or(crate::ScannerError::CreateFailed)?;
 
         Ok(Self { dispatcher, lookaheads: VecDeque::from_iter([lookahead].into_iter()) })
     }
 
-    pub fn create_without_scan(source: &str, index: u32, engine: scanner_engine::ScanningRuleSet) -> Result<Self, crate::ScannerError> {
+    pub fn create_without_scan(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet) -> Result<Self, crate::ScannerError> {
         let dispatcher = ScanEventDispatcher::new(source, index, engine);
         Ok(Self { dispatcher, lookaheads: VecDeque::new() })
         
@@ -31,17 +31,6 @@ impl Scanner {
             self.dispatcher.clone(),
             terminate_symbol
         )
-    }
-
-    pub fn save_scope(&self) -> ScannerScope {
-        ScannerScope::new()
-    }
-
-    pub fn restore_scope(&mut self, scope: ScannerScope) {
-        // restore cached lookaheads
-        for token in scope.lookaheads.into_iter().rev() {
-            self.lookaheads.push_front(token);
-        }
     }
 }
 
@@ -160,23 +149,5 @@ impl<'a> ScannerAccess for StatementScannerView<'a> {
 
     fn prefetch_iter(&mut self, _terminate_synbol: SyntaxKind) -> crate::iter::LookaheadIterator {
         crate::iter::LookaheadIterator::new(self.lookaheads, self.index, self.end - self.index)
-    }
-}
-
-pub struct ScannerScope {
-    lookaheads: Vec<Token>,
-}
-
-impl ScannerScope {
-    pub fn new() -> Self {
-        Self { lookaheads: Default::default()}
-    }
-
-    pub fn cache_lookahead(&mut self, lookahead: Option<Token>) -> Option<Token> {
-        if let Some(token) = lookahead.as_ref() {
-            self.lookaheads.push(token.clone());
-        }
-
-        lookahead
     }
 }
