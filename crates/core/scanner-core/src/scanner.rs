@@ -32,17 +32,6 @@ impl Scanner {
             terminate_symbol
         )
     }
-
-    pub fn save_scope(&self) -> ScannerScope {
-        ScannerScope::new()
-    }
-
-    pub fn restore_scope(&mut self, scope: ScannerScope) {
-        // restore cached lookaheads
-        for token in scope.lookaheads.into_iter().rev() {
-            self.lookaheads.push_front(token);
-        }
-    }
 }
 
 pub trait ScannerAccess {
@@ -160,23 +149,5 @@ impl<'a> ScannerAccess for StatementScannerView<'a> {
 
     fn prefetch_iter(&mut self, _terminate_synbol: SyntaxKind) -> crate::iter::LookaheadIterator {
         crate::iter::LookaheadIterator::new(self.lookaheads, self.index, self.end - self.index)
-    }
-}
-
-pub struct ScannerScope {
-    lookaheads: Vec<Token>,
-}
-
-impl ScannerScope {
-    pub fn new() -> Self {
-        Self { lookaheads: Default::default()}
-    }
-
-    pub fn cache_lookahead(&mut self, lookahead: Option<Token>) -> Option<Token> {
-        if let Some(token) = lookahead.as_ref() {
-            self.lookaheads.push(token.clone());
-        }
-
-        lookahead
     }
 }
