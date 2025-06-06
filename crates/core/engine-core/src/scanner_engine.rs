@@ -37,6 +37,8 @@ impl ScanningRuleSet {
         };
 
         for pattern in patterns {
+            if source.len() < pattern.pattern.len() { continue }
+
             if source.chars().zip(pattern.pattern.chars()).all(|(haystack, needle)| haystack.to_lowercase().eq(needle.to_lowercase())) {
                 let kind = (self.symbol_lookup)(pattern.id).clone();
                 let value = source.get(0..pattern.len).map(String::from);
