@@ -67,11 +67,12 @@ fn print_node(key: NodeMetadataKey, metadata: NodeMetadata, value: Option<&str>,
             format!("{}(patch: {})", metadata.node_type.to_string(), metadata.patch.to_string())
         }
     };
+    let state_str = if config.show_state { format!("{:>6}", metadata.edit_state) } else { "".to_string() };
     let value = value.map(|s| format!("{s:?}")).unwrap_or_default();
 
     let plain = format!(
-        "{:<16}{:<30} | {:width$}{} {}", 
-        range_str, node_type_str, "", key.kind.text, value, width = indent_level * 4
+        "{:<16}{:<30}{} | {:width$}{} {}", 
+        range_str, node_type_str, state_str, "", key.kind.text, value, width = indent_level * 4
     );
 
     let colored = match (metadata.node_type.clone(), config.no_color) {
