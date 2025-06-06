@@ -12,14 +12,14 @@ pub struct Scanner {
 
 impl Scanner {
     /// Create new scanner instance
-    pub fn create(source: &str, index: u32, engine: scanner_engine::ScanningRuleSet) -> Result<Self, crate::ScannerError> {
+    pub fn create(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet) -> Result<Self, crate::ScannerError> {
         let mut dispatcher = ScanEventDispatcher::new(source, index, engine);
         let lookahead = handle_scan_event(&mut dispatcher).ok_or(crate::ScannerError::CreateFailed)?;
 
         Ok(Self { dispatcher, lookaheads: VecDeque::from_iter([lookahead].into_iter()) })
     }
 
-    pub fn create_without_scan(source: &str, index: u32, engine: scanner_engine::ScanningRuleSet) -> Result<Self, crate::ScannerError> {
+    pub fn create_without_scan(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet) -> Result<Self, crate::ScannerError> {
         let dispatcher = ScanEventDispatcher::new(source, index, engine);
         Ok(Self { dispatcher, lookaheads: VecDeque::new() })
         

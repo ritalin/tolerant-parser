@@ -8,7 +8,7 @@ pub struct ScanEventDispatcher {
 }
 
 impl ScanEventDispatcher {
-    pub fn new(source: &str, index: u32, engine: scanner_engine::ScanningRuleSet) -> Self {
+    pub fn new(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet) -> Self {
         Self { source: source.into(), index: index as usize, engine }
     }
 

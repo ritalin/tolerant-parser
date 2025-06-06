@@ -351,3 +351,44 @@ fn test_scan_scope() -> Result<(), anyhow::Error> {
 
     Ok(())
 }
+
+#[test]
+fn test_scan_semicollonless() -> Result<(), anyhow::Error> {
+    let source = "select 1 a";
+    let engine = sqlite_engine::create()?;
+    let mut scanner = Scanner::create(source, 0, engine.scanning_rules)?;
+
+    'scanning: {
+        let expect_token = Token {
+            leading_trivia: None,
+            main: ScanEvent { kind: syntax_kind::r#SELECT, offset: 0, len: 6, value: Some("select".into()) },
+            trailing_trivia: Some(vec![
+                ScanEvent { kind: syntax_kind::r#SPACE, offset: 6, len: 1, value: Some(" ".into()) }
+            ]),
+        };
+        assert_eq!(Some(expect_token), scanner.shift());
+        break 'scanning;
+    }
+    'scanning: {
+        let expect_token = Token {
+            leading_trivia: None,
+            main: ScanEvent { kind: syntax_kind::r#INTEGER, offset: 7, len: 1, value: Some("1".into()) },
+            trailing_trivia: Some(vec![
+                ScanEvent { kind: syntax_kind::r#SPACE, offset: 8, len: 1, value: Some(" ".into()) }
+            ]),
+        };
+        assert_eq!(Some(expect_token), scanner.shift());
+        break 'scanning;
+    }
+    'scanning: {
+        let expect_token = Token {
+            leading_trivia: None,
+            main: ScanEvent { kind: syntax_kind::r#ID, offset: 9, len: 1, value: Some("a".into()) },
+            trailing_trivia: None,
+        };
+        assert_eq!(Some(expect_token), scanner.shift());
+        break 'scanning;
+    }
+
+    Ok(())
+}
