@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use engine_core::parser_engine::ParsingRuleSet;
+use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
 use crate::{metadata::StatementMetadataMap, NodeMetadata, NodeMetadataKey, ParseMode};
 
 mod tree;
@@ -32,10 +32,15 @@ pub trait MetadataAccess {
 
 pub trait NodeOperation {
     type Item;
+    type Parent;
     
-    fn parent(&self) -> Option<SyntaxNode>;
+    fn parent(&self) -> Option<Self::Parent>;
     fn prev_sibling(&self) -> Option<Self::Item>;
     fn next_sibling(&self) -> Option<Self::Item>;
+}
+
+pub trait LookupCandidate {
+    fn lookup_candidates(&self) -> Vec<SyntaxKind>;
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -175,7 +180,7 @@ impl SyntaxTokenData {
     }
 }
 
-#[derive(Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum SyntaxElementDef<N, S> {
     Node(N),
     TokenSet(S),
@@ -216,6 +221,32 @@ impl<N, S> SyntaxElementDef<N, S> where N: Clone, S: Clone {
         match self {
             SyntaxElementDef::TokenSet(token_set) => Some(token_set.clone()),
             _ => None,
+        }
+    }
+}
+
+impl NodeOperation for SyntaxElement {
+    type Item = SyntaxElementDef<SyntaxNode, SyntaxTokenSet>;
+    type Parent = SyntaxNode;
+
+    fn parent(&self) -> Option<Self::Parent> {
+        match self {
+            SyntaxElementDef::Node(node) => node.parent(),
+            SyntaxElementDef::TokenSet(token_set) => token_set.parent(),
+        }
+    }
+
+    fn prev_sibling(&self) -> Option<Self::Item> {
+        match self {
+            SyntaxElementDef::Node(node) => node.prev_sibling(),
+            SyntaxElementDef::TokenSet(token_set) => token_set.prev_sibling(),
+        }
+    }
+
+    fn next_sibling(&self) -> Option<Self::Item> {
+        match self {
+            SyntaxElementDef::Node(node) => node.next_sibling(),
+            SyntaxElementDef::TokenSet(token_set) => token_set.next_sibling(),
         }
     }
 }
