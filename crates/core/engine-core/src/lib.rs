@@ -56,6 +56,21 @@ impl Default for Engine {
     }
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Debug)]
+pub struct EmitRegin {
+    pub start_item_id: u32,
+    pub end_item_id: u32,
+}
+
+impl Default for EmitRegin {
+    fn default() -> Self {
+        Self { 
+            start_item_id: default_syntax_kind::DEFAULT.id, 
+            end_item_id: default_syntax_kind::DEFAULT.id 
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
     #[error("Can not initialize scanner engine (cause: {0})")]

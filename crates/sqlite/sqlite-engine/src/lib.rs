@@ -72,6 +72,8 @@ pub fn create() -> Result<engine_core::Engine, engine_core::EngineError> {
 }
 #[cfg(not(engine_ungenerated))]
 pub mod builder {
+    use engine_core::EmitRegin;
+
     pub use super::generated::{
         get_lexme_pattern,
         get_regex_pattern,
@@ -109,9 +111,18 @@ pub mod builder {
             .alternative_symbol_lookup(get_alternative_symbol)
             .symbol_lookup(get_symbol)
             .candidate_symbols(get_candidate_symbols)
-            .full_emit_config(super::syntax_kind::r#input.id, super::syntax_kind::r#EOF.id)
-            .statement_emit_config(super::syntax_kind::r#ecmd.id, super::syntax_kind::r#SEMI.id)
-            .invalid_statement_emit_config(super::syntax_kind::r#cmdx.id, super::syntax_kind::r#SEMI.id)
+            .full_emit_region(EmitRegin{
+                start_item_id: super::syntax_kind::r#input.id, 
+                end_item_id: super::syntax_kind::r#EOF.id
+            })
+            .statement_emit_region(EmitRegin{
+                start_item_id: super::syntax_kind::r#ecmd.id, 
+                end_item_id: super::syntax_kind::r#SEMI.id
+            })
+            .invalid_statement_emit_region(EmitRegin{
+                start_item_id: super::syntax_kind::r#cmdx.id, 
+                end_item_id: super::syntax_kind::r#SEMI.id
+            })
         ;
         builder
     }

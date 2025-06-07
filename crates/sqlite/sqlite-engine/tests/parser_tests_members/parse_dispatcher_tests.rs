@@ -165,7 +165,7 @@ mod dispatcher_tests {
     }
 
     mod broken_table {
-        use engine_core::parser_engine::{ParsingRuleSetBuilder, Transition};
+        use engine_core::{parser_engine::{ParsingRuleSetBuilder, Transition}, EmitRegin};
 
         use super::*;
 
@@ -178,9 +178,9 @@ mod dispatcher_tests {
                 .symbol_lookup(|_| &syntax_kind::r#EOF)
                 .alternative_symbol_lookup(|_p, _c| None)
                 .candidate_symbols(|_| vec![])
-                .full_emit_config(0, 0)
-                .statement_emit_config(0, 0)
-                .invalid_statement_emit_config(0, 0)
+                .full_emit_region(EmitRegin::default())
+                .statement_emit_region(EmitRegin::default())
+                .invalid_statement_emit_region(EmitRegin::default())
                 .build()?
             ;
 
