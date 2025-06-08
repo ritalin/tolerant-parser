@@ -3,7 +3,7 @@ use engine_core::{parser_engine::ParsingRuleSet, scanner_engine::ScanEvent, Symb
 use rowan::GreenNode;
 use scanner_core::Token;
 
-use crate::{event_dispatcher::ParseEvent, metadata::StatementMetadataMap, syntax_tree::SyntaxTree, NodeId, NodeMetadata, NodeMetadataKey, NodeType, ParseMode, PatchAction};
+use crate::{event_dispatcher::ParseEvent, metadata::{MetadataTable, StatementMetadataEntry}, syntax_tree::SyntaxTree, NodeId, NodeMetadata, NodeMetadataKey, NodeType, ParseMode, PatchAction};
 
 type ActiveIndex = usize;
 
@@ -23,7 +23,7 @@ impl SyntaxTreeBuilder {
             element_stack: Default::default(),
             water_mark: 0,
             all_metadata_map: Default::default(),
-            active_map_index: if mode == ParseMode::Full { 0 } else { 1 }, // In by-statement mode, statement node starts from 1 
+            active_map_index: 0,
             engine,
             mode,
             prev_id,
@@ -182,34 +182,38 @@ impl SyntaxTreeBuilder {
         }
 
         let size = if self.mode == ParseMode::Full { 1 } else { self.active_map_index };
-        let mut metadata_table = init_statement_metadata_table(size, &self.element_stack, &self.all_metadata_map);
-        
+        let mut metadata_table = init_statement_metadata_members(size, &self.element_stack, &self.all_metadata_map);
+        let mut root_metadata = StatementMetadataEntry::default();
+
         // Create a root node
-        let (_, root) = create_node(kind, edit_state, self.element_stack.len(), PatchAction::None, self.engine, &mut self.element_stack, 0, &mut self.all_metadata_map);
+        let (_, root) = create_node(kind, edit_state, self.element_stack.len(), PatchAction::None, self.engine, &mut self.element_stack, self.active_map_index, &mut self.all_metadata_map);
         
         self.all_metadata_map.into_iter()
-            .for_each(|(id, (index, mut metadata, mut key))| {
-                if self.mode == ParseMode::ByStatement {
-                    // adjust to the local offset
-                    let entry = &metadata_table[index];
-                    key = key.into_local(entry.byte_offset);
-                    metadata = metadata.into_local(entry.char_offset);
-                }
-                metadata_table[index].map.insert(key, (id, metadata));
+            .for_each(|(_, (index, mut metadata, mut key))| {
+                // adjust to the local offset
+                let entry = match self.mode {
+                    ParseMode::Full => &mut root_metadata,
+                    ParseMode::ByStatement if index == self.active_map_index => &mut root_metadata,
+                    ParseMode::ByStatement  => &mut metadata_table[index],
+                };
+                
+                key = key.into_local(entry.byte_offset);
+                metadata = metadata.into_local(entry.char_offset);
+                entry.map.insert(key, metadata);
             })
         ;
-        Ok(SyntaxTree::new(root, metadata_table, self.mode, self.engine))
+        Ok(SyntaxTree::new(root, MetadataTable::new(metadata_table, root_metadata), self.mode, self.engine))
     }
 
-    pub fn build_branch(mut self) -> Result<(rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>, HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>), NodeBuildError> {
+    pub fn build_branch(mut self) -> Result<(rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>, HashMap<NodeMetadataKey, NodeMetadata>), NodeBuildError> {
         let len = self.element_stack.len();
         let (_, children) = pop_node_from_stack(&mut self.element_stack, len);
         let Some(node) = children.first() else {
             return Err(NodeBuildError::EmptyTree);
         };
         let metadata = HashMap::from_iter(self.all_metadata_map.into_iter()
-            .map(|(id, (_, metadata, key))| {
-                (key, (id, metadata))}
+            .map(|(_, (_, metadata, key))| {
+                (key, metadata)}
             ));
 
         Ok((node.clone(), metadata))
@@ -432,10 +436,10 @@ fn remap_alternative_symbol(
     }
 }
 
-fn init_statement_metadata_table(
+fn init_statement_metadata_members(
     size: usize, 
     elements: &Vec<Option<(NodeId, StackEntry)>>, 
-    all_metadata_map: &HashMap<NodeId, (ActiveIndex, NodeMetadata, NodeMetadataKey)>) -> Vec<StatementMetadataMap> 
+    all_metadata_map: &HashMap<NodeId, (ActiveIndex, NodeMetadata, NodeMetadataKey)>) -> Vec<StatementMetadataEntry> 
 {
     let mut table = Vec::with_capacity(size);
     table.resize(size, None);
@@ -445,7 +449,7 @@ fn init_statement_metadata_table(
         .flatten()
         .filter_map(|(id, _)| all_metadata_map.get(id))
         .for_each(|(index, metadata, keys)| {
-            table[*index] = Some(StatementMetadataMap {
+            table[*index] = Some(StatementMetadataEntry {
                 byte_offset: keys.offset,
                 char_offset: metadata.char_offset,
                 map: Default::default(),
@@ -454,7 +458,7 @@ fn init_statement_metadata_table(
     ;
 
     if table[0].is_none() {
-        table[0] = Some(StatementMetadataMap {
+        table[0] = Some(StatementMetadataEntry {
             byte_offset: 0,
             char_offset: 0,
             map: Default::default(),

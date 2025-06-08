@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 use engine_core::{parser_engine::ParsingRuleSet};
 use scanner_core::{Scanner, ScannerAccess, StatementScannerView};
-use crate::{event_dispatcher::ParseEventDispatcher, incremental::support::{IncludeEnd, IncrementalParserStrategy}, metadata::StatementMetadataMap, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{RowanLangageImpl, SyntaxTree}, NodeId, NodeMetadata, NodeMetadataKey, ParserConfig};
+use crate::{event_dispatcher::ParseEventDispatcher, incremental::support::{IncludeEnd, IncrementalParserStrategy}, metadata::{MetadataTable, StatementMetadataEntry}, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{RowanLangageImpl, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig};
 
 pub mod support;
 
@@ -11,7 +11,7 @@ pub struct Parser {
     root: rowan::api::SyntaxNode<RowanLangageImpl>,
     replace_from: usize,
     engine: engine_core::Engine,
-    metadata_table: Rc<Vec<StatementMetadataMap>>,
+    metadata_table: Rc<MetadataTable>,
 }
 
 impl Parser {
@@ -20,10 +20,9 @@ impl Parser {
         let statements = find_edit_statements(old_tree, &scope).collect::<Vec<_>>();
         let replace_from = statements.first()
             .map(|stmt| stmt.index())
-            .or_else(|| {
-                old_tree.metadata_table().iter().skip(1).position(|x| x.byte_offset >= scope.start_byte_offset)
+            .unwrap_or_else(|| {
+                old_tree.metadata_table().index_at_offset(scope.start_byte_offset)
             })
-            .unwrap_or_default()
         ;
 
         Self {
@@ -37,11 +36,8 @@ impl Parser {
     }
 
     pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<SyntaxTree, crate::parser::ParseError> {
-        // Determine first statement offset (byte/char)
-        let mut global_byte_offset = self.metadata_table.get(self.replace_from + 1)
-            .map(|entry| entry.byte_offset)
-            .unwrap_or_else(|| 0)
-        ;
+        // Determine first statement byte offset
+        let mut global_byte_offset = self.metadata_table.statement_metadata(Some(self.replace_from)).byte_offset;
         
         let scan_from = self.statements.first().map(|stmt| usize::from(stmt.text_range().start())).unwrap_or(self.scope.start_byte_offset);
         let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone())?;
@@ -90,8 +86,8 @@ impl Parser {
 
                     // Memo: Because a last token is reduce, it scans one more token.
                     let scanner_view = stmt_scanner.as_view(anscestor_range.start..(anscestor_range.end + 1));
-                    let old_metadata_map = &self.metadata_table[stmt_index + 1]; // Index: 1 is a root node metadata
-                    let (_, metadata) = old_metadata_map.map
+                    let old_metadata_map = &self.metadata_table.statement_metadata(Some(stmt_index));
+                    let metadata = old_metadata_map.map
                         .get(&&NodeMetadataKey::from_raw_node(&common_anscestor.node, self.engine.parsing_rules))
                         .expect("All node have metadata")
                     ;
@@ -136,7 +132,7 @@ impl Parser {
         let metadata_table = update_metadata_table(
             root.children(), 
             self.metadata_table.as_ref(), new_metadata_table,
-            self.replace_from, self.statements.len(),
+            self.replace_from..(self.replace_from + self.statements.len()),
             self.engine.parsing_rules
         );
 
@@ -210,7 +206,7 @@ fn parse_internal(
     config: &ParserConfig,
     edit_state: usize,
     parse_strategy: impl crate::parser::ParseStrategy,
-    engine: ParsingRuleSet) -> Result<(rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>, HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>), crate::parser::ParseError> 
+    engine: ParsingRuleSet) -> Result<(rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>, HashMap<NodeMetadataKey, NodeMetadata>), crate::parser::ParseError> 
 {
     let mut dispatcher = ParseEventDispatcher::new(edit_state, config.mode.clone(), engine);
     let mut tree_builder = SyntaxTreeBuilder::new(engine, config.mode.clone(), None);
@@ -234,18 +230,18 @@ fn parse_internal(
 
 fn update_metadata_table<'a>(
     children: impl Iterator<Item = rowan::NodeOrToken<&'a rowan::GreenNodeData , &'a rowan::GreenTokenData>>,
-    old_table: &[StatementMetadataMap], 
-    changed_maps: Vec<StatementMetadataMap>, 
-    replace_from: usize, old_len: usize,
-    engine: ParsingRuleSet) -> Vec<StatementMetadataMap>
+    old_table: &MetadataTable, 
+    changed_maps: Vec<StatementMetadataEntry>, 
+    replace_range: std::ops::Range<usize>,
+    engine: ParsingRuleSet) -> MetadataTable
 {
-    let mut metadata_table = Vec::from_iter(old_table.iter().cloned());
+    let mut metadata_members = old_table.clone_members();
     let (mut byte_offset, mut char_offset) = (0, 0);
 
-    metadata_table.splice((replace_from + 1)..(replace_from + 1 + old_len), changed_maps);
+    metadata_members.splice(replace_range, changed_maps);
 
     for (i, child) in children.enumerate() {
-        if let Some(entry) = metadata_table.get_mut(i + 1) {
+        if let Some(entry) = metadata_members.get_mut(i) {
             entry.byte_offset = byte_offset;
             entry.char_offset = char_offset;
         }
@@ -256,23 +252,25 @@ fn update_metadata_table<'a>(
             len: child.text_len().into(), 
             is_leaf: false 
         };
-        let (_, metadata) = metadata_table[i + 1].map.get(&key).expect(&format!("Failed to update metadata of incremental parse. (key: {:?})", key));
+        let metadata = metadata_members[i].map.get(&key)
+            .expect(&format!("Failed to update metadata of incremental parse. (key: {:?})", key))
+        ;
         byte_offset += key.len;
         char_offset += metadata.char_len;
     }
     
     // Update root node metadata
-    let root_metadata = &old_table[0];
-    let (mut key, (id, mut metadata)) = root_metadata.map.iter()
-        .map(|(key, (id, metadata))| (key.clone(), (id.clone(), metadata.clone())))
+    let (key, metadata) = old_table.statement_metadata(None).map.iter()
+        .map(|(key, metadata)| {
+            (NodeMetadataKey{ len: byte_offset, ..key.clone() }, NodeMetadata{ char_len: char_offset, ..metadata.clone() })
+        })
         .next()
         .expect("Not found Root node metadata")
     ;
-    key.len = byte_offset;
-    metadata.char_len = char_offset;
-    metadata_table[0].map.insert(key, (id, metadata));
 
-    metadata_table
+    let root_entry = StatementMetadataEntry{ map: HashMap::from([(key, metadata)]), ..Default::default() };
+
+    MetadataTable::new(metadata_members, root_entry)
 }
 
 fn make_key_from_green_stmt(stmt: Option<&rowan::GreenNode>, engine: ParsingRuleSet) -> Option<NodeMetadataKey> {

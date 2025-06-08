@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
-use crate::{syntax_tree::RowanLangageImpl, NodeId};
+use crate::syntax_tree::RowanLangageImpl;
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct NodeMetadataKey {
@@ -134,9 +134,45 @@ impl std::fmt::Display for NodeType {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
-pub struct StatementMetadataMap {
+#[derive(PartialEq, Clone, Default, Debug)]
+pub struct StatementMetadataEntry {
     pub byte_offset: usize,
     pub char_offset: usize,
-    pub map: HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>
+    pub map: HashMap<NodeMetadataKey, NodeMetadata>
+}
+
+#[derive(PartialEq, Clone, Debug)]
+pub struct MetadataTable {
+    members: Vec<StatementMetadataEntry>,
+    root: StatementMetadataEntry,
+}
+
+impl MetadataTable {
+    pub fn new(members: Vec<StatementMetadataEntry>, root: StatementMetadataEntry) -> Self {
+        Self { members, root }
+    }
+
+    pub fn statement_metadata(&self, index: Option<usize>) -> &StatementMetadataEntry {
+        if let Some(index) = index {
+            if let Some(member) = self.members.get(index) {
+                return member;
+            }
+        }
+
+        &self.root
+    }
+
+    /// Get last entry index less than or equal specified offset.
+    /// If not found, return 0.
+    pub fn index_at_offset(&self, byte_offset: usize) -> usize {
+        self.members.iter().enumerate()
+        .take_while(|(_, member)| member.byte_offset <= byte_offset)
+        .map(|(i, _)| i)
+        .last()
+        .unwrap_or_default()
+    }
+
+    pub fn clone_members(&self) -> Vec<StatementMetadataEntry> {
+        self.members.clone()
+    }
 }

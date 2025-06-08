@@ -11,6 +11,7 @@ mod parser_tests_members {
     mod node_handler_tests;
     mod parse_recovery_tests;
     mod incrementa_parse_tests;
+    mod syntax_tree_tests;
 }
 
 #[test]

@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use engine_core::parser_engine::ParsingRuleSet;
-use crate::{metadata::StatementMetadataMap, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
+use crate::{metadata::MetadataTable, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
 use super::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxElement, SyntaxNodeData, SyntaxTokenData, SyntaxTokenItem, SyntaxTokenSet};
 
 #[derive(PartialEq, Clone, Debug)]
@@ -11,7 +11,7 @@ pub struct SyntaxNode {
 impl SyntaxNode {
     pub fn new(
         raw: rowan::SyntaxNode<RowanLangageImpl>, 
-        metadata_table: Rc<Vec<StatementMetadataMap>>,
+        metadata_table: Rc<MetadataTable>,
         parse_mode: ParseMode,
         engine: ParsingRuleSet) -> Self {
         Self { data: SyntaxNodeData::new(raw, metadata_table, parse_mode, engine) }
@@ -86,9 +86,10 @@ impl SyntaxNode {
 }
 
 impl NodeOperation for SyntaxNode {
-    type Item = SyntaxNode;
+    type Item = SyntaxElement;
+    type Parent = SyntaxNode;
 
-    fn parent(&self) -> Option<SyntaxNode> {
+    fn parent(&self) -> Option<Self::Parent> {
         match self.data.raw.parent() {
             Some(node) => {
                 Some(SyntaxNode::from_raw(self.data.with_raw(&node, self.data.parse_mode.clone())))
@@ -98,17 +99,49 @@ impl NodeOperation for SyntaxNode {
     }
 
     fn prev_sibling(&self) -> Option<Self::Item> {
-        todo!()
+        match self.data.raw.prev_sibling() {
+            Some(node) => {
+                let data = SyntaxNodeData::new(
+                    node, 
+                    self.data.metadata_table.clone(), 
+                    self.data.parse_mode.clone(), 
+                    self.data.engine
+                );
+                match data.metadata().node_type {
+                    NodeType::TokenSet => Some(super::SyntaxElement::TokenSet(SyntaxTokenSet::from_raw(data))),
+                    NodeType::Node => Some(super::SyntaxElementDef::Node(SyntaxNode::from_raw(data))),
+                    _ => None
+                }
+
+            }
+            None => None,
+        }
     }
 
     fn next_sibling(&self) -> Option<Self::Item> {
-        todo!()
+        match self.data.raw.next_sibling() {
+            Some(node) => {
+                let data = SyntaxNodeData::new(
+                    node, 
+                    self.data.metadata_table.clone(), 
+                    self.data.parse_mode.clone(), 
+                    self.data.engine
+                );
+                match data.metadata().node_type {
+                    NodeType::TokenSet => Some(super::SyntaxElement::TokenSet(SyntaxTokenSet::from_raw(data))),
+                    NodeType::Node => Some(super::SyntaxElementDef::Node(SyntaxNode::from_raw(data))),
+                    _ => None
+                }
+
+            }
+            None => None,
+        }
     }
 }
 
 pub struct SyntaxNodeChildren {
     raw: rowan::SyntaxNodeChildren<RowanLangageImpl>,
-    metadata_table: Rc<Vec<StatementMetadataMap>>,
+    metadata_table: Rc<MetadataTable>,
     parse_mode: ParseMode,
     engine: ParsingRuleSet
 }

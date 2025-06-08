@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use engine_core::parser_engine::ParsingRuleSet;
-use crate::{metadata::StatementMetadataMap, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
+use crate::{metadata::MetadataTable, syntax_tree::LookupCandidate, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
 use super::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxNode, SyntaxNodeData, SyntaxTokenData};
 
 #[derive(PartialEq, Clone, Debug)]
@@ -31,18 +31,64 @@ impl MetadataAccess for SyntaxTokenSet {
 }
 
 impl NodeOperation for SyntaxTokenSet {
-    type Item = SyntaxTokenSet;
+    type Item = super::SyntaxElement;
+    type Parent = SyntaxNode;
 
-    fn parent(&self) -> Option<super::SyntaxNode> {
-        todo!()
+    fn parent(&self) -> Option<Self::Parent> {
+        match self.data.raw.parent() {
+            Some(node) => {
+                Some(SyntaxNode::from_raw(self.data.with_raw(&node, self.data.parse_mode.clone())))
+            }
+            None => None
+        }
     }
 
     fn prev_sibling(&self) -> Option<Self::Item> {
-        todo!()
+        match self.data.raw.prev_sibling() {
+            Some(node) => {
+                let data = SyntaxNodeData::new(
+                    node, 
+                    self.data.metadata_table.clone(), 
+                    self.data.parse_mode.clone(), 
+                    self.data.engine
+                );
+                match data.metadata().node_type {
+                    NodeType::TokenSet => Some(super::SyntaxElement::TokenSet(SyntaxTokenSet::from_raw(data))),
+                    NodeType::Node => Some(super::SyntaxElementDef::Node(SyntaxNode::from_raw(data))),
+                    _ => None
+                }
+
+            }
+            None => None,
+        }
     }
 
     fn next_sibling(&self) -> Option<Self::Item> {
-        todo!()
+        match self.data.raw.next_sibling() {
+            Some(node) => {
+                let data = SyntaxNodeData::new(
+                    node, 
+                    self.data.metadata_table.clone(), 
+                    self.data.parse_mode.clone(), 
+                    self.data.engine
+                );
+                match data.metadata().node_type {
+                    NodeType::TokenSet => Some(super::SyntaxElement::TokenSet(SyntaxTokenSet::from_raw(data))),
+                    NodeType::Node => Some(super::SyntaxElementDef::Node(SyntaxNode::from_raw(data))),
+                    _ => None
+                }
+
+            }
+            None => None,
+        }    }
+}
+
+impl LookupCandidate for SyntaxTokenSet {
+    fn lookup_candidates(&self) -> impl Iterator<Item = engine_core::SyntaxKind> {
+        let metadata = self.metadata();
+
+        self.data.engine.candidate_terminal_symbols(metadata.edit_state).into_iter()
+        .map(Clone::clone)
     }
 }
 
@@ -81,11 +127,12 @@ impl MetadataAccess for SyntaxTokenItem {
 
 impl NodeOperation for SyntaxTokenItem {
     type Item = SyntaxTokenItem;
+    type Parent = SyntaxTokenSet;
 
-    fn parent(&self) -> Option<super::SyntaxNode> {
+    fn parent(&self) -> Option<Self::Parent> {
         self.data.raw.parent()
         .map(|raw| {
-            SyntaxNode::from_raw(SyntaxNodeData::new(
+            SyntaxTokenSet::from_raw(SyntaxNodeData::new(
                 raw, 
                 self.data.metadata_table.clone(), 
                 self.data.parse_mode.clone(), 
@@ -121,7 +168,7 @@ impl NodeOperation for SyntaxTokenItem {
 
 pub struct SyntaxTokenItems {
     children: rowan::SyntaxElementChildren<RowanLangageImpl>,
-    metadata_table: Rc<Vec<StatementMetadataMap>>,
+    metadata_table: Rc<MetadataTable>,
     parse_mode: ParseMode,
     engine: ParsingRuleSet,
     node_type: NodeType,
