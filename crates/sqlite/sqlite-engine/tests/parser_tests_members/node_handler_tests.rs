@@ -4,6 +4,8 @@ use sqlite_engine::syntax_kind;
 use crate::test_support::*;
 
 mod build_tree_tests {
+    use std::vec;
+
     use engine_core::scanner_engine::ScanEvent;
     use parser_core::{NodeType, ParseMode, PatchAction};
     use scanner_core::Token;
@@ -21,7 +23,6 @@ mod build_tree_tests {
     #[test]
     fn test_create_eof_only() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
-        let parsing_rules = engine.parsing_rules;
         let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
         let event = ParseEvent::Shift { kind: syntax_kind::r#EOF, current_state: 0, next_state: 0, edit_state: 0 };
         assert_eq!(Ok(()), handler.add_kind_token(event));
@@ -32,37 +33,33 @@ mod build_tree_tests {
 
         let tree = tree.unwrap();
 
-        let expect_tree = ExpectNode::Node{
-            metadata: ExpectMetadata(
-                ExpectMetadataKey{ kind_id: syntax_kind::input.id, kind_name: "".into(), byte_offset: 0, byte_len: 0, is_leaf: false },
-                ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 0 },
-            ),
-            children: vec![
-                ExpectNode::TokenSet { 
-                    metadata: ExpectMetadata(
-                        ExpectMetadataKey { kind_id: syntax_kind::r#EOF.id, kind_name: "".into(), byte_offset: 0, byte_len: 0, is_leaf: false },
-                        ExpectMetadataValue { edit_state: 0, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 0, char_len: 0 },
-                    ),
-                    leading: vec![],
-                    token: Box::new(ExpectNode::TokenItem { 
-                        metadata: ExpectMetadata(
-                            ExpectMetadataKey { kind_id: syntax_kind::r#EOF.id, kind_name: "".into(), byte_offset: 0, byte_len: 0, is_leaf: true },
-                            ExpectMetadataValue { edit_state: 0, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 0, char_len: 0 },
-                        ),
-                        value: "".into(),
-                    }),
-                    trailing: vec![],
-                }
-            ]
-        };
-        verify(&&ActualNode::Node(tree.root()), &expect_tree, parsing_rules, 0);
+        let expect_tree = &[
+            ExpectNode {
+                path: vec!["input".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 0, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 0 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["input".into(), "EOF".into()],
+                meta_key: ExpectMetadataKey { byte_offset: 0, byte_len: 0, is_leaf: false },
+                meta_obj: ExpectMetadataValue { edit_state: 0, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 0, char_len: 0 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["input".into(), "EOF".into(), "EOF".into()],
+                meta_key: ExpectMetadataKey { byte_offset: 0, byte_len: 0, is_leaf: true },
+                meta_obj: ExpectMetadataValue { edit_state: 0, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 0, char_len: 0 },
+                value: None,
+            }
+        ];
+        verify(tree.root(), expect_tree);
         Ok(())
     }
 
     #[test]
     fn test_create_token_for_main_only_lookahead() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
-        let parsing_rules = engine.parsing_rules;
         let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
 
         let events = vec![
@@ -81,46 +78,40 @@ mod build_tree_tests {
 
         let tree = handler.build(events[2].clone())?;
 
-        let expect_tree = ExpectNode::Node{
-            metadata: ExpectMetadata(
-                ExpectMetadataKey{ kind_id: syntax_kind::expr.id, byte_offset: 0, byte_len: 2, is_leaf: false, kind_name: "".into() },
-                ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 2 },
-            ),
-            children: vec![
-                ExpectNode::Node { 
-                    metadata: ExpectMetadata(
-                        ExpectMetadataKey{ kind_id: syntax_kind::term.id, byte_offset: 0, byte_len: 2, is_leaf: false, kind_name: "".into() },
-                        ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 2 },
-                    ), 
-                    children: vec![
-                        ExpectNode::TokenSet { 
-                            metadata: ExpectMetadata(
-                                ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 0, byte_len: 2, is_leaf: false, kind_name: "".into() },
-                                ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 0, char_len: 2 },
-                            ), 
-                            leading: vec![], 
-                            token: Box::new(ExpectNode::TokenItem { 
-                                metadata: ExpectMetadata(
-                                    ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 0, byte_len: 2, is_leaf: true, kind_name: "".into() },
-                                    ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 0, char_len: 2 },
-                                ),
-                                value: "42".into()
-                            }), 
-                            trailing: vec![]
-                        }
-                    ] 
-                }
-            ]
-        };
+        let expect_tree = &[
+            ExpectNode {
+                path: vec!["expr".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 2, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 2 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 2, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 2 },
+                value: None, 
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 2, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 0, char_len: 2 },
+                value: None, 
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "INTEGER".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 2, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 0, char_len: 2 },
+                value: Some("42".into()),
+            }
+        ];
 
-        verify(&&ActualNode::Node(tree.root()), &expect_tree, parsing_rules, 0);
+        verify(tree.root(), expect_tree);
         Ok(())
     }
 
     #[test]
     fn test_create_token_with_leading_trivia() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
-        let parsing_rules = engine.parsing_rules;
         let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
 
         let events = vec![
@@ -142,61 +133,52 @@ mod build_tree_tests {
 
         let tree = handler.build(events[2].clone())?;
 
-        let expect_tree = ExpectNode::Node{
-            metadata: ExpectMetadata(
-                ExpectMetadataKey{ kind_id: syntax_kind::expr.id, byte_offset: 0, byte_len: 24, is_leaf: false, kind_name: "".into() },
-                ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 18 },
-            ),
-            children: vec![
-                ExpectNode::Node { 
-                    metadata: ExpectMetadata(
-                        ExpectMetadataKey{ kind_id: syntax_kind::term.id, byte_offset: 0, byte_len: 24, is_leaf: false, kind_name: "".into() },
-                        ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 18 },
-                    ), 
-                    children: vec![
-                        ExpectNode::TokenSet { 
-                            metadata: ExpectMetadata(
-                                ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 0, byte_len: 24, is_leaf: false, kind_name: "".into() },
-                                ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 0, char_len: 18 },
-                            ), 
-                            leading: vec![
-                                ExpectNode::TokenItem { 
-                                    metadata: ExpectMetadata(
-                                        ExpectMetadataKey{ kind_id: syntax_kind::COMMENT.id, byte_offset: 0, byte_len: 21, is_leaf: true, kind_name: "".into() },
-                                        ExpectMetadataValue{ edit_state: 0, node_type: NodeType::LeadingToken, patch: PatchAction::None, char_offset: 0, char_len: 15 },
-                                    ),
-                                    value: "/* 123あいうabc */".into()
-                                },
-                                ExpectNode::TokenItem { 
-                                    metadata: ExpectMetadata(
-                                        ExpectMetadataKey{ kind_id: syntax_kind::SPACE.id, byte_offset: 21, byte_len: 1, is_leaf: true, kind_name: "".into() },
-                                        ExpectMetadataValue{ edit_state: 0, node_type: NodeType::LeadingToken, patch: PatchAction::None, char_offset: 15, char_len: 1 },
-                                    ),
-                                    value: " ".into()
-                                },
-                            ], 
-                            token: Box::new(ExpectNode::TokenItem { 
-                                metadata: ExpectMetadata(
-                                    ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 22, byte_len: 2, is_leaf: true, kind_name: "".into() },
-                                    ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 16, char_len: 2 },
-                                ),
-                                value: "42".into()
-                            }), 
-                            trailing: vec![]
-                        }
-                    ] 
-                }
-            ]
-        };
+        let expect_tree = &[
+            ExpectNode {
+                path: vec!["expr".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 24, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 18 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 24, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 18 },
+                value: None, 
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 24, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 0, char_len: 18 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "INTEGER".into(), "COMMENT".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 21, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::LeadingToken, patch: PatchAction::None, char_offset: 0, char_len: 15 },
+                value: Some("/* 123あいうabc */".into()),
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "INTEGER".into(), "SPACE".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 21, byte_len: 1, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::LeadingToken, patch: PatchAction::None, char_offset: 15, char_len: 1 },
+                value: Some(" ".into()),
+            },
+            ExpectNode {
+                path: vec!["expr".into(), "term".into(), "INTEGER".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 22, byte_len: 2, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 16, char_len: 2 },
+                value: Some("42".into()),
+            }
+        ];
 
-        verify(&&ActualNode::Node(tree.root()), &expect_tree, parsing_rules, 0);
+        verify(tree.root(), expect_tree);
         Ok(())
     }
 
     #[test]
     fn test_create_token_with_trailing_trivia() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
-        let parsing_rules = engine.parsing_rules;
         let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
 
         let events = vec![
@@ -217,54 +199,46 @@ mod build_tree_tests {
 
         let tree = handler.build(events[2].clone())?;
 
-        let expect_tree = ExpectNode::Node{
-            metadata: ExpectMetadata(
-                ExpectMetadataKey{ kind_id: syntax_kind::expr.id, byte_offset: 0, byte_len: 3, is_leaf: false, kind_name: "".into() },
-                ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 3 },
-            ),
-            children: vec![
-                ExpectNode::Node { 
-                    metadata: ExpectMetadata(
-                        ExpectMetadataKey{ kind_id: syntax_kind::term.id, byte_offset: 0, byte_len: 3, is_leaf: false, kind_name: "".into() },
-                        ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 3 },
-                    ), 
-                    children: vec![
-                        ExpectNode::TokenSet { 
-                            metadata: ExpectMetadata(
-                                ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 0, byte_len: 3, is_leaf: false, kind_name: "".into() },
-                                ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 0, char_len: 3 },
-                            ), 
-                            leading: vec![], 
-                            token: Box::new(ExpectNode::TokenItem { 
-                                metadata: ExpectMetadata(
-                                    ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 0, byte_len: 2, is_leaf: true, kind_name: "".into() },
-                                    ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 0, char_len: 2 },
-                                ),
-                                value: "42".into()
-                            }), 
-                            trailing: vec![
-                                ExpectNode::TokenItem { 
-                                    metadata: ExpectMetadata(
-                                        ExpectMetadataKey{ kind_id: syntax_kind::SPACE.id, byte_offset: 2, byte_len: 1, is_leaf: true, kind_name: "".into() },
-                                        ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TrailingToken, patch: PatchAction::None, char_offset: 2, char_len: 1 },
-                                    ),
-                                    value: " ".into()
-                                },
-                            ]
-                        }
-                    ] 
-                }
-            ]
-        };
+        let expect_tree =&[
+            ExpectNode {
+                path: vec!["expr".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 3, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 3 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 3, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 3 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 3, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 0, char_len: 3 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "INTEGER".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 2, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 0, char_len: 2 },
+                value: Some("42".into()),
+            }, 
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "INTEGER".into(), "SPACE".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 2, byte_len: 1, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TrailingToken, patch: PatchAction::None, char_offset: 2, char_len: 1 },
+                value: Some(" ".into()),
+            }
+        ];
 
-        verify(&&ActualNode::Node(tree.root()), &expect_tree, parsing_rules, 0);
+        verify(tree.root(), expect_tree);
         Ok(())
     }
 
     #[test]
     fn test_create_token_with_full_set() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
-        let parsing_rules = engine.parsing_rules;
         let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
 
         let events = vec![
@@ -287,62 +261,52 @@ mod build_tree_tests {
 
         let tree = handler.build(events[2].clone())?;
 
-        let expect_tree = ExpectNode::Node{
-            metadata: ExpectMetadata(
-                ExpectMetadataKey{ kind_id: syntax_kind::expr.id, byte_offset: 0, byte_len: 24, is_leaf: false, kind_name: "".into() },
-                ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 18 },
-            ),
-            children: vec![
-                ExpectNode::Node { 
-                    metadata: ExpectMetadata(
-                        ExpectMetadataKey{ kind_id: syntax_kind::term.id, byte_offset: 0, byte_len: 24, is_leaf: false, kind_name: "".into() },
-                        ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 18 },
-                    ), 
-                    children: vec![
-                        ExpectNode::TokenSet { 
-                            metadata: ExpectMetadata(
-                                ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 0, byte_len: 24, is_leaf: false, kind_name: "".into() },
-                                ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 0, char_len: 18 },
-                            ), 
-                            leading: vec![
-                                ExpectNode::TokenItem { 
-                                    metadata: ExpectMetadata(
-                                        ExpectMetadataKey{ kind_id: syntax_kind::COMMENT.id, byte_offset: 0, byte_len: 21, is_leaf: true, kind_name: "".into() },
-                                        ExpectMetadataValue{ edit_state: 0, node_type: NodeType::LeadingToken, patch: PatchAction::None, char_offset: 0, char_len: 15 },
-                                    ),
-                                    value: "/* 123あいうabc */".into()
-                                },
-                            ], 
-                            token: Box::new(ExpectNode::TokenItem { 
-                                metadata: ExpectMetadata(
-                                    ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 21, byte_len: 2, is_leaf: true, kind_name: "".into() },
-                                    ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 15, char_len: 2 },
-                                ),
-                                value: "42".into()
-                            }), 
-                            trailing: vec![
-                                ExpectNode::TokenItem { 
-                                    metadata: ExpectMetadata(
-                                        ExpectMetadataKey{ kind_id: syntax_kind::SPACE.id, byte_offset: 23, byte_len: 1, is_leaf: true, kind_name: "".into() },
-                                        ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TrailingToken, patch: PatchAction::None, char_offset: 17, char_len: 1 },
-                                    ),
-                                    value: " ".into()
-                                },
-                            ]
-                        }
-                    ] 
-                }
-            ]
-        };
+        let expect_tree = &[
+            ExpectNode {
+                path: vec!["expr".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 24, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 18 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 24, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 18 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 24, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 0, char_len: 18 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "INTEGER".into(), "COMMENT".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 21, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::LeadingToken, patch: PatchAction::None, char_offset: 0, char_len: 15 },
+                value: Some("/* 123あいうabc */".into()),
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "INTEGER".into(), "INTEGER".into()],
+                meta_key:  ExpectMetadataKey{ byte_offset: 21, byte_len: 2, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 15, char_len: 2 },
+                value: Some("42".into()),
+            }, 
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "INTEGER".into(), "SPACE".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 23, byte_len: 1, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TrailingToken, patch: PatchAction::None, char_offset: 17, char_len: 1 },
+                value: Some(" ".into()),
+            },
+        ];
 
-        verify(&&ActualNode::Node(tree.root()), &expect_tree, parsing_rules, 0);
+        verify(tree.root(), expect_tree);
         Ok(())
     }
 
     #[test]
     fn test_create_patch_node_for_deleting_recovery() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
-        let parsing_rules = engine.parsing_rules;
         let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
 
         let lookaheads = vec![
@@ -365,7 +329,7 @@ mod build_tree_tests {
             ParseEvent::Shift { kind: syntax_kind::INTEGER, current_state: 214, next_state: 122, edit_state: 214 },
             ParseEvent::Reduce { kind: syntax_kind::term, current_state: 122, next_state: 128, edit_state: 214, pop_count: 1 },
             ParseEvent::Accept{ kind: syntax_kind::r#expr, last_state: 29, edit_state: 0 },
-    ];
+        ];
 
         handler.add_invisible_token_set(events[0].clone(), lookaheads.get(0))?;
         handler.add_token_set(events[1].clone(), lookaheads.get(1))?;
@@ -373,72 +337,58 @@ mod build_tree_tests {
 
         let tree = handler.build(events[3].clone())?;
 
-        let expect_tree = ExpectNode::Node{
-            metadata: ExpectMetadata(
-                ExpectMetadataKey{ kind_id: syntax_kind::expr.id, byte_offset: 0, byte_len: 12, is_leaf: false, kind_name: "".into() },
-                ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 12 },
-            ),
-            children: vec![
-                ExpectNode::Node{
-                    metadata: ExpectMetadata(
-                        ExpectMetadataKey{ kind_id: syntax_kind::term.id, byte_offset: 0, byte_len: 12, is_leaf: false, kind_name: "".into() },
-                        ExpectMetadataValue{ edit_state: 214, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 12 },
-                    ),
-                    children: vec![
-                        ExpectNode::TokenSet { 
-                            metadata: ExpectMetadata(
-                                ExpectMetadataKey{ kind_id: syntax_kind::BLOB.id, byte_offset: 0, byte_len: 10, is_leaf: false, kind_name: "".into() },
-                                ExpectMetadataValue{ edit_state: 214, node_type: NodeType::TokenSet, patch: PatchAction::Delete, char_offset: 0, char_len: 10 },
-                            ), 
-                            leading: vec![
-                                ExpectNode::TokenItem { 
-                                    metadata: ExpectMetadata(
-                                        ExpectMetadataKey{ kind_id: syntax_kind::SPACE.id, byte_offset: 0, byte_len: 4, is_leaf: true, kind_name: "".into() },
-                                        ExpectMetadataValue{ edit_state: 214, node_type: NodeType::LeadingToken, patch: PatchAction::Delete, char_offset: 0, char_len: 4 },
-                                    ),
-                                    value: "    ".into()
-                                },
-                            ], 
-                            token: Box::new(ExpectNode::TokenItem { 
-                                metadata: ExpectMetadata(
-                                    ExpectMetadataKey{ kind_id: syntax_kind::BLOB.id, byte_offset: 4, byte_len: 6, is_leaf: true, kind_name: "".into() },
-                                    ExpectMetadataValue{ edit_state: 214, node_type: NodeType::TokenItem, patch: PatchAction::Delete, char_offset: 4, char_len: 6 },
-                                ),
-                                value: "x'abc'".into()
-                            }), 
-                            trailing: vec![
-                            ]
-                        },
-                        ExpectNode::TokenSet { 
-                            metadata: ExpectMetadata(
-                                ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 10, byte_len: 2, is_leaf: false, kind_name: "".into() },
-                                ExpectMetadataValue{ edit_state: 214, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 10, char_len: 2 },
-                            ), 
-                            leading: vec![
-                            ], 
-                            token: Box::new(ExpectNode::TokenItem { 
-                                metadata: ExpectMetadata(
-                                    ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 10, byte_len: 2, is_leaf: true, kind_name: "".into() },
-                                    ExpectMetadataValue{ edit_state: 214, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 10, char_len: 2 },
-                                ),
-                                value: "42".into()
-                            }), 
-                            trailing: vec![
-                            ]
-                        }
-                    ]
-                }
-            ]
-        };
+        let expect_tree = &[
+            ExpectNode {
+                path: vec!["expr".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 12, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 12 },
+                value: None,
+            },
+            ExpectNode {
+                path: vec!["expr".into(), "term".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 12, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 214, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 12 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "BLOB".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 10, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 214, node_type: NodeType::TokenSet, patch: PatchAction::Delete, char_offset: 0, char_len: 10 },
+                value: None
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "BLOB".into(), "SPACE".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 4, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 214, node_type: NodeType::LeadingToken, patch: PatchAction::Delete, char_offset: 0, char_len: 4 },
+                value: Some("    ".into()),
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "BLOB".into(), "BLOB".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 4, byte_len: 6, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 214, node_type: NodeType::TokenItem, patch: PatchAction::Delete, char_offset: 4, char_len: 6 },
+                value: Some("x'abc'".into()),
+            }, 
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 10, byte_len: 2, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 214, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 10, char_len: 2 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "term".into(), "INTEGER".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 10, byte_len: 2, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 214, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 10, char_len: 2 },
+                value: Some("42".into()),
+            }, 
+        ];
 
-        verify(&&ActualNode::Node(tree.root()), &expect_tree, parsing_rules, 0);
+        verify(tree.root(), expect_tree);
         Ok(())
     }
 
     #[test]
     fn test_create_patch_node_for_shifting_recovery() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
-        let parsing_rules = engine.parsing_rules;
         let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
 
         let lookaheads = vec![
@@ -476,111 +426,88 @@ mod build_tree_tests {
 
         let tree = handler.build(events[5].clone())?;
 
-        let expect_tree = ExpectNode::Node{
-            metadata: ExpectMetadata(
-                ExpectMetadataKey{ kind_id: syntax_kind::columnlist.id, byte_offset: 0, byte_len: 33, is_leaf: false, kind_name: "".into() },
-                ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 33 },
-            ),
-            children: vec![
-                ExpectNode::Node{
-                    metadata: ExpectMetadata(
-                        ExpectMetadataKey{ kind_id: syntax_kind::expr.id, byte_offset: 0, byte_len: 4, is_leaf: false, kind_name: "".into() },
-                        ExpectMetadataValue{ edit_state: 238, node_type: NodeType::Node, patch: PatchAction::Shift, char_offset: 0, char_len: 4 },
-                    ),
-                    children: vec![
-                        ExpectNode::Node{
-                            metadata: ExpectMetadata(
-                                ExpectMetadataKey{ kind_id: syntax_kind::term.id, byte_offset: 0, byte_len: 4, is_leaf: false, kind_name: "".into() },
-                                ExpectMetadataValue{ edit_state: 238, node_type: NodeType::Node, patch: PatchAction::Shift, char_offset: 0, char_len: 4 },
-                            ),
-                            children: vec![
-                                ExpectNode::TokenSet { 
-                                    metadata: ExpectMetadata(
-                                        ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 0, byte_len: 4, is_leaf: false, kind_name: "".into() },
-                                        ExpectMetadataValue{ edit_state: 100, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 0, char_len: 4 },
-                                    ),
-                                    leading:vec![
-                                    ],  
-                                    token: Box::new(ExpectNode::TokenItem { 
-                                        metadata: ExpectMetadata(
-                                            ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 0, byte_len: 3, is_leaf: true, kind_name: "".into() },
-                                            ExpectMetadataValue{ edit_state: 100, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 0, char_len: 3 },
-                                        ),
-                                        value: "101".into()
-                                    }),
-                                    trailing: vec![
-                                        ExpectNode::TokenItem { 
-                                            metadata: ExpectMetadata(
-                                                ExpectMetadataKey{ kind_id: syntax_kind::SPACE.id, byte_offset: 3, byte_len: 1, is_leaf: true, kind_name: " ".into() },
-                                                ExpectMetadataValue{ edit_state: 100, node_type: NodeType::TrailingToken, patch: PatchAction::None, char_offset: 3, char_len: 1 },
-                                            ),
-                                            value: " ".into()
-                                        },
-                                    ], 
-                                }
-                            ]
-                        }
-                    ]
-                },
-                ExpectNode::TokenSet { 
-                    metadata: ExpectMetadata(
-                        ExpectMetadataKey{ kind_id: syntax_kind::STAR.id, byte_offset: 4, byte_len: 0, is_leaf: false, kind_name: "".into() },
-                        ExpectMetadataValue{ edit_state: 361, node_type: NodeType::TokenSet, patch: PatchAction::Shift, char_offset: 4, char_len: 0 },
-                    ),
-                    leading:vec![
-                    ],  
-                    token: Box::new(ExpectNode::TokenItem { 
-                        metadata: ExpectMetadata(
-                            ExpectMetadataKey{ kind_id: syntax_kind::STAR.id, byte_offset: 4, byte_len: 0, is_leaf: true, kind_name: "".into() },
-                            ExpectMetadataValue{ edit_state: 361, node_type: NodeType::TokenItem, patch: PatchAction::Shift, char_offset: 4, char_len: 0 },
-                        ),
-                        value: "".into()
-                    }),
-                    trailing: vec![
-                    ], 
-                },
-                ExpectNode::TokenSet { 
-                    metadata: ExpectMetadata(
-                        ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 4, byte_len: 29, is_leaf: false, kind_name: "".into() },
-                        ExpectMetadataValue{ edit_state: 214, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 4, char_len: 29 },
-                    ),
-                    leading:vec![
-                        ExpectNode::TokenItem { 
-                            metadata: ExpectMetadata(
-                                ExpectMetadataKey{ kind_id: syntax_kind::COMMENT.id, byte_offset: 4, byte_len: 24, is_leaf: true, kind_name: "".into() },
-                                ExpectMetadataValue{ edit_state: 214, node_type: NodeType::LeadingToken, patch: PatchAction::None, char_offset: 4, char_len: 24 },
-                            ),
-                            value: "/* where is operator? */".into()
-                        },
-                    ],  
-                    token: Box::new(ExpectNode::TokenItem { 
-                        metadata: ExpectMetadata(
-                            ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 28, byte_len: 2, is_leaf: true, kind_name: "".into() },
-                            ExpectMetadataValue{ edit_state: 214, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 28, char_len: 2 },
-                        ),
-                        value: "49".into()
-                    }),
-                    trailing: vec![
-                        ExpectNode::TokenItem { 
-                            metadata: ExpectMetadata(
-                                ExpectMetadataKey{ kind_id: syntax_kind::SPACE.id, byte_offset: 30, byte_len: 3, is_leaf: true, kind_name: "   ".into() },
-                                ExpectMetadataValue{ edit_state: 214, node_type: NodeType::TrailingToken, patch: PatchAction::None, char_offset: 30, char_len: 3 },
-                            ),
-                            value: "   ".into()
-                        },
-                    ], 
-                }
-            ]
-        };
+        let expect_tree = &[
+            ExpectNode{
+                path: vec!["columnlist".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 33, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 33 },
+                value: None,
+            },
+            ExpectNode{
+                path: vec!["columnlist".into(), "expr".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 4, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 238, node_type: NodeType::Node, patch: PatchAction::Shift, char_offset: 0, char_len: 4 },
+                value: None,
+            },
+            ExpectNode{
+                path: vec!["columnlist".into(), "expr".into(), "term".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 4, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 238, node_type: NodeType::Node, patch: PatchAction::Shift, char_offset: 0, char_len: 4 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["columnlist".into(), "expr".into(), "term".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 4, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 100, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 0, char_len: 4 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["columnlist".into(), "expr".into(), "term".into(), "INTEGER".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 3, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 100, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 0, char_len: 3 },
+                value: Some("101".into()),
+            },
+            ExpectNode {
+                path: vec!["columnlist".into(), "expr".into(), "term".into(), "INTEGER".into(), "SPACE".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 3, byte_len: 1, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 100, node_type: NodeType::TrailingToken, patch: PatchAction::None, char_offset: 3, char_len: 1 },
+                value: Some(" ".into()),
+            },
+            ExpectNode { 
+                path: vec!["columnlist".into(), "STAR".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 4, byte_len: 0, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 361, node_type: NodeType::TokenSet, patch: PatchAction::Shift, char_offset: 4, char_len: 0 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["columnlist".into(), "STAR".into(), "STAR".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 4, byte_len: 0, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 361, node_type: NodeType::TokenItem, patch: PatchAction::Shift, char_offset: 4, char_len: 0 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["columnlist".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 4, byte_len: 29, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 214, node_type: NodeType::TokenSet, patch: PatchAction::None, char_offset: 4, char_len: 29 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["columnlist".into(), "INTEGER".into(), "COMMENT".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 4, byte_len: 24, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 214, node_type: NodeType::LeadingToken, patch: PatchAction::None, char_offset: 4, char_len: 24 },
+                value: Some("/* where is operator? */".into()),
+            },
+            ExpectNode { 
+                path: vec!["columnlist".into(), "INTEGER".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 28, byte_len: 2, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 214, node_type: NodeType::TokenItem, patch: PatchAction::None, char_offset: 28, char_len: 2 },
+                value: Some("49".into()),
+            },
+            ExpectNode { 
+                path: vec!["columnlist".into(), "INTEGER".into(), "SPACE".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 30, byte_len: 3, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 214, node_type: NodeType::TrailingToken, patch: PatchAction::None, char_offset: 30, char_len: 3 },
+                value: Some("   ".into()),
+            },
+        ];
 
-        verify(&&ActualNode::Node(tree.root()), &expect_tree, parsing_rules, 0);
+        verify(tree.root(), expect_tree);
         Ok(())
     }
 
     #[test]
     fn test_create_patch_node_for_recovery_failed() -> Result<(), anyhow::Error> {
         let engine = sqlite_engine::create()?;
-        let parsing_rules = engine.parsing_rules;
         let mut handler = SyntaxTreeBuilder::new(engine.parsing_rules, ParseMode::Full, None);
 
         let lookaheads = vec![
@@ -612,71 +539,58 @@ mod build_tree_tests {
 
         let tree = handler.build(events[2].clone())?;
 
-        let expect_tree = ExpectNode::Node{
-            metadata: ExpectMetadata(
-                ExpectMetadataKey{ kind_id: syntax_kind::expr.id, byte_offset: 0, byte_len: 33, is_leaf: false, kind_name: "".into() },
-                ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 33 },
-            ),
-            children: vec![
-                ExpectNode::TokenSet { 
-                    metadata: ExpectMetadata(
-                        ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 0, byte_len: 4, is_leaf: false, kind_name: "".into() },
-                        ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenSet, patch: PatchAction::Invalid, char_offset: 0, char_len: 4 },
-                    ),
-                    leading:vec![
-                    ],  
-                    token: Box::new(ExpectNode::TokenItem { 
-                        metadata: ExpectMetadata(
-                            ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 0, byte_len: 3, is_leaf: true, kind_name: "".into() },
-                            ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenItem, patch: PatchAction::Invalid, char_offset: 0, char_len: 3 },
-                        ),
-                        value: "101".into()
-                    }),
-                    trailing: vec![
-                        ExpectNode::TokenItem { 
-                            metadata: ExpectMetadata(
-                                ExpectMetadataKey{ kind_id: syntax_kind::SPACE.id, byte_offset: 3, byte_len: 1, is_leaf: true, kind_name: " ".into() },
-                                ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TrailingToken, patch: PatchAction::Invalid, char_offset: 3, char_len: 1 },
-                            ),
-                            value: " ".into()
-                        },
-                    ], 
-                },
-                ExpectNode::TokenSet { 
-                    metadata: ExpectMetadata(
-                        ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 4, byte_len: 29, is_leaf: false, kind_name: "".into() },
-                        ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenSet, patch: PatchAction::Invalid, char_offset: 4, char_len: 29 },
-                    ),
-                    leading:vec![
-                        ExpectNode::TokenItem { 
-                            metadata: ExpectMetadata(
-                                ExpectMetadataKey{ kind_id: syntax_kind::COMMENT.id, byte_offset: 4, byte_len: 24, is_leaf: true, kind_name: "".into() },
-                                ExpectMetadataValue{ edit_state: 0, node_type: NodeType::LeadingToken, patch: PatchAction::Invalid, char_offset: 4, char_len: 24 },
-                            ),
-                            value: "/* where is operator? */".into()
-                        },
-                    ],  
-                    token: Box::new(ExpectNode::TokenItem { 
-                        metadata: ExpectMetadata(
-                            ExpectMetadataKey{ kind_id: syntax_kind::INTEGER.id, byte_offset: 28, byte_len: 2, is_leaf: true, kind_name: "".into() },
-                            ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenItem, patch: PatchAction::Invalid, char_offset: 28, char_len: 2 },
-                        ),
-                        value: "49".into()
-                    }),
-                    trailing: vec![
-                        ExpectNode::TokenItem { 
-                            metadata: ExpectMetadata(
-                                ExpectMetadataKey{ kind_id: syntax_kind::SPACE.id, byte_offset: 30, byte_len: 3, is_leaf: true, kind_name: "   ".into() },
-                                ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TrailingToken, patch: PatchAction::Invalid, char_offset: 30, char_len: 3 },
-                            ),
-                            value: "   ".into()
-                        },
-                    ], 
-                }
-            ]
-        };
+        let expect_tree = &[
+            ExpectNode{
+                path: vec!["expr".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 33, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::Node, patch: PatchAction::None, char_offset: 0, char_len: 33 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 4, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenSet, patch: PatchAction::Invalid, char_offset: 0, char_len: 4 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "INTEGER".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 0, byte_len: 3, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenItem, patch: PatchAction::Invalid, char_offset: 0, char_len: 3 },
+                value: Some("101".into()),
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "INTEGER".into(), "SPACE".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 3, byte_len: 1, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TrailingToken, patch: PatchAction::Invalid, char_offset: 3, char_len: 1 },
+                value: Some(" ".into()),
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 4, byte_len: 29, is_leaf: false },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenSet, patch: PatchAction::Invalid, char_offset: 4, char_len: 29 },
+                value: None,
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "INTEGER".into(), "COMMENT".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 4, byte_len: 24, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::LeadingToken, patch: PatchAction::Invalid, char_offset: 4, char_len: 24 },
+                value: Some("/* where is operator? */".into()),
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "INTEGER".into(), "INTEGER".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 28, byte_len: 2, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TokenItem, patch: PatchAction::Invalid, char_offset: 28, char_len: 2 },
+                value: Some("49".into()),
+            },
+            ExpectNode { 
+                path: vec!["expr".into(), "INTEGER".into(), "SPACE".into()],
+                meta_key: ExpectMetadataKey{ byte_offset: 30, byte_len: 3, is_leaf: true },
+                meta_obj: ExpectMetadataValue{ edit_state: 0, node_type: NodeType::TrailingToken, patch: PatchAction::Invalid, char_offset: 30, char_len: 3 },
+                value: Some("   ".into()),
+            },
+        ];
 
-        verify(&&ActualNode::Node(tree.root()), &expect_tree, parsing_rules, 0);
+        verify(tree.root(), expect_tree);
         Ok(())
     }
 }
