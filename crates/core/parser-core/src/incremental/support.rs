@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
 use rowan::NodeOrToken;
-use crate::{metadata::{StatementMetadatEntry}, syntax_tree::RowanLangageImpl, NodeMetadata, NodeMetadataKey};
+use crate::{metadata::{StatementMetadataEntry}, syntax_tree::RowanLangageImpl, NodeMetadata, NodeMetadataKey};
 
 pub struct TreeGardener {
     pub node: rowan::SyntaxNode<RowanLangageImpl>,
@@ -147,7 +147,7 @@ pub fn merge_metadata_map(
     old_pair: Option<(rowan::SyntaxNode<RowanLangageImpl>, &HashMap<NodeMetadataKey, NodeMetadata>)>,
     (new_anscestor, new_metadata): (&rowan::GreenNode, HashMap<NodeMetadataKey, NodeMetadata>),
     global_byte_offset: usize, local_char_offset: usize,
-    engine: ParsingRuleSet) -> StatementMetadatEntry
+    engine: ParsingRuleSet) -> StatementMetadataEntry
 {
     let mut new_metadata_map = HashMap::from_iter(
         new_metadata.into_iter()
@@ -208,7 +208,7 @@ pub fn merge_metadata_map(
     }
 
     // each offsets is updated latter
-    return StatementMetadatEntry {
+    return StatementMetadataEntry {
         byte_offset: 0,
         char_offset: 0,
         map: new_metadata_map,
