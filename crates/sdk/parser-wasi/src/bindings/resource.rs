@@ -1,3 +1,4 @@
+use parser_core::syntax_tree::LookupCandidate;
 use parser_core::syntax_tree::MetadataAccess;
 use parser_core::syntax_tree::NodeOperation;
 use super::parser_world::exports::ritalin::parser::parsers;
@@ -67,6 +68,21 @@ impl syntaxes::GuestSyntaxNode for SyntaxNodeImpl {
         .map(|node| node.clone().into())
         .collect()
     }
+    
+    fn token_at_offset(&self,byte_offset: u32,) -> Option<syntaxes::SyntaxTokenItem> {
+        self.inner.token_at_offset(byte_offset as usize)
+        .map(|item| SyntaxTokenItemImpl::from_raw(item))
+    }
+    
+    fn prev_sibling(&self,) -> Option<syntaxes::SyntaxElement> {
+        self.inner.prev_sibling() 
+        .map(|el| el.into())
+    }
+    
+    fn next_sibling(&self,) -> Option<syntaxes::SyntaxElement> {
+        self.inner.next_sibling() 
+        .map(|el| el.into())
+    }
 }
 
 pub struct SyntaxTokenSetImpl {
@@ -107,6 +123,22 @@ impl syntaxes::GuestSyntaxTokenSet for SyntaxTokenSetImpl {
         .map(|node| SyntaxTokenItemImpl::from_raw(node))
         .collect()
     }
+    
+    fn prev_sibling(&self,) -> Option<syntaxes::SyntaxElement> {
+        self.inner.prev_sibling() 
+        .map(|el| el.into())
+    }
+    
+    fn next_sibling(&self,) -> Option<syntaxes::SyntaxElement> {
+        self.inner.next_sibling() 
+        .map(|el| el.into())
+    }
+    
+    fn lookup_candidates(&self,) -> Vec::<syntaxes::SyntaxKind> {
+        self.inner.lookup_candidates().into_iter()
+        .map(Into::into)
+        .collect()
+    }
 }
 
 pub struct SyntaxTokenItemImpl {
@@ -128,12 +160,22 @@ impl syntaxes::GuestSyntaxTokenItem for SyntaxTokenItemImpl {
         self.inner.metadata().into()
     }
 
-    fn parent(&self,) -> Option<syntaxes::SyntaxNode> {
-        self.inner.parent().as_ref().map(|node| SyntaxNodeImpl::from_raw(node.clone()))
+    fn parent(&self,) -> Option<syntaxes::SyntaxTokenSet> {
+        self.inner.parent().as_ref().map(|node| SyntaxTokenSetImpl::from_raw(node.clone()))
     }
 
     fn value(&self,) -> String {
         self.inner.value().into()
+    }
+    
+    fn prev_token(&self,) -> Option<syntaxes::SyntaxTokenItem> {
+        self.inner.prev_sibling()
+        .map(|item| SyntaxTokenItemImpl::from_raw(item))
+    }
+    
+    fn next_token(&self,) -> Option<syntaxes::SyntaxTokenItem> {
+        self.inner.next_sibling()
+        .map(|item| SyntaxTokenItemImpl::from_raw(item))
     }
 }
 

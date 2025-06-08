@@ -76,6 +76,12 @@ interface syntaxes {
         parent: func() -> option<syntax-node>;
         // all of the child nodes or the token-sets
         children: func() -> list<syntax-element>;
+        // look up a item of the syntax token set
+        token-at-offset: func(byte-offset: u32) -> option<syntax-token-item>;
+        // get previous neighbor sibling node on the same parent
+        prev-sibling: func() -> option<syntax-element>;
+        // get next neighbor sibling node on the same parent
+        next-sibling: func() -> option<syntax-element>;
     }
 
     // Token set is grouping token items
@@ -87,12 +93,18 @@ interface syntaxes {
         // parent node
         // it will return none if not root node
         parent: func() -> option<syntax-node>;
+        // get previous neighbor sibling node on the same parent
+        prev-sibling: func() -> option<syntax-element>;
+        // get next neighbor sibling node on the same parent
+        next-sibling: func() -> option<syntax-element>;
         // Returns leading trivia tokens
         leading-trivia: func() -> list<syntax-token-item>;
         // Returns main token
         token: func() -> syntax-token-item;
         // returns trailing trivia tokens
         trailing-trivia: func() -> list<syntax-token-item>;
+        // Look up another candidate for specified node or token set
+        lookup-candidates: func() -> list<syntax-kind>;
     }
 
     resource syntax-token-item {
@@ -102,7 +114,11 @@ interface syntaxes {
         metadata: func() -> metadata;
         // parent node
         // it will return none if not root node
-        parent: func() -> option<syntax-node>;
+        parent: func() -> option<syntax-token-set>;
+        // get previous neighbor token over the parent node
+        prev-token: func() -> option<syntax-token-item>;
+        // get next neighbor token over the parent node
+        next-token: func() -> option<syntax-token-item>;
         // Returns token value
         value: func() -> string;
     }
@@ -139,6 +155,9 @@ interface syntaxes {
         // For the node and the token set, it's a summary of all descendant node 
         char-len: u32,
     }
+
+    // Look up next candidate for specified node or token set
+    // lookup-next-candidates: func(el: syntax-element) -> list<syntax-kind>;
 }
 
 world types-world {
