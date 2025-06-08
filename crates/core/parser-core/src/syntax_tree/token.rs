@@ -84,12 +84,11 @@ impl NodeOperation for SyntaxTokenSet {
 }
 
 impl LookupCandidate for SyntaxTokenSet {
-    fn lookup_candidates(&self) -> Vec<engine_core::SyntaxKind> {
+    fn lookup_candidates(&self) -> impl Iterator<Item = engine_core::SyntaxKind> {
         let metadata = self.metadata();
-        
+
         self.data.engine.candidate_terminal_symbols(metadata.edit_state).into_iter()
         .map(Clone::clone)
-        .collect::<Vec<_>>()
     }
 }
 

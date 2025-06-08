@@ -40,7 +40,7 @@ pub trait NodeOperation {
 }
 
 pub trait LookupCandidate {
-    fn lookup_candidates(&self) -> Vec<SyntaxKind>;
+    fn lookup_candidates(&self) -> impl Iterator<Item = SyntaxKind>;
 }
 
 #[derive(PartialEq, Clone, Debug)]
