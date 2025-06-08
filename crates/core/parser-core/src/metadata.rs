@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
-use crate::{syntax_tree::RowanLangageImpl, NodeId};
+use crate::syntax_tree::RowanLangageImpl;
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct NodeMetadataKey {
@@ -135,8 +135,8 @@ impl std::fmt::Display for NodeType {
 }
 
 #[derive(PartialEq, Clone, Debug)]
-pub struct StatementMetadataMap {
+pub struct StatementMetadatEntry {
     pub byte_offset: usize,
     pub char_offset: usize,
-    pub map: HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>
+    pub map: HashMap<NodeMetadataKey, NodeMetadata>
 }

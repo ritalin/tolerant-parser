@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
-use crate::{metadata::StatementMetadataMap, NodeMetadata, NodeMetadataKey, ParseMode};
+use crate::{metadata::StatementMetadatEntry, NodeMetadata, NodeMetadataKey, ParseMode};
 
 mod tree;
 mod node;
@@ -46,7 +46,7 @@ pub trait LookupCandidate {
 #[derive(PartialEq, Clone, Debug)]
 pub(crate) struct SyntaxNodeData {
     raw: rowan::SyntaxNode<RowanLangageImpl>,
-    metadata_table: Rc<Vec<StatementMetadataMap>>,
+    metadata_table: Rc<Vec<StatementMetadatEntry>>,
     parse_mode: ParseMode,
     engine: ParsingRuleSet,
 }
@@ -54,7 +54,7 @@ pub(crate) struct SyntaxNodeData {
 impl SyntaxNodeData {
     pub(crate) fn new(
         raw: rowan::SyntaxNode<RowanLangageImpl>, 
-        metadata_table: Rc<Vec<StatementMetadataMap>>,
+        metadata_table: Rc<Vec<StatementMetadatEntry>>,
         parse_mode: ParseMode,
         engine: ParsingRuleSet) -> Self 
     {
@@ -109,7 +109,6 @@ impl MetadataAccess for SyntaxNodeData {
         let key = self.metadata_key().into_local(byte_offset);
 
         stmt_metadta.map.get(&key)
-        .map(|(_, metadata)| metadata)
         .expect(&format!("All node/token must contain a metadata@{index} (key: {key:?}, byte_offset: {byte_offset})"))
         .into_global(char_offset)
     }
@@ -118,7 +117,7 @@ impl MetadataAccess for SyntaxNodeData {
 #[derive(PartialEq, Clone, Debug)]
 pub(crate) struct SyntaxTokenData {
     raw: rowan::SyntaxToken<RowanLangageImpl>,
-    metadata_table: Rc<Vec<StatementMetadataMap>>,
+    metadata_table: Rc<Vec<StatementMetadatEntry>>,
     parse_mode: ParseMode,
     engine: ParsingRuleSet,
 }
@@ -158,7 +157,6 @@ impl MetadataAccess for SyntaxTokenData {
         let key = self.metadata_key().into_local(byte_offset);
 
         stmt_metadta.map.get(&key)
-        .map(|(_, metadata)| metadata)
         .expect(&format!("All node/token must contain a metadata@{index} (key: {key:?}, byte_offset: {byte_offset})"))
         .into_global(char_offset)
     }
@@ -167,7 +165,7 @@ impl MetadataAccess for SyntaxTokenData {
 impl SyntaxTokenData {
     pub(crate) fn new(
         raw: rowan::SyntaxToken<RowanLangageImpl>, 
-        metadata_table: Rc<Vec<StatementMetadataMap>>,
+        metadata_table: Rc<Vec<StatementMetadatEntry>>,
         parse_mode: ParseMode,
         engine: ParsingRuleSet) -> Self 
     {

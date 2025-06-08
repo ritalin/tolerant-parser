@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 use engine_core::{parser_engine::ParsingRuleSet};
 use scanner_core::{Scanner, ScannerAccess, StatementScannerView};
-use crate::{event_dispatcher::ParseEventDispatcher, incremental::support::{IncludeEnd, IncrementalParserStrategy}, metadata::StatementMetadataMap, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{RowanLangageImpl, SyntaxTree}, NodeId, NodeMetadata, NodeMetadataKey, ParserConfig};
+use crate::{event_dispatcher::ParseEventDispatcher, incremental::support::{IncludeEnd, IncrementalParserStrategy}, metadata::StatementMetadatEntry, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{RowanLangageImpl, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig};
 
 pub mod support;
 
@@ -11,7 +11,7 @@ pub struct Parser {
     root: rowan::api::SyntaxNode<RowanLangageImpl>,
     replace_from: usize,
     engine: engine_core::Engine,
-    metadata_table: Rc<Vec<StatementMetadataMap>>,
+    metadata_table: Rc<Vec<StatementMetadatEntry>>,
 }
 
 impl Parser {
@@ -91,7 +91,7 @@ impl Parser {
                     // Memo: Because a last token is reduce, it scans one more token.
                     let scanner_view = stmt_scanner.as_view(anscestor_range.start..(anscestor_range.end + 1));
                     let old_metadata_map = &self.metadata_table[stmt_index + 1]; // Index: 1 is a root node metadata
-                    let (_, metadata) = old_metadata_map.map
+                    let metadata = old_metadata_map.map
                         .get(&&NodeMetadataKey::from_raw_node(&common_anscestor.node, self.engine.parsing_rules))
                         .expect("All node have metadata")
                     ;
@@ -210,7 +210,7 @@ fn parse_internal(
     config: &ParserConfig,
     edit_state: usize,
     parse_strategy: impl crate::parser::ParseStrategy,
-    engine: ParsingRuleSet) -> Result<(rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>, HashMap<NodeMetadataKey, (NodeId, NodeMetadata)>), crate::parser::ParseError> 
+    engine: ParsingRuleSet) -> Result<(rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>, HashMap<NodeMetadataKey, NodeMetadata>), crate::parser::ParseError> 
 {
     let mut dispatcher = ParseEventDispatcher::new(edit_state, config.mode.clone(), engine);
     let mut tree_builder = SyntaxTreeBuilder::new(engine, config.mode.clone(), None);
@@ -234,10 +234,10 @@ fn parse_internal(
 
 fn update_metadata_table<'a>(
     children: impl Iterator<Item = rowan::NodeOrToken<&'a rowan::GreenNodeData , &'a rowan::GreenTokenData>>,
-    old_table: &[StatementMetadataMap], 
-    changed_maps: Vec<StatementMetadataMap>, 
+    old_table: &[StatementMetadatEntry], 
+    changed_maps: Vec<StatementMetadatEntry>, 
     replace_from: usize, old_len: usize,
-    engine: ParsingRuleSet) -> Vec<StatementMetadataMap>
+    engine: ParsingRuleSet) -> Vec<StatementMetadatEntry>
 {
     let mut metadata_table = Vec::from_iter(old_table.iter().cloned());
     let (mut byte_offset, mut char_offset) = (0, 0);
@@ -256,21 +256,23 @@ fn update_metadata_table<'a>(
             len: child.text_len().into(), 
             is_leaf: false 
         };
-        let (_, metadata) = metadata_table[i + 1].map.get(&key).expect(&format!("Failed to update metadata of incremental parse. (key: {:?})", key));
+        let metadata = metadata_table[i + 1].map.get(&key)
+            .expect(&format!("Failed to update metadata of incremental parse. (key: {:?})", key))
+        ;
         byte_offset += key.len;
         char_offset += metadata.char_len;
     }
     
     // Update root node metadata
     let root_metadata = &old_table[0];
-    let (mut key, (id, mut metadata)) = root_metadata.map.iter()
-        .map(|(key, (id, metadata))| (key.clone(), (id.clone(), metadata.clone())))
+    let (mut key, mut metadata) = root_metadata.map.iter()
+        .map(|(key, metadata)| (key.clone(), metadata.clone()))
         .next()
         .expect("Not found Root node metadata")
     ;
     key.len = byte_offset;
     metadata.char_len = char_offset;
-    metadata_table[0].map.insert(key, (id, metadata));
+    metadata_table[0].map.insert(key, metadata);
 
     metadata_table
 }

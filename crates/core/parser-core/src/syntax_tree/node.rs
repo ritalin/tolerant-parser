@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use engine_core::parser_engine::ParsingRuleSet;
-use crate::{metadata::StatementMetadataMap, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
+use crate::{metadata::StatementMetadatEntry, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
 use super::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxElement, SyntaxNodeData, SyntaxTokenData, SyntaxTokenItem, SyntaxTokenSet};
 
 #[derive(PartialEq, Clone, Debug)]
@@ -11,7 +11,7 @@ pub struct SyntaxNode {
 impl SyntaxNode {
     pub fn new(
         raw: rowan::SyntaxNode<RowanLangageImpl>, 
-        metadata_table: Rc<Vec<StatementMetadataMap>>,
+        metadata_table: Rc<Vec<StatementMetadatEntry>>,
         parse_mode: ParseMode,
         engine: ParsingRuleSet) -> Self {
         Self { data: SyntaxNodeData::new(raw, metadata_table, parse_mode, engine) }
@@ -141,7 +141,7 @@ impl NodeOperation for SyntaxNode {
 
 pub struct SyntaxNodeChildren {
     raw: rowan::SyntaxNodeChildren<RowanLangageImpl>,
-    metadata_table: Rc<Vec<StatementMetadataMap>>,
+    metadata_table: Rc<Vec<StatementMetadatEntry>>,
     parse_mode: ParseMode,
     engine: ParsingRuleSet
 }
