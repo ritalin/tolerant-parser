@@ -26,7 +26,7 @@ pub fn print_parael_statement(mut statements: parser_core::paralell::Statements,
         println!("--------------------------------------------------------------------------------");
 
         let adjusted_byte_offset = stmt.byte_offset();
-        let node = stmt.into_root(statements.engine);
+        let node = stmt.into_root(statements.parse_mode.clone(), statements.engine);
         print_tree_internal(&node, &config, adjusted_byte_offset, 1);
     }
 }
