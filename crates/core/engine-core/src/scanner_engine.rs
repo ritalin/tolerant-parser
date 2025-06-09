@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, sync::Arc};
 
 use crate::SyntaxKind;
 
@@ -12,7 +12,7 @@ pub struct ScanningRuleSet {
     stmt_end_id: u32,
     invalid_id: u32,
     #[builder(setter(name = "regex_rule", custom))]
-    regex_cache: Rc<HashMap<usize, RegexScanPattern>>,
+    regex_cache: Arc<HashMap<usize, RegexScanPattern>>,
 }
 
 impl ScanningRuleSetBuilder {
@@ -22,7 +22,7 @@ impl ScanningRuleSetBuilder {
         acceptable_regex: fn(regex_set: &AcceptableRegexSet) -> Option<&'static [usize]>) -> &mut Self 
     {
         self.acceptable_regex = Some(acceptable_regex);
-        self.regex_cache = Some(Rc::new(init_regex_cache(rule, acceptable_regex)));
+        self.regex_cache = Some(Arc::new(init_regex_cache(rule, acceptable_regex)));
         self
     }
 }

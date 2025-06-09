@@ -64,9 +64,11 @@ impl StatementScanner {
             (std::ops::Bound::Unbounded, std::ops::Bound::Unbounded) => (self.source_from, usize::MAX),
         };
 
-        let (from, to) = self.lookaheads.iter().enumerate()
-            .skip_while(|(_, la)| la.highest_offset() <= start)
-            .take_while(|(_, la)| la.lowest_offset() < end)
+        let (from, to) = self.lookaheads.iter()
+            .map(|la| (la.lowest_offset(), la.highest_offset()))
+            .enumerate()
+            .skip_while(|(_, (lowest, highest))| (*lowest < *highest) && (*highest <= start))
+            .take_while(|(_, (lowest, _))| *lowest < end)
             .fold((usize::MAX, 0), |(from, to), (i, _)| {
                 (usize::min(i, from), usize::max(i, to))
             })
@@ -78,6 +80,23 @@ impl StatementScanner {
 
     pub fn index(&self) -> usize {
         self.source_from
+    }
+}
+
+impl std::fmt::Display for StatementScanner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let iter = self.lookaheads.iter()
+            .flat_map(|la| vec![ la.leading_trivia.clone(), Some(vec![la.main.clone()]), la.trailing_trivia.clone() ])
+            .flatten()
+            .flatten()
+            .filter_map(|x| x.value)
+        ;
+
+        for value in iter {
+            write!(f, "{value}")?;
+        }
+        
+        Ok(())
     }
 }
 

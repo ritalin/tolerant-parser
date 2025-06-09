@@ -49,7 +49,7 @@ pub(crate) trait ParseStrategy {
     fn is_terminated_kind(&self, kind: SyntaxKind, scanner: &impl ScannerAccess) -> bool;
 }
 
-struct DefaultParserStrategy;
+pub struct DefaultParserStrategy;
 
 impl ParseStrategy for DefaultParserStrategy {
     fn is_terminated_kind(&self, _kind: SyntaxKind, _scanner: &impl ScannerAccess) -> bool {
@@ -159,6 +159,7 @@ pub enum ParseMode {
     ByStatement,
 }
 
+#[derive(Clone)]
 pub struct ParserConfig {
     pub mode: ParseMode,
     pub penalty: RecoveryPenalty,
@@ -171,5 +172,7 @@ pub enum ParseError {
     #[error("inherited from ParseEventError: {0}")]
     ByEvent(#[from] ParseEventError),
     #[error("inherited from NodeBuildError: {0}")]
-    ByNode(#[from] NodeBuildError)
+    ByNode(#[from] NodeBuildError),
+     #[error("paralell parse failed: source: `{0}`")]
+    Paraell(String)
 }
