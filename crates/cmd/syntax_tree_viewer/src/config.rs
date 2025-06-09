@@ -11,4 +11,8 @@ pub struct CmdConfig {
     pub show_state: bool,
     #[arg(long)]
     pub enable_full_parse: bool,
+    #[arg(long)]
+    pub quiet: bool,
+    #[arg(long)]
+    pub parallel: bool,
 }

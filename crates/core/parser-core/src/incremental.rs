@@ -44,7 +44,12 @@ impl Parser {
         let emit_symbol = self.engine.parsing_rules.statement_emit_config().to_symbol;
 
         let stmts = self.statements.iter().map(Some).chain(std::iter::repeat(None));
-        let scanners = scanner.statement_scanners(emit_symbol);
+        let new_scope_range = self.scope.new_range();
+        // enumerate scanners except for over the new byte offset scope.
+        // This includes `EOF` only statement.
+        let scanners = scanner.statement_scanners(emit_symbol)
+            .take_while(|scanner| scanner.index() < new_scope_range.end)
+        ;
         
         let mut new_children = vec![];
         let mut new_metadata_table = vec![];

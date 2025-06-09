@@ -16,4 +16,7 @@ pub use error_recovery::RecoveryPenalty;
 
 pub mod incremental;
 
+#[cfg(feature = "parallel-parse")]
+pub mod paralell;
+
 pub type NodeId = (std::time::Instant, u64); 
