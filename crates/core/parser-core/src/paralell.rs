@@ -29,7 +29,12 @@ impl Parser {
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(SyntaxFragmentBatch { members: statements, engine: self.engine.parsing_rules, parse_mode: config.mode.clone() })
+        Ok(SyntaxFragmentBatch { 
+            fragments: statements, 
+            replace_from: 0,
+            replace_size: 0,          
+            engine: self.engine.parsing_rules, 
+        })
     }
 }
 
@@ -56,6 +61,9 @@ impl Request {
             .collect::<HashMap<_, _>>()
         ;
 
-        Ok(SyntaxFragment::new(self.seq, node, metadata).adjust_byte_offset(self.scanner.index()))
+        Ok(
+            SyntaxFragment::new(self.seq, node, StatementMetadataEntry{ map: metadata, ..Default::default() })
+            .adjust_byte_offset(self.scanner.index())
+        )
     }
 }

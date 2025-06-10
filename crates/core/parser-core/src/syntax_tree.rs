@@ -5,10 +5,12 @@ use crate::{metadata::MetadataTable, NodeMetadata, NodeMetadataKey, ParseMode};
 mod tree;
 mod node;
 mod token;
+mod syntax_batch;
 
-pub use tree::{SyntaxTree, SyntaxFragment, SyntaxFragmentBatch};
+pub use tree::SyntaxTree;
 pub use node::SyntaxNode;
 pub use token::{SyntaxTokenSet, SyntaxTokenItem, SyntaxTokenItems};
+pub use syntax_batch::{SyntaxFragment, SyntaxFragmentBatch, ApplyBatch};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RowanLangageImpl;
