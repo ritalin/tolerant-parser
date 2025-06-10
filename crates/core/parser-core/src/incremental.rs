@@ -1,14 +1,13 @@
 use std::{collections::HashMap, rc::Rc};
 use engine_core::{parser_engine::ParsingRuleSet};
 use scanner_core::{Scanner, ScannerAccess, StatementScannerView};
-use crate::{event_dispatcher::ParseEventDispatcher, incremental::support::{IncludeEnd, IncrementalParserStrategy}, metadata::{MetadataTable, StatementMetadataEntry}, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{RowanLangageImpl, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig};
+use crate::{event_dispatcher::ParseEventDispatcher, incremental::support::{IncludeEnd, IncrementalParserStrategy}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{RowanLangageImpl, SyntaxFragment, SyntaxFragmentBatch, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig};
 
 pub mod support;
 
 pub struct Parser {
     scope: EditScope,
     statements: Vec<rowan::api::SyntaxNode<RowanLangageImpl>>,
-    root: rowan::api::SyntaxNode<RowanLangageImpl>,
     replace_from: usize,
     engine: engine_core::Engine,
     metadata_table: Rc<MetadataTable>,
@@ -16,7 +15,6 @@ pub struct Parser {
 
 impl Parser {
     pub fn new(old_tree: &SyntaxTree, scope: EditScope, engine: engine_core::Engine) -> Self {
-        let root = old_tree.root().into_raw();
         let statements = find_edit_statements(old_tree, &scope).collect::<Vec<_>>();
         let replace_from = statements.first()
             .map(|stmt| stmt.index())
@@ -28,14 +26,13 @@ impl Parser {
         Self {
             scope,
             statements,
-            root,
             replace_from,
             engine,
-            metadata_table: old_tree.metadata_table()
+            metadata_table: old_tree.metadata_table(),
         }
     }
 
-    pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<SyntaxTree, crate::parser::ParseError> {
+    pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<Vec<SyntaxFragmentBatch>, crate::parser::ParseError> {
         // Determine first statement byte offset
         let mut global_byte_offset = self.metadata_table.statement_metadata(Some(self.replace_from)).byte_offset;
         
@@ -51,8 +48,7 @@ impl Parser {
             .take_while(|scanner| scanner.index() < new_scope_range.end)
         ;
         
-        let mut new_children = vec![];
-        let mut new_metadata_table = vec![];
+        let mut fragments = vec![];
 
         for (stmt_scanner, stmt) in scanners.zip(stmts).filter(|(s, _)| s.as_view(std::ops::RangeFull).lookahead().is_some()) {
             let (new_stmt, new_metadata_entry) = match stmt {
@@ -126,22 +122,19 @@ impl Parser {
                 }
             };
 
-            let key = make_key_from_green_stmt(new_stmt.as_node(), self.engine.parsing_rules).expect("Statement key is not found");
-            global_byte_offset += key.len; 
+            global_byte_offset += usize::from(new_stmt.as_node().expect("Statement key is not found").text_len()); 
 
-            new_children.push(new_stmt);
-            new_metadata_table.push(new_metadata_entry);
+            fragments.push(SyntaxFragment::new(fragments.len(), new_stmt, new_metadata_entry))
         }
-        
-        let root = self.root.green().splice_children(self.replace_from..(self.replace_from + self.statements.len()), new_children);
-        let metadata_table = update_metadata_table(
-            root.children(), 
-            self.metadata_table.as_ref(), new_metadata_table,
-            self.replace_from..(self.replace_from + self.statements.len()),
-            self.engine.parsing_rules
-        );
 
-        Ok(SyntaxTree::new(root, metadata_table, config.mode, self.engine.parsing_rules))
+        let batch = SyntaxFragmentBatch{
+            fragments,
+            replace_from: self.replace_from,
+            replace_size: self.statements.len(),
+            engine: self.engine.parsing_rules,
+        };
+
+        Ok(vec![batch])
     }
 }
 
@@ -231,60 +224,4 @@ fn parse_internal(
         }
         Err(err) => Err(err)
     }
-}
-
-fn update_metadata_table<'a>(
-    children: impl Iterator<Item = rowan::NodeOrToken<&'a rowan::GreenNodeData , &'a rowan::GreenTokenData>>,
-    old_table: &MetadataTable, 
-    changed_maps: Vec<StatementMetadataEntry>, 
-    replace_range: std::ops::Range<usize>,
-    engine: ParsingRuleSet) -> MetadataTable
-{
-    let mut metadata_members = old_table.clone_members();
-    let (mut byte_offset, mut char_offset) = (0, 0);
-
-    metadata_members.splice(replace_range, changed_maps);
-
-    for (i, child) in children.enumerate() {
-        if let Some(entry) = metadata_members.get_mut(i) {
-            entry.byte_offset = byte_offset;
-            entry.char_offset = char_offset;
-        }
-
-        let key = NodeMetadataKey{ 
-            kind: engine.from_kind_id(child.kind().0 as u32), 
-            offset: 0, 
-            len: child.text_len().into(), 
-            is_leaf: false 
-        };
-        let metadata = metadata_members[i].map.get(&key)
-            .expect(&format!("Failed to update metadata of incremental parse. (key: {:?})", key))
-        ;
-        byte_offset += key.len;
-        char_offset += metadata.char_len;
-    }
-    
-    // Update root node metadata
-    let (key, metadata) = old_table.statement_metadata(None).map.iter()
-        .map(|(key, metadata)| {
-            (NodeMetadataKey{ len: byte_offset, ..key.clone() }, NodeMetadata{ char_len: char_offset, ..metadata.clone() })
-        })
-        .next()
-        .expect("Not found Root node metadata")
-    ;
-
-    let root_entry = StatementMetadataEntry{ map: HashMap::from([(key, metadata)]), ..Default::default() };
-
-    MetadataTable::new(metadata_members, root_entry)
-}
-
-fn make_key_from_green_stmt(stmt: Option<&rowan::GreenNode>, engine: ParsingRuleSet) -> Option<NodeMetadataKey> {
-    stmt.map(|node| {
-        NodeMetadataKey{ 
-            kind: engine.from_kind_id(node.kind().0 as u32), 
-            offset: 0, 
-            len: node.text_len().into(), 
-            is_leaf: false 
-        }
-    })
 }

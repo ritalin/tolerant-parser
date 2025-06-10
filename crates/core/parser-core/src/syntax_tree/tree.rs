@@ -1,8 +1,7 @@
 use std::rc::Rc;
 use engine_core::parser_engine::ParsingRuleSet;
-use crate::{metadata::MetadataTable, ParseMode};
+use crate::{metadata::MetadataTable, syntax_tree::{syntax_batch::ApplyBatch, SyntaxFragmentBatch}, ParseMode};
 use super::{RowanLangageImpl, SyntaxNode};
-
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct SyntaxTree {
@@ -37,5 +36,13 @@ impl SyntaxTree {
 impl SyntaxTree {
     pub(crate) fn metadata_table(&self) -> Rc<MetadataTable> {
         self.metadata_table.clone()
+    }
+}
+
+impl ApplyBatch for SyntaxTree {
+    type Output = SyntaxTree;
+    
+    fn apply_batches(&self, batches: Vec<SyntaxFragmentBatch>) -> Self::Output {
+        super::syntax_batch::apply_batches(&self.root, &self.metadata_table, self.engine, batches)
     }
 }
