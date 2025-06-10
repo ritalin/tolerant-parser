@@ -6,7 +6,7 @@ mod tree;
 mod node;
 mod token;
 
-pub use tree::SyntaxTree;
+pub use tree::{SyntaxTree, SyntaxFragment, SyntaxFragmentBatch};
 pub use node::SyntaxNode;
 pub use token::{SyntaxTokenSet, SyntaxTokenItem, SyntaxTokenItems};
 

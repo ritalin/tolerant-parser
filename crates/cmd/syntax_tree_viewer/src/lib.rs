@@ -13,7 +13,7 @@ pub fn print_tree(source: &str, root_node: &SyntaxNode, config: config::CmdConfi
     print_tree_internal(root_node, &config, 0, 0);
 }
 
-pub fn print_parael_statement(mut statements: parser_core::paralell::Statements, config: config::CmdConfig) {
+pub fn print_parael_statement(mut statements: parser_core::syntax_tree::SyntaxFragmentBatch, config: config::CmdConfig) {
     if config.quiet { return }
     
     statements.members.sort_by(|lhs, rhs| lhs.seq().cmp(&rhs.seq()));
