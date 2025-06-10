@@ -16,9 +16,9 @@ pub fn print_tree(source: &str, root_node: &SyntaxNode, config: config::CmdConfi
 pub fn print_parael_statement(mut statements: parser_core::syntax_tree::SyntaxFragmentBatch, config: config::CmdConfig) {
     if config.quiet { return }
     
-    statements.members.sort_by(|lhs, rhs| lhs.seq().cmp(&rhs.seq()));
+    statements.fragments.sort_by(|lhs, rhs| lhs.seq().cmp(&rhs.seq()));
 
-    for stmt in statements.members {
+    for stmt in statements.fragments {
         println!();
         println!("--------------------------------------------------------------------------------");
         println!("#{:<04}", stmt.seq()+1);
