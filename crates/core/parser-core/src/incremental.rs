@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 use engine_core::{parser_engine::ParsingRuleSet};
 use scanner_core::{Scanner, ScannerAccess, StatementScannerView};
-use crate::{event_dispatcher::ParseEventDispatcher, incremental::support::{IncludeEnd, IncrementalParserStrategy}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{ApplyBatch, RowanLangageImpl, SyntaxFragment, SyntaxFragmentBatch, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig};
+use crate::{event_dispatcher::ParseEventDispatcher, incremental::support::{IncludeEnd, IncrementalParserStrategy}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{RowanLangageImpl, SyntaxFragment, SyntaxFragmentBatch, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig};
 
 pub mod support;
 
@@ -11,7 +11,6 @@ pub struct Parser {
     replace_from: usize,
     engine: engine_core::Engine,
     metadata_table: Rc<MetadataTable>,
-    tree: SyntaxTree,
 }
 
 impl Parser {
@@ -30,11 +29,10 @@ impl Parser {
             replace_from,
             engine,
             metadata_table: old_tree.metadata_table(),
-            tree: old_tree.clone()
         }
     }
 
-    pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<SyntaxTree, crate::parser::ParseError> {
+    pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<Vec<SyntaxFragmentBatch>, crate::parser::ParseError> {
         // Determine first statement byte offset
         let mut global_byte_offset = self.metadata_table.statement_metadata(Some(self.replace_from)).byte_offset;
         
@@ -136,7 +134,7 @@ impl Parser {
             engine: self.engine.parsing_rules,
         };
 
-        Ok(self.tree.apply_batches(vec![batch]))
+        Ok(vec![batch])
     }
 }
 
