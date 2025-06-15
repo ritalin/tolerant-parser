@@ -1,0 +1,106 @@
+[
+{"BeginBatch": { 
+    "slot_offset": 17, "slot_new_size": 16, "slot_old_size": 0 
+}},
+{"Node": {
+    "depth": 1,
+    "kind_name": "ecmd",
+    "metadata_key": { "byte_offset": 9, "byte_len": 9, "is_leaf": false },
+    "metadata_obj": { "char_offset": 9, "char_len": 9, "node_type": "Node", "patch": "None", "edit_state": 0 }
+}},
+{"Node": {
+    "depth": 2,
+    "kind_name": "cmdx",
+    "metadata_key": { "byte_offset": 9, "byte_len": 8, "is_leaf": false },
+    "metadata_obj": { "char_offset": 9, "char_len": 8, "node_type": "Node", "patch": "None", "edit_state": 0 }
+}},
+{"Node": {
+    "depth": 3,
+    "kind_name": "cmd",
+    "metadata_key": { "byte_offset": 9, "byte_len": 8, "is_leaf": false },
+    "metadata_obj": { "char_offset": 9, "char_len": 8, "node_type": "Node", "patch": "None", "edit_state": 0 }
+}},
+{"Node": {
+    "depth": 4,
+    "kind_name": "select",
+    "metadata_key": { "byte_offset": 9, "byte_len": 8, "is_leaf": false },
+    "metadata_obj": { "char_offset": 9, "char_len": 8, "node_type": "Node", "patch": "None", "edit_state": 0 }
+}},
+{"Node": {
+    "depth": 5,
+    "kind_name": "selectnowith",
+    "metadata_key": { "byte_offset": 9, "byte_len": 8, "is_leaf": false },
+    "metadata_obj": { "char_offset": 9, "char_len": 8, "node_type": "Node", "patch": "None", "edit_state": 0 }
+}},
+{"Node": {
+    "depth": 6,
+    "kind_name": "oneselect",
+    "metadata_key": { "byte_offset": 9, "byte_len": 8, "is_leaf": false },
+    "metadata_obj": { "char_offset": 9, "char_len": 8, "node_type": "Node", "patch": "None", "edit_state": 0 }
+}},
+{"Node": {
+    "depth": 7,
+    "kind_name": "SELECT",
+    "metadata_key": { "byte_offset": 9, "byte_len": 7, "is_leaf": false },
+    "metadata_obj": { "char_offset": 9, "char_len": 7, "node_type": "TokenSet", "patch": "None", "edit_state": 0 }
+}},
+{"Node": {
+    "depth": 8,
+    "kind_name": "SELECT",
+    "metadata_key": { "byte_offset": 9, "byte_len": 6, "is_leaf": true },
+    "metadata_obj": { "char_offset": 9, "char_len": 6, "node_type": "TokenItem", "patch": "None", "edit_state": 0 },
+    "value": "SELECT"
+}},
+{"Node": {
+    "depth": 8,
+    "kind_name": "SPACE",
+    "metadata_key": { "byte_offset": 15, "byte_len": 1, "is_leaf": true },
+    "metadata_obj": { "char_offset": 15, "char_len": 1, "node_type": "TrailingToken", "patch": "None", "edit_state": 0 },
+    "value": " "
+}},
+{"Node": {
+    "depth": 7,
+    "kind_name": "selcollist",
+    "metadata_key": { "byte_offset": 16, "byte_len": 1, "is_leaf": false },
+    "metadata_obj": { "char_offset": 16, "char_len": 1, "node_type": "Node", "patch": "None", "edit_state": 18 }
+}},
+{"Node": {
+    "depth": 8,
+    "kind_name": "expr",
+    "metadata_key": { "byte_offset": 16, "byte_len": 1, "is_leaf": false },
+    "metadata_obj": { "char_offset": 16, "char_len": 1, "node_type": "Node", "patch": "None", "edit_state": 238 }
+}},
+{"Node": {
+    "depth": 9,
+    "kind_name": "term",
+    "metadata_key": { "byte_offset": 16, "byte_len": 1, "is_leaf": false },
+    "metadata_obj": { "char_offset": 16, "char_len": 1, "node_type": "Node", "patch": "None", "edit_state": 238 }
+}},
+{"Node": {
+    "depth": 10,
+    "kind_name": "INTEGER",
+    "metadata_key": { "byte_offset": 16, "byte_len": 1, "is_leaf": false },
+    "metadata_obj": { "char_offset": 16, "char_len": 1, "node_type": "TokenSet", "patch": "None", "edit_state": 238 }
+}},
+{"Node": {
+    "depth": 11,
+    "kind_name": "INTEGER",
+    "metadata_key": { "byte_offset": 16, "byte_len": 1, "is_leaf": true },
+    "metadata_obj": { "char_offset": 16, "char_len": 1, "node_type": "TokenItem", "patch": "None", "edit_state": 238 },
+    "value": "2"
+}},
+{"Node": {
+    "depth": 2,
+    "kind_name": "SEMI",
+    "metadata_key": { "byte_offset": 17, "byte_len": 1, "is_leaf": false },
+    "metadata_obj": { "char_offset": 17, "char_len": 1, "node_type": "TokenSet", "patch": "None", "edit_state": 23 }
+}},
+{"Node": {
+    "depth": 3,
+    "kind_name": "SEMI",
+    "metadata_key": { "byte_offset": 17, "byte_len": 1, "is_leaf": true },
+    "metadata_obj": { "char_offset": 17, "char_len": 1, "node_type": "TokenItem", "patch": "None", "edit_state": 23 },
+    "value": ";"
+}},
+"EndBatch"
+]

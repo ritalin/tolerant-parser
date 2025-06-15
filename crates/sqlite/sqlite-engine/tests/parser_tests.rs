@@ -1,10 +1,6 @@
 #![cfg(not(engine_ungenerated))]
 
-use parser_core::Parser;
-
-#[path = "supports/test_support.rs"]
-mod test_support;
-use test_support::*;
+use parser_core::{Parser, support::test_support};
 
 mod parser_tests_members {
     mod parse_dispatcher_tests;
@@ -22,7 +18,7 @@ fn test_const_select() -> Result<(), anyhow::Error> {
     let parser = Parser::new(engine);
 
     let tree = parser.parse(source)?;
-    let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("fixtures/parse_tests/test_const_select.json"))?;
+    let expect_node = serde_json::from_str::<Vec<test_support::ExpectNode>>(include_str!("fixtures/parse_tests/test_const_select.json"))?;
 
     test_support::verify(tree.root(), &expect_node);
     Ok(())
@@ -36,7 +32,7 @@ fn test_star_select() -> Result<(), anyhow::Error> {
     let parser = Parser::new(engine);
 
     let tree = parser.parse(source)?;
-    let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("fixtures/parse_tests/test_star_select.json"))?;
+    let expect_node = serde_json::from_str::<Vec<test_support::ExpectNode>>(include_str!("fixtures/parse_tests/test_star_select.json"))?;
 
     test_support::verify(tree.root(), &expect_node);
     Ok(())
@@ -53,7 +49,7 @@ fn test_meny_select_statements() -> Result<(), anyhow::Error> {
     let parser = Parser::new(engine);
 
     let tree = parser.parse(source)?;
-    let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("fixtures/parse_tests/test_meny_select_statements.json"))?;
+    let expect_node = serde_json::from_str::<Vec<test_support::ExpectNode>>(include_str!("fixtures/parse_tests/test_meny_select_statements.json"))?;
 
     test_support::verify(tree.root(), &expect_node);
     Ok(())

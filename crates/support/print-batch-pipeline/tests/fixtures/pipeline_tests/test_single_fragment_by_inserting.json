@@ -1,0 +1,146 @@
+[
+{"BeginBatch": { 
+    "slot_offset": 10, "slot_new_size": 23, "slot_old_size": 12 
+}},
+{"Node": {
+    "depth": 7,
+    "kind_name": "selcollist",
+    "metadata_key": { "byte_offset": 7, "byte_len": 10, "is_leaf": false },
+    "metadata_obj": { "char_offset": 7, "char_len": 10, "node_type": "Node", "patch": "None", "edit_state": 18 }
+}},
+{"Node": {
+    "depth": 8,
+    "kind_name": "sclp",
+    "metadata_key": { "byte_offset": 7, "byte_len": 4, "is_leaf": false },
+    "metadata_obj": { "char_offset": 7, "char_len": 4, "node_type": "Node", "patch": "None", "edit_state": 18 }
+}},
+{"Node": {
+    "depth": 9,
+    "kind_name": "selcollist",
+    "metadata_key": { "byte_offset": 7, "byte_len": 2, "is_leaf": false },
+    "metadata_obj": { "char_offset": 7, "char_len": 2, "node_type": "Node", "patch": "None", "edit_state": 18 }
+}},
+{"Node": {
+    "depth": 10,
+    "kind_name": "expr",
+    "metadata_key": { "byte_offset": 7, "byte_len": 2, "is_leaf": false },
+    "metadata_obj": { "char_offset": 7, "char_len": 2, "node_type": "Node", "patch": "None", "edit_state": 238 }
+}},
+{"Node": {
+    "depth": 11,
+    "kind_name": "term",
+    "metadata_key": { "byte_offset": 7, "byte_len": 2, "is_leaf": false },
+    "metadata_obj": { "char_offset": 7, "char_len": 2, "node_type": "Node", "patch": "None", "edit_state": 238 }
+}},
+{"Node": {
+    "depth": 12,
+    "kind_name": "INTEGER",
+    "metadata_key": { "byte_offset": 7, "byte_len": 2, "is_leaf": false },
+    "metadata_obj": { "char_offset": 7, "char_len": 2, "node_type": "TokenSet", "patch": "None", "edit_state": 238 }
+}},
+{"Node": {
+    "depth": 13,
+    "kind_name": "INTEGER",
+    "metadata_key": { "byte_offset": 7, "byte_len": 2, "is_leaf": true },
+    "metadata_obj": { "char_offset": 7, "char_len": 2, "node_type": "TokenItem", "patch": "None", "edit_state": 238 },
+    "value": "42"
+}},
+{"Node": {
+    "depth": 9,
+    "kind_name": "COMMA",
+    "metadata_key": { "byte_offset": 9, "byte_len": 2, "is_leaf": false },
+    "metadata_obj": { "char_offset": 9, "char_len": 2, "node_type": "TokenSet", "patch": "None", "edit_state": 145 }
+}},
+{"Node": {
+    "depth": 10,
+    "kind_name": "COMMA",
+    "metadata_key": { "byte_offset": 9, "byte_len": 1, "is_leaf": true },
+    "metadata_obj": { "char_offset": 9, "char_len": 1, "node_type": "TokenItem", "patch": "None", "edit_state": 145 },
+    "value": ","
+}},
+{"Node": {
+    "depth": 10,
+    "kind_name": "SPACE",
+    "metadata_key": { "byte_offset": 10, "byte_len": 1, "is_leaf": true },
+    "metadata_obj": { "char_offset": 10, "char_len": 1, "node_type": "TrailingToken", "patch": "None", "edit_state": 145 },
+    "value": " "
+}},
+{"Node": {
+    "depth": 8,
+    "kind_name": "expr",
+    "metadata_key": { "byte_offset": 11, "byte_len": 2, "is_leaf": false },
+    "metadata_obj": { "char_offset": 11, "char_len": 2, "node_type": "Node", "patch": "None", "edit_state": 238 }
+}},
+{"Node": {
+    "depth": 9,
+    "kind_name": "term",
+    "metadata_key": { "byte_offset": 11, "byte_len": 2, "is_leaf": false },
+    "metadata_obj": { "char_offset": 11, "char_len": 2, "node_type": "Node", "patch": "None", "edit_state": 238 }
+}},
+{"Node": {
+    "depth": 10,
+    "kind_name": "INTEGER",
+    "metadata_key": { "byte_offset": 11, "byte_len": 2, "is_leaf": false },
+    "metadata_obj": { "char_offset": 11, "char_len": 2, "node_type": "TokenSet", "patch": "None", "edit_state": 238 }
+}},
+{"Node": {
+    "depth": 11,
+    "kind_name": "INTEGER",
+    "metadata_key": { "byte_offset": 11, "byte_len": 1, "is_leaf": true },
+    "metadata_obj": { "char_offset": 11, "char_len": 1, "node_type": "TokenItem", "patch": "None", "edit_state": 238 },
+    "value": "1"
+}},
+{"Node": {
+    "depth": 11,
+    "kind_name": "SPACE",
+    "metadata_key": { "byte_offset": 12, "byte_len": 1, "is_leaf": true },
+    "metadata_obj": { "char_offset": 12, "char_len": 1, "node_type": "TrailingToken", "patch": "None", "edit_state": 238 },
+    "value": " "
+}},
+{"Node": {
+    "depth": 8,
+    "kind_name": "as",
+    "metadata_key": { "byte_offset": 13, "byte_len": 4, "is_leaf": false },
+    "metadata_obj": { "char_offset": 13, "char_len": 4, "node_type": "Node", "patch": "None", "edit_state": 467 }
+}},
+{"Node": {
+    "depth": 9,
+    "kind_name": "AS",
+    "metadata_key": { "byte_offset": 13, "byte_len": 3, "is_leaf": false },
+    "metadata_obj": { "char_offset": 13, "char_len": 3, "node_type": "TokenSet", "patch": "None", "edit_state": 467 }
+}},
+{"Node": {
+    "depth": 10,
+    "kind_name": "AS",
+    "metadata_key": { "byte_offset": 13, "byte_len": 2, "is_leaf": true },
+    "metadata_obj": { "char_offset": 13, "char_len": 2, "node_type": "TokenItem", "patch": "None", "edit_state": 467 },
+    "value": "AS"
+}},
+{"Node": {
+    "depth": 10,
+    "kind_name": "SPACE",
+    "metadata_key": { "byte_offset": 15, "byte_len": 1, "is_leaf": true },
+    "metadata_obj": { "char_offset": 15, "char_len": 1, "node_type": "TrailingToken", "patch": "None", "edit_state": 467 },
+    "value": " "
+}},
+{"Node": {
+    "depth": 9,
+    "kind_name": "nm",
+    "metadata_key": { "byte_offset": 16, "byte_len": 1, "is_leaf": false },
+    "metadata_obj": { "char_offset": 16, "char_len": 1, "node_type": "Node", "patch": "None", "edit_state": 576 }
+}},
+{"Node": {
+    "depth": 10,
+    "kind_name": "ID",
+    "metadata_key": { "byte_offset": 16, "byte_len": 1, "is_leaf": false },
+    "metadata_obj": { "char_offset": 16, "char_len": 1, "node_type": "TokenSet", "patch": "None", "edit_state": 576 }
+}},
+{"Node": {
+    "depth": 11,
+    "kind_name": "ID",
+    "metadata_key": { "byte_offset": 16, "byte_len": 1, "is_leaf": true },
+    "metadata_obj": { "char_offset": 16, "char_len": 1, "node_type": "TokenItem", "patch": "None", "edit_state": 576 },
+    "value": "x"
+}},
+"EndBatch"
+]
