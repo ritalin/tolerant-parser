@@ -31,6 +31,15 @@ impl NodeMetadataKey {
         }
     }
 
+    pub fn from_green_node(node: &rowan::GreenNode, engine: ParsingRuleSet) -> Self {
+        Self {
+            kind: engine.from_kind_id(node.kind().0 as u32),
+            offset: 0,
+            len: node.text_len().into(),
+            is_leaf: false,
+        }
+    }
+
     pub fn into_local(self, stmt_offset: usize) -> Self {
         Self {
             kind: self.kind,
@@ -136,8 +145,7 @@ impl std::fmt::Display for NodeType {
 
 #[derive(PartialEq, Clone, Default, Debug)]
 pub struct StatementMetadataEntry {
-    pub byte_offset: usize,
-    pub char_offset: usize,
+    pub global_offset: GlobalOffset,
     pub map: HashMap<NodeMetadataKey, NodeMetadata>
 }
 
@@ -166,7 +174,7 @@ impl MetadataTable {
     /// If not found, return 0.
     pub fn index_at_offset(&self, byte_offset: usize) -> usize {
         self.members.iter().enumerate()
-        .take_while(|(_, member)| member.byte_offset <= byte_offset)
+        .take_while(|(_, member)| member.global_offset.of_byte <= byte_offset)
         .map(|(i, _)| i)
         .last()
         .unwrap_or_default()
@@ -175,4 +183,10 @@ impl MetadataTable {
     pub fn clone_members(&self) -> Vec<StatementMetadataEntry> {
         self.members.clone()
     }
+}
+
+#[derive(PartialEq, Clone, Default, Debug)]
+pub struct GlobalOffset {
+    pub of_byte: usize,
+    pub of_char: usize,
 }
