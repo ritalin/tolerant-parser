@@ -7,7 +7,7 @@ pub struct SyntaxFragment {
     new_statement: rowan::GreenNode,
     fragment_node_key: NodeMetadataKey,
     metadata_entry: StatementMetadataEntry,
-    adjusted_byte_offset: usize, // FIXME: Is this nessecery?
+    adjusted_byte_offset: usize,
 }
 
 impl SyntaxFragment {
@@ -195,16 +195,6 @@ pub struct SyntaxFragmentBatch {
     pub replace_size: usize,
     pub old_first_fragment_key: Option<FragmentNodeMetadataKey>,
     pub engine: ParsingRuleSet,
-}
-
-impl SyntaxFragmentBatch {
-    pub fn statement_node_count(&self) -> usize {
-        self.fragments.iter()
-        .map(|fragment| {
-            fragment.metadata_entry.map.len()
-        })
-        .sum()
-    }
 }
 
 impl From<SyntaxFragmentBatch> for SyntaxTree {

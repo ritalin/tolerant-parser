@@ -122,7 +122,7 @@ impl Parser {
                     let strategy = IncrementalParserStrategy::default_strategy(self.engine.parsing_rules);
 
                     let (new_stmt, new_matadata_map) = parse_internal(scanner_view, &config, 0, strategy, self.engine.parsing_rules)?;
-                    let new_key = NodeMetadataKey::from_green_node(&new_stmt, self.engine.parsing_rules);
+                    let new_key = NodeMetadataKey::from_green_node(&new_stmt, 0, self.engine.parsing_rules);
 
                     if old_first_fragment_key.is_none() {
                         old_first_fragment_key = self.following_statement.as_ref().map(|el| {

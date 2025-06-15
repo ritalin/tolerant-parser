@@ -61,7 +61,7 @@ impl Request {
             })
             .collect::<HashMap<_, _>>()
         ;
-        let key = NodeMetadataKey::from_green_node(&node, self.engine);
+        let key = NodeMetadataKey::from_green_node(&node, 0, self.engine);
 
         Ok(
             SyntaxFragment::new(self.seq, node, StatementMetadataEntry{ map: metadata, ..Default::default() }, key)

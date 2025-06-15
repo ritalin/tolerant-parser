@@ -31,10 +31,10 @@ impl NodeMetadataKey {
         }
     }
 
-    pub fn from_green_node(node: &rowan::GreenNode, engine: ParsingRuleSet) -> Self {
+    pub fn from_green_node(node: &rowan::GreenNode, offset: usize, engine: ParsingRuleSet) -> Self {
         Self {
             kind: engine.from_kind_id(node.kind().0 as u32),
-            offset: 0,
+            offset,
             len: node.text_len().into(),
             is_leaf: false,
         }

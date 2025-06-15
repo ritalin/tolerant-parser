@@ -70,7 +70,7 @@ impl TreeGardener {
     }
 
     pub fn new_node_key(&self, node: &rowan::GreenNode, engine: ParsingRuleSet) -> NodeMetadataKey {
-        NodeMetadataKey::from_green_node(node, engine).into_global(self.node.text_range().start().into())
+        NodeMetadataKey::from_green_node(node, 0, engine).into_global(self.node.text_range().start().into())
     }
 }
 
