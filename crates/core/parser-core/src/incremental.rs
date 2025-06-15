@@ -1,13 +1,14 @@
 use std::{collections::HashMap, rc::Rc};
 use engine_core::{parser_engine::ParsingRuleSet};
 use scanner_core::{Scanner, ScannerAccess, StatementScannerView};
-use crate::{event_dispatcher::ParseEventDispatcher, incremental::support::{IncludeEnd, IncrementalParserStrategy}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{RowanLangageImpl, SyntaxFragment, SyntaxFragmentBatch, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig};
+use crate::{event_dispatcher::ParseEventDispatcher, incremental::support::{IncludeEnd, IncrementalParserStrategy}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{FragmentNodeMetadataKey, RowanLangageImpl, SyntaxElement, SyntaxFragment, SyntaxFragmentBatch, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig};
 
 pub mod support;
 
 pub struct Parser {
     scope: EditScope,
     statements: Vec<rowan::api::SyntaxNode<RowanLangageImpl>>,
+    following_statement: Option<SyntaxElement>,
     replace_from: usize,
     engine: engine_core::Engine,
     metadata_table: Rc<MetadataTable>,
@@ -22,10 +23,12 @@ impl Parser {
                 old_tree.metadata_table().index_at_offset(scope.start_byte_offset)
             })
         ;
+        let eof_statement = old_tree.root().children().skip(replace_from + statements.len()).next();
 
         Self {
             scope,
             statements,
+            following_statement: eof_statement,
             replace_from,
             engine,
             metadata_table: old_tree.metadata_table(),
@@ -34,24 +37,25 @@ impl Parser {
 
     pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<Vec<SyntaxFragmentBatch>, crate::parser::ParseError> {
         // Determine first statement byte offset
-        let mut global_byte_offset = self.metadata_table.statement_metadata(Some(self.replace_from)).byte_offset;
+        let mut global_byte_offset = self.metadata_table.statement_metadata(Some(self.replace_from)).global_offset.of_byte;
         
         let scan_from = self.statements.first().map(|stmt| usize::from(stmt.text_range().start())).unwrap_or(self.scope.start_byte_offset);
         let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone())?;
-        let emit_symbol = self.engine.parsing_rules.statement_emit_config().to_symbol;
+        let emit_region = self.engine.parsing_rules.statement_emit_config();
 
         let stmts = self.statements.iter().map(Some).chain(std::iter::repeat(None));
         let new_scope_range = self.scope.new_range();
         // enumerate scanners except for over the new byte offset scope.
         // This includes `EOF` only statement.
-        let scanners = scanner.statement_scanners(emit_symbol)
+        let scanners = scanner.statement_scanners(emit_region.to_symbol)
             .take_while(|scanner| scanner.index() < new_scope_range.end)
         ;
         
         let mut fragments = vec![];
+        let mut old_first_fragment_key = None;
 
         for (stmt_scanner, stmt) in scanners.zip(stmts).filter(|(s, _)| s.as_view(std::ops::RangeFull).lookahead().is_some()) {
-            let (new_stmt, new_metadata_entry) = match stmt {
+            let (new_stmt, new_metadata_entry, new_node_key) = match stmt {
                 Some(stmt) => {
                     let stmt_index = stmt.index();
                     let old_stmt_range: std::ops::Range<usize> = stmt.text_range().into();
@@ -66,9 +70,9 @@ impl Parser {
                         node: gardener.common_anscestor(
                             gardener.pick_token(lowest.into()), 
                             gardener.pick_token(highest.into()),
-                            emit_symbol
+                            emit_region.to_symbol
                         )
-                        .expect("At least, must exist")
+                        .expect("A metadata definitely must exist")
                     };
 
                     // text_range is local coordicate because of clone_subtree()
@@ -94,43 +98,60 @@ impl Parser {
                     ;
 
                     let (new_node, new_matadata_map) = parse_internal(scanner_view, &config, metadata.edit_state, strategy, self.engine.parsing_rules)?;
+                    let new_key = common_anscestor.new_node_key(&new_node, self.engine.parsing_rules);
                     
+                    if old_first_fragment_key.is_none() {
+                        old_first_fragment_key = Some(FragmentNodeMetadataKey{
+                            key: NodeMetadataKey::from_raw_node(&common_anscestor.node, self.engine.parsing_rules),
+                            is_eof: false,
+                        });
+                    }
+
                     let new_stmt = gardener.replace_with_new_node(new_node.clone(), &common_anscestor.node);
                     let metadata_entry = support::merge_metadata_map(
                         Some((common_anscestor.node, &old_metadata_map.map)),
-                        new_node.as_node().map(|x| (x, new_matadata_map)).unwrap(),
+                        (&new_node, new_matadata_map),
                         global_byte_offset, metadata.char_offset,
                         self.engine.parsing_rules
                     );
 
-                    (new_stmt, metadata_entry)
+                    (new_stmt, metadata_entry, new_key)
                 }
                 None => {
                     let scanner_view = stmt_scanner.as_view(std::ops::RangeFull);
                     let strategy = IncrementalParserStrategy::default_strategy(self.engine.parsing_rules);
+
                     let (new_stmt, new_matadata_map) = parse_internal(scanner_view, &config, 0, strategy, self.engine.parsing_rules)?;
+                    let new_key = NodeMetadataKey::from_green_node(&new_stmt, self.engine.parsing_rules);
+
+                    if old_first_fragment_key.is_none() {
+                        old_first_fragment_key = self.following_statement.as_ref().map(|el| {
+                            FragmentNodeMetadataKey{ key: el.metadata_key(), is_eof: true }
+                        });
+                    }
 
                     let metadata_entry = support::merge_metadata_map(
                         None,
-                        new_stmt.as_node().map(|x| (x, new_matadata_map)).unwrap(),
+                        (&new_stmt, new_matadata_map),
                         global_byte_offset, // Because lookahead is contained global_byte_offset
                         0, // Because always global_char_offset = 0 in the statement
                         self.engine.parsing_rules
                     );
 
-                    (new_stmt, metadata_entry)
+                    (new_stmt.clone(), metadata_entry, new_key)
                 }
             };
 
-            global_byte_offset += usize::from(new_stmt.as_node().expect("Statement key is not found").text_len()); 
+            global_byte_offset += usize::from(new_stmt.text_len()); 
 
-            fragments.push(SyntaxFragment::new(fragments.len(), new_stmt, new_metadata_entry))
+            fragments.push(SyntaxFragment::new(fragments.len(), new_stmt, new_metadata_entry, new_node_key))
         }
 
         let batch = SyntaxFragmentBatch{
             fragments,
             replace_from: self.replace_from,
             replace_size: self.statements.len(),
+            old_first_fragment_key,
             engine: self.engine.parsing_rules,
         };
 
@@ -204,7 +225,7 @@ fn parse_internal(
     config: &ParserConfig,
     edit_state: usize,
     parse_strategy: impl crate::parser::ParseStrategy,
-    engine: ParsingRuleSet) -> Result<(rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>, HashMap<NodeMetadataKey, NodeMetadata>), crate::parser::ParseError> 
+    engine: ParsingRuleSet) -> Result<(rowan::GreenNode, HashMap<NodeMetadataKey, NodeMetadata>), crate::parser::ParseError> 
 {
     let mut dispatcher = ParseEventDispatcher::new(edit_state, config.mode.clone(), engine);
     let mut tree_builder = SyntaxTreeBuilder::new(engine, config.mode.clone(), None);

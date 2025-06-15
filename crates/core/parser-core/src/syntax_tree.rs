@@ -10,7 +10,7 @@ mod syntax_batch;
 pub use tree::SyntaxTree;
 pub use node::SyntaxNode;
 pub use token::{SyntaxTokenSet, SyntaxTokenItem, SyntaxTokenItems};
-pub use syntax_batch::{SyntaxFragment, SyntaxFragmentBatch, ApplyBatch};
+pub use syntax_batch::{SyntaxFragment, FragmentNodeMetadataKey, SyntaxFragmentBatch, ApplyBatch, FragmentNodeIterator, FragmentNode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RowanLangageImpl;
@@ -78,18 +78,32 @@ impl SyntaxNodeData {
     }
 
     fn statement_index(&self) -> Option<usize> {
+        self.statement_index_raw(&self.raw)
+    }
+
+    pub(crate) fn statement_index_raw(&self, raw: &rowan::SyntaxNode<RowanLangageImpl>) -> Option<usize> {
         if self.parse_mode == ParseMode::Full {
             return None;
         }
 
         let stmt_symbol = self.engine.statement_emit_config().from_symbol;
-        let stmt = self.raw.ancestors().skip_while(|node| {
+        let stmt = raw.ancestors().skip_while(|node| {
             let kind = self.engine.from_kind_id(node.kind());
             kind.id != stmt_symbol.id
         })
         .next();
 
         stmt.map(|node| node.index())
+    }
+
+    pub(crate) fn metadata_with(&self, index: Option<usize>, key: &NodeMetadataKey) -> NodeMetadata {
+        let stmt_metadta = &self.metadata_table.statement_metadata(index);
+        let (byte_offset, char_offset ) = if self.parse_mode == ParseMode::Full { (0, 0) } else { (stmt_metadta.global_offset.of_byte, stmt_metadta.global_offset.of_char) };
+        let local_key = key.clone().into_local(byte_offset);
+
+        stmt_metadta.map.get(&local_key)
+        .expect(&format!("All node/token must contain a metadata@{index:?} (key: {key:?}, byte_offset: {byte_offset})"))
+        .into_global(char_offset)
     }
 }
 
@@ -106,13 +120,7 @@ impl MetadataAccess for SyntaxNodeData {
     
     fn metadata(&self) -> NodeMetadata {
         let index = self.statement_index();
-        let stmt_metadta = &self.metadata_table.statement_metadata(index);
-        let (byte_offset, char_offset ) = if self.parse_mode == ParseMode::Full { (0, 0) } else { (stmt_metadta.byte_offset, stmt_metadta.char_offset) };
-        let key = self.metadata_key().into_local(byte_offset);
-
-        stmt_metadta.map.get(&key)
-        .expect(&format!("All node/token must contain a metadata@{index:?} (key: {key:?}, byte_offset: {byte_offset})"))
-        .into_global(char_offset)
+        self.metadata_with(index, &self.metadata_key())
     }
 }
 
@@ -155,7 +163,7 @@ impl MetadataAccess for SyntaxTokenData {
     fn metadata(&self) -> NodeMetadata {
         let index = self.statement_index();
         let stmt_metadta = &self.metadata_table.statement_metadata(index);
-        let (byte_offset, char_offset ) = if self.parse_mode == ParseMode::Full { (0, 0) } else { (stmt_metadta.byte_offset, stmt_metadta.char_offset) };
+        let (byte_offset, char_offset ) = if self.parse_mode == ParseMode::Full { (0, 0) } else { (stmt_metadta.global_offset.of_byte, stmt_metadta.global_offset.of_char) };
         let key = self.metadata_key().into_local(byte_offset);
 
         stmt_metadta.map.get(&key)

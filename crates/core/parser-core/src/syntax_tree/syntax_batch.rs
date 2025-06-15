@@ -1,19 +1,21 @@
 use std::collections::HashMap;
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
-use crate::{metadata::{MetadataTable, StatementMetadataEntry}, syntax_tree::{tree::SyntaxTree, RowanLangageImpl, SyntaxNode, SyntaxNodeData}, NodeMetadata, NodeMetadataKey, ParseMode};
+use crate::{metadata::{GlobalOffset, MetadataTable, StatementMetadataEntry}, syntax_tree::{tree::SyntaxTree, MetadataAccess, RowanLangageImpl, SyntaxNode, SyntaxNodeData}, NodeMetadata, NodeMetadataKey, ParseMode};
 
 pub struct SyntaxFragment {
     index: usize,
-    node: rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>,
+    new_statement: rowan::GreenNode,
+    fragment_node_key: NodeMetadataKey,
     metadata_entry: StatementMetadataEntry,
-    adjusted_byte_offset: usize,
+    adjusted_byte_offset: usize, // FIXME: Is this nessecery?
 }
 
 impl SyntaxFragment {
-    pub fn new(index: usize, node: rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>, metadata_entry: StatementMetadataEntry) -> Self {
+    pub fn new(index: usize, new_statement: rowan::GreenNode, metadata_entry: StatementMetadataEntry, node_key: NodeMetadataKey) -> Self {
         Self {
             index,
-            node,
+            new_statement,
+            fragment_node_key: node_key,
             metadata_entry,
             adjusted_byte_offset: 0,
         }
@@ -27,11 +29,15 @@ impl SyntaxFragment {
     }
 
     pub fn into_root(self, parse_mode: ParseMode, engine: ParsingRuleSet) -> SyntaxNode {
-        let red_node = rowan::api::SyntaxNode::<RowanLangageImpl>::new_root(self.node.clone().into_node().unwrap());
+        let red_node = rowan::api::SyntaxNode::<RowanLangageImpl>::new_root(self.new_statement.clone());
 
         let metadata_table = MetadataTable::new(vec![self.metadata_entry], StatementMetadataEntry::default());
 
         SyntaxNode::from_raw(SyntaxNodeData::new(red_node, std::rc::Rc::new(metadata_table), parse_mode, engine))
+    }
+
+    pub fn iter(&self, global_offset: GlobalOffset, engine: ParsingRuleSet) -> FragmentNodeIterator {
+        FragmentNodeIterator::new(&self.new_statement, &self.metadata_entry, self.fragment_node_key.clone(), global_offset, engine)
     }
 
     #[inline]
@@ -43,11 +49,19 @@ impl SyntaxFragment {
     pub fn byte_offset(&self) -> usize {
         self.adjusted_byte_offset
     }
+
+    pub fn statement_byte_len(&self) -> usize {
+        self.new_statement.text_len().into()
+    }
+
+    pub fn statement_char_len(&self) -> usize {
+        measure_statement_char_len(&self.new_statement)
+    }
 }
 
 impl std::fmt::Display for SyntaxFragment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let red_node = rowan::api::SyntaxNode::<RowanLangageImpl>::new_root(self.node.clone().into_node().unwrap());
+        let red_node = rowan::api::SyntaxNode::<RowanLangageImpl>::new_root(self.new_statement.clone());
 
         let mut next_token = red_node.first_token();
         while let Some(token) = next_token {
@@ -59,11 +73,138 @@ impl std::fmt::Display for SyntaxFragment {
     }
 }
 
+pub struct FragmentNodeIterator<'a> {
+    depth: usize,
+    preorder: rowan::api::PreorderWithTokens<RowanLangageImpl>,
+    metadata_entry: &'a StatementMetadataEntry,
+    global_offset: GlobalOffset,
+    engine: ParsingRuleSet,
+}
+
+impl<'a> FragmentNodeIterator<'a> {
+    pub(crate) fn new(
+        node: &rowan::GreenNode,
+        metadata_entry: &'a StatementMetadataEntry,
+        fragment_node_key: NodeMetadataKey,
+        global_offset: GlobalOffset,
+        engine: ParsingRuleSet) -> Self 
+    {
+        let fragment_node = find_fragment_node(node, fragment_node_key, engine);
+        let fragment_depth = fragment_node.ancestors().count();
+
+        Self {
+            depth: fragment_depth,
+            preorder: fragment_node.preorder_with_tokens(),
+            metadata_entry: metadata_entry,
+            global_offset,
+            engine,
+        }
+    }
+}
+
+fn find_fragment_node(root_node: &rowan::GreenNode, needle: NodeMetadataKey, engine: ParsingRuleSet) -> rowan::SyntaxNode::<RowanLangageImpl> {
+    let node = rowan::SyntaxNode::<RowanLangageImpl>::new_root(root_node.clone());
+    let token = match node.token_at_offset(rowan::TextSize::new(needle.offset as u32)) {
+        rowan::TokenAtOffset::None => {
+            return node;
+        }
+        rowan::TokenAtOffset::Single(token) => token,
+        rowan::TokenAtOffset::Between(_, token) => token,
+    };
+
+    token.parent_ancestors().find(|node| {
+        let key = NodeMetadataKey::from_raw_node(node, engine);
+        key == needle
+    })
+    .unwrap_or(node)
+}
+
+impl<'a> Iterator for FragmentNodeIterator<'a> {
+    type Item = FragmentNode;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(node) = self.preorder.next() {
+            match node {
+                rowan::WalkEvent::Enter(node) => {
+                    self.depth += 1;
+                    let key = NodeMetadataKey{ 
+                        kind: self.engine.from_kind_id(node.kind() as u32), 
+                        offset: node.text_range().start().into(), 
+                        len: node.text_range().len().into(), 
+                        is_leaf: node.as_token().is_some() 
+                    };
+                    let metadata = self.metadata_entry.map
+                        .get(&key).expect("A metadata definitely must exist").clone()
+                    ;
+                    return Some(FragmentNode{ 
+                        node, 
+                        key: key.into_global(self.global_offset.of_byte), 
+                        metadata: metadata.into_global(self.global_offset.of_char), 
+                        depth: self.depth - 1
+                    });
+                }
+                rowan::WalkEvent::Leave(_) => {
+                    self.depth -= 1;
+                }
+            }
+        }
+        
+        None
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct FragmentNode {
+    node: rowan::NodeOrToken<rowan::SyntaxNode<RowanLangageImpl>, rowan::SyntaxToken<RowanLangageImpl>>,
+    key: NodeMetadataKey,
+    metadata: NodeMetadata,
+    depth: usize,
+}
+
+impl FragmentNode {
+    pub fn value(&self) -> Option<String> {
+        match &self.node {
+            rowan::NodeOrToken::Node(_) => None,
+            rowan::NodeOrToken::Token(token) => Some(token.text().into()),
+        }
+    }
+
+    pub fn depth(&self) -> usize {
+        self.depth
+    }
+}
+
+impl MetadataAccess for FragmentNode {
+    fn metadata_key(&self) -> NodeMetadataKey {
+        self.key.clone()
+    }
+
+    fn metadata(&self) -> NodeMetadata {
+        self.metadata.clone()
+    }
+}
+
+pub struct FragmentNodeMetadataKey {
+    pub key: NodeMetadataKey,
+    pub is_eof: bool,
+}
+
 pub struct SyntaxFragmentBatch {
     pub fragments: Vec<SyntaxFragment>,
     pub replace_from: usize,
     pub replace_size: usize,
+    pub old_first_fragment_key: Option<FragmentNodeMetadataKey>,
     pub engine: ParsingRuleSet,
+}
+
+impl SyntaxFragmentBatch {
+    pub fn statement_node_count(&self) -> usize {
+        self.fragments.iter()
+        .map(|fragment| {
+            fragment.metadata_entry.map.len()
+        })
+        .sum()
+    }
 }
 
 impl From<SyntaxFragmentBatch> for SyntaxTree {
@@ -71,26 +212,26 @@ impl From<SyntaxFragmentBatch> for SyntaxTree {
         let mut members = value.fragments;
         members.sort_by(|lhs, rhs| lhs.seq().cmp(&rhs.seq()));
 
-        let mut global_byte_offset = 0;
-        let mut global_char_offset = 0;
+        let mut global_offset = GlobalOffset::default();
 
         let (children, metadata_entriess): (Vec<rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>>, Vec<StatementMetadataEntry>) = 
             members.into_iter()
             .map(|member| {
+                let entry_offset = global_offset.clone();
+                global_offset.of_byte += member.statement_byte_len();
+                global_offset.of_char += member.statement_char_len();
+
                 let metadata_entry = StatementMetadataEntry{ 
-                    byte_offset: global_byte_offset, 
-                    char_offset: global_char_offset, 
+                    global_offset: entry_offset,
                     map: member.metadata_entry.map 
                 };
-                global_byte_offset += usize::from(member.node.text_len());
-                global_char_offset += measure_statement_char_len(std::borrow::Borrow::borrow(member.node.as_node().unwrap()));
 
-                (member.node, metadata_entry)
+                (rowan::NodeOrToken::Node(member.new_statement), metadata_entry)
             })
             .unzip()
         ;
 
-        let root_metadata_entry = new_root_metadata(value.engine.full_emit_config().from_symbol, global_byte_offset, global_char_offset);
+        let root_metadata_entry = new_root_metadata(value.engine.full_emit_config().from_symbol, global_offset.of_byte, global_offset.of_char);
         let root_kind_id = rowan::SyntaxKind(value.engine.full_emit_config().from_symbol.id as u16);
         let root_node = rowan::GreenNode::new(root_kind_id, children);
 
@@ -155,7 +296,9 @@ where Batch: IntoIterator<Item = SyntaxFragmentBatch>
 
     let (children, metadata_entries): (Vec<rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>>, Vec<StatementMetadataEntry>) = 
         batch.fragments.into_iter()
-        .map(|SyntaxFragment { node, metadata_entry, .. }| (node, metadata_entry))
+        .map(|SyntaxFragment { new_statement: child, metadata_entry, .. }| {
+            (rowan::NodeOrToken::Node(child), metadata_entry)
+        })
         .unzip()
     ;
     let mut new_metadata_entries = metadata_table.clone_members();
@@ -169,8 +312,8 @@ where Batch: IntoIterator<Item = SyntaxFragmentBatch>
 
     new_metadata_entries.iter_mut().zip(new_root.children())
     .for_each(|(entry, node)| {
-        entry.byte_offset = global_byte_offset;
-        entry.char_offset = global_char_offset;
+        entry.global_offset.of_byte = global_byte_offset;
+        entry.global_offset.of_char = global_char_offset;
 
         global_byte_offset += usize::from(node.text_len());
         global_char_offset += measure_statement_char_len(std::borrow::Borrow::borrow(node.as_node().unwrap()));
