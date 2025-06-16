@@ -54,3 +54,17 @@ fn test_meny_select_statements() -> Result<(), anyhow::Error> {
     test_support::verify(tree.root(), &expect_node);
     Ok(())
 }
+
+#[test]
+fn test_incomplete_statement() -> Result<(), anyhow::Error> {
+    let source = "SELECT;";
+
+    let engine = sqlite_engine::create()?;
+    let parser = Parser::new(engine);
+
+    let tree = parser.parse(source)?;
+    let expect_node = serde_json::from_str::<Vec<test_support::ExpectNode>>(include_str!("fixtures/parse_tests/test_incomplete_statement.json"))?;
+
+    test_support::verify(tree.root(), &expect_node);
+    Ok(())
+}

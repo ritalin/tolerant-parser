@@ -71,7 +71,8 @@ impl SyntaxTreeBuilder {
             return Err(NodeBuildError::TokenSetFailed);
         };
 
-        let offset = match get_node_metadata_key(&self.all_metadata_map, self.element_stack.last()) {
+        let top_element = self.element_stack.iter().rev().flatten().next();
+        let offset = match get_node_metadata_key(&self.all_metadata_map, top_element) {
             Some(key) => key.offset + key.len,
             None => 0,
         };
@@ -92,7 +93,8 @@ impl SyntaxTreeBuilder {
             return Err(NodeBuildError::TokenSetFailed);
         };
 
-        let offset = match get_node_metadata_key(&self.all_metadata_map, self.element_stack.last()) {
+        let top_element = self.element_stack.iter().rev().flatten().next();
+        let offset = match get_node_metadata_key(&self.all_metadata_map, top_element) {
             Some(key) => key.offset + key.len,
             None => 0,
         };
@@ -112,7 +114,7 @@ impl SyntaxTreeBuilder {
 
     pub fn add_node(&mut self, event: ParseEvent) -> Result<(), NodeBuildError> {
         match event {
-            ParseEvent::Reduce { pop_count, .. } if pop_count == 0 => {
+            ParseEvent::Reduce { pop_count, .. } | ParseEvent::PatchReduce { pop_count, .. } if pop_count == 0 => {
                 self.element_stack.push(None);
                 Ok(())
             }
@@ -402,9 +404,9 @@ fn pop_node_from_stack(element_stack: &mut Vec<Option<(NodeId, StackEntry)>>, mu
 
 fn get_node_metadata_key<'a>(
     metadata_map: &'a HashMap<NodeId, (ActiveIndex, NodeMetadata, NodeMetadataKey)>, 
-    node_entry: Option<&'a Option<(NodeId, StackEntry)>>) -> Option<&'a NodeMetadataKey> 
+    node_entry: Option<&'a (NodeId, StackEntry)>) -> Option<&'a NodeMetadataKey> 
 {
-    if let Some(Some((id, _))) = node_entry {
+    if let Some((id, _)) = node_entry {
         return metadata_map.get(id).map(|(_, _, key)| key);
     }
     
