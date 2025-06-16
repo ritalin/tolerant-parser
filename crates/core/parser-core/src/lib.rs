@@ -7,7 +7,7 @@ pub mod capture;
 mod state_stack;
 
 mod metadata;
-pub use metadata::{NodeMetadataKey, NodeMetadata, NodeType, PatchAction};
+pub use metadata::{NodeMetadataKey, NodeMetadata, NodeType, PatchAction, GlobalOffset};
 
 mod parser;
 pub use parser::DefaultPasrser as Parser;
@@ -20,3 +20,8 @@ pub mod incremental;
 pub mod paralell;
 
 pub type NodeId = (std::time::Instant, u64); 
+
+#[cfg(feature = "test_support")]
+pub mod support {
+    pub mod test_support;
+}

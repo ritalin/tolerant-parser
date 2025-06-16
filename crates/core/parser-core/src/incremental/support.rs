@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
 use rowan::NodeOrToken;
-use crate::{metadata::{StatementMetadataEntry}, syntax_tree::RowanLangageImpl, NodeMetadata, NodeMetadataKey};
+use crate::{metadata::{GlobalOffset, StatementMetadataEntry}, syntax_tree::RowanLangageImpl, NodeMetadata, NodeMetadataKey};
 
 pub struct TreeGardener {
     pub node: rowan::SyntaxNode<RowanLangageImpl>,
@@ -57,18 +57,21 @@ impl TreeGardener {
 
     pub fn replace_with_new_node(
         &self, 
-        new_node: rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>,
-        anscestor: &rowan::SyntaxNode<RowanLangageImpl>) -> rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>
+        new_node: rowan::GreenNode,
+        anscestor: &rowan::SyntaxNode<RowanLangageImpl>) -> rowan::GreenNode
     {
         let Some(parent) = anscestor.parent() else {
             return new_node;
         };
         let index = anscestor.index();
 
-        let green_node = parent.green().splice_children(index..=index, vec![new_node]);
-        rowan::NodeOrToken::Node(parent.replace_with(green_node))
+        let green_node = parent.green().splice_children(index..=index, vec![rowan::NodeOrToken::Node(new_node)]);
+        parent.replace_with(green_node)
     }
 
+    pub fn new_node_key(&self, node: &rowan::GreenNode, engine: ParsingRuleSet) -> NodeMetadataKey {
+        NodeMetadataKey::from_green_node(node, 0, engine).into_global(self.node.text_range().start().into())
+    }
 }
 
 #[derive(Clone)]
@@ -209,8 +212,7 @@ pub fn merge_metadata_map(
 
     // each offsets is updated latter
     return StatementMetadataEntry {
-        byte_offset: 0,
-        char_offset: 0,
+        global_offset: GlobalOffset::default(),
         map: new_metadata_map,
     };
 }

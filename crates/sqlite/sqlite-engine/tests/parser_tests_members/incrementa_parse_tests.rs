@@ -651,6 +651,7 @@ mod parser_tests {
 
         Ok(())
     }
-    // fn test_parse_concat_statement_on_removing_semicolon() // SELECT 1; SELECT 2; -> SELECT 1 SELECT 2;
-    // fn test_parse_brolken_keyword() // SELECT -> ELECT
+    // FIXME: fn test_parse_concat_statement_on_removing_semicolon() // SELECT 1; SELECT 2; -> SELECT 1 SELECT 2;
+    // FIXME: fn test_parse_brolken_keyword() // SELECT -> ELECT
+    // FIXME: fn test_parse_keyword_only_with_semicolon() // SELECT -> SELECT;
 }

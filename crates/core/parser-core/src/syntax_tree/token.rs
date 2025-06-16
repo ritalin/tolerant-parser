@@ -18,6 +18,15 @@ impl SyntaxTokenSet {
     pub fn token(&self) -> SyntaxTokenItem {
         SyntaxTokenItems::new(&self.data, NodeType::TokenItem).next().expect("Missing Main token item in token set")
     }
+    pub fn descendant_tokens(&self) -> impl Iterator<Item = SyntaxTokenItem> {
+        self.data.raw.descendants_with_tokens()
+        .filter_map(|node| match node {
+            rowan::NodeOrToken::Node(_) => None,
+            rowan::NodeOrToken::Token(token) => {
+                Some(SyntaxTokenItem::from_raw(SyntaxTokenData::new(token, self.data.metadata_table.clone(), self.data.parse_mode.clone(), self.data.engine)))
+            }
+        })
+    }
 }
 
 impl MetadataAccess for SyntaxTokenSet {

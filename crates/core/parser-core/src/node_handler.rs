@@ -3,7 +3,7 @@ use engine_core::{parser_engine::ParsingRuleSet, scanner_engine::ScanEvent, Symb
 use rowan::GreenNode;
 use scanner_core::Token;
 
-use crate::{event_dispatcher::ParseEvent, metadata::{MetadataTable, StatementMetadataEntry}, syntax_tree::SyntaxTree, NodeId, NodeMetadata, NodeMetadataKey, NodeType, ParseMode, PatchAction};
+use crate::{event_dispatcher::ParseEvent, metadata::{GlobalOffset, MetadataTable, StatementMetadataEntry}, syntax_tree::SyntaxTree, NodeId, NodeMetadata, NodeMetadataKey, NodeType, ParseMode, PatchAction};
 
 type ActiveIndex = usize;
 
@@ -197,18 +197,18 @@ impl SyntaxTreeBuilder {
                     ParseMode::ByStatement  => &mut metadata_table[index],
                 };
                 
-                key = key.into_local(entry.byte_offset);
-                metadata = metadata.into_local(entry.char_offset);
+                key = key.into_local(entry.global_offset.of_byte);
+                metadata = metadata.into_local(entry.global_offset.of_char);
                 entry.map.insert(key, metadata);
             })
         ;
         Ok(SyntaxTree::new(root, MetadataTable::new(metadata_table, root_metadata), self.mode, self.engine))
     }
 
-    pub fn build_branch(mut self) -> Result<(rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>, HashMap<NodeMetadataKey, NodeMetadata>), NodeBuildError> {
+    pub fn build_branch(mut self) -> Result<(rowan::GreenNode, HashMap<NodeMetadataKey, NodeMetadata>), NodeBuildError> {
         let len = self.element_stack.len();
         let (_, children) = pop_node_from_stack(&mut self.element_stack, len);
-        let Some(node) = children.first() else {
+        let Some(rowan::NodeOrToken::Node(node)) = children.first() else {
             return Err(NodeBuildError::EmptyTree);
         };
         let metadata = HashMap::from_iter(self.all_metadata_map.into_iter()
@@ -450,8 +450,10 @@ fn init_statement_metadata_members(
         .filter_map(|(id, _)| all_metadata_map.get(id))
         .for_each(|(index, metadata, keys)| {
             table[*index] = Some(StatementMetadataEntry {
-                byte_offset: keys.offset,
-                char_offset: metadata.char_offset,
+                global_offset: GlobalOffset {
+                    of_byte: keys.offset,
+                    of_char: metadata.char_offset,
+                },
                 map: Default::default(),
             });
         })
@@ -459,8 +461,7 @@ fn init_statement_metadata_members(
 
     if table[0].is_none() {
         table[0] = Some(StatementMetadataEntry {
-            byte_offset: 0,
-            char_offset: 0,
+            global_offset: GlobalOffset::default(),
             map: Default::default(),
         });
     }    

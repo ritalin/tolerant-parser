@@ -67,6 +67,27 @@ impl SyntaxNode {
             ))
         })
     }
+
+    pub fn descendant_nodes(&self) -> impl Iterator<Item = SyntaxElement> {
+        self.data.raw.descendants()
+        .filter_map(|node| {
+            let key = NodeMetadataKey::from_raw_node(&node, self.data.engine);
+            let index = self.data.statement_index_raw(&node);
+            
+            match self.data.metadata_with(index, &key).node_type {
+                NodeType::Node => {
+                    Some(SyntaxElement::Node(SyntaxNode::from_raw(self.data.with_raw(&node, self.data.parse_mode.clone()))))
+                }
+                NodeType::TokenSet => {
+                    Some(super::SyntaxElementDef::TokenSet(SyntaxTokenSet::from_raw(self.data.with_raw(&node, self.data.parse_mode.clone()))))
+                }
+                _ => None
+            }
+        })
+        // self.data.raw.descendants_with_tokens().count()
+
+
+    }
 }
 
 impl MetadataAccess for SyntaxNode {
