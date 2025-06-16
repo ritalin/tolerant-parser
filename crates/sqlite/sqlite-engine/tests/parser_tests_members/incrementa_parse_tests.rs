@@ -8,7 +8,7 @@ mod expand_region_tests {
     fn extend_to_neighbors(scope: &EditScope, root: Option<&SyntaxNode>, except_kind: SyntaxKind) -> EditScope {
         let Some(root) = root else { return scope.clone() };
 
-        let (lowest_offset, highest_offset) = scope.adjust_range(scope.old_byte_len, &root.into_raw());
+        let (lowest_offset, highest_offset) = scope.adjust_range(scope.old_char_len, &root.into_raw());
 
         let gardener = parser_core::incremental::support::TreeGardener{ node: root.into_raw() };
         let anscestor = gardener.common_anscestor(
@@ -19,18 +19,18 @@ mod expand_region_tests {
         let node_range = anscestor.unwrap().text_range();
 
         EditScope{
-            start_byte_offset: node_range.start().into(),
-            old_byte_len: scope.old_byte_len,
-            new_byte_len: node_range.len().into(),
+            start_char_offset: node_range.start().into(),
+            old_char_len: scope.old_char_len,
+            new_char_len: node_range.len().into(),
         }
     }
 
     #[test]
     fn test_extend_to_neighbor_without_node() -> Result<(), anyhow::Error> {
         let scope = EditScope {
-            start_byte_offset: 11,
-            old_byte_len: 23,
-            new_byte_len: 34,
+            start_char_offset: 11,
+            old_char_len: 23,
+            new_char_len: 34,
         };
 
         let new_scope = extend_to_neighbors(&scope, None, syntax_kind::SEMI);
@@ -46,16 +46,16 @@ mod expand_region_tests {
         let tree = parser.parse(source)?;
 
         let scope = EditScope{
-            start_byte_offset: 0,
-            old_byte_len: 27,
-            new_byte_len: 27,
+            start_char_offset: 0,
+            old_char_len: 27,
+            new_char_len: 27,
         };
         let new_scope = extend_to_neighbors(&scope, Some(&tree.root()), syntax_kind::SEMI);
 
         let expect_scope = EditScope{
-            start_byte_offset: 0,
-            old_byte_len: 27,
-            new_byte_len: 27,
+            start_char_offset: 0,
+            old_char_len: 27,
+            new_char_len: 27,
         };
         assert_eq!(expect_scope, new_scope);
         Ok(())
@@ -69,9 +69,9 @@ mod expand_region_tests {
         let tree = parser.parse(source)?;
 
         let scope = EditScope{
-            start_byte_offset: 7,
-            old_byte_len: 33,
-            new_byte_len: 23,
+            start_char_offset: 7,
+            old_char_len: 33,
+            new_char_len: 23,
         };
         let new_scope = extend_to_neighbors(
             &scope, 
@@ -80,9 +80,9 @@ mod expand_region_tests {
         );
 
         let expect_scope = EditScope{
-            start_byte_offset: 10,
-            old_byte_len: 33,
-            new_byte_len: 27,
+            start_char_offset: 10,
+            old_char_len: 33,
+            new_char_len: 27,
         };
         assert_eq!(expect_scope, new_scope);
         Ok(())
@@ -96,9 +96,9 @@ mod expand_region_tests {
         let tree = parser.parse(source)?;
 
         let scope = EditScope{
-            start_byte_offset: 45,
-            old_byte_len: 4,
-            new_byte_len: 3,
+            start_char_offset: 45,
+            old_char_len: 4,
+            new_char_len: 3,
         };
         let new_scope = extend_to_neighbors(
             &scope,
@@ -107,9 +107,9 @@ mod expand_region_tests {
         );
 
         let expect_scope = EditScope{
-            start_byte_offset: 44,
-            old_byte_len: 4,
-            new_byte_len: 11,
+            start_char_offset: 44,
+            old_char_len: 4,
+            new_char_len: 11,
         };
         assert_eq!(expect_scope, new_scope);
         Ok(())
@@ -123,9 +123,9 @@ mod expand_region_tests {
         let tree = parser.parse(source)?;
 
         let scope = EditScope{
-            start_byte_offset: 32,
-            old_byte_len: 10,
-            new_byte_len: 13,
+            start_char_offset: 32,
+            old_char_len: 10,
+            new_char_len: 13,
         };
 
         'left_hand: {
@@ -136,9 +136,9 @@ mod expand_region_tests {
             );
 
             let expect_scope = EditScope{
-                start_byte_offset: 10,
-                old_byte_len: 10,
-                new_byte_len: 27,
+                start_char_offset: 10,
+                old_char_len: 10,
+                new_char_len: 27,
             };
             assert_eq!(expect_scope, new_scope);
             break 'left_hand;
@@ -151,9 +151,9 @@ mod expand_region_tests {
             );
 
             let expect_scope = EditScope{
-                start_byte_offset: 37,
-                old_byte_len: 10,
-                new_byte_len: 26,
+                start_char_offset: 37,
+                old_char_len: 10,
+                new_char_len: 26,
             };
             assert_eq!(expect_scope, new_scope);
             break 'right_hand;
@@ -169,9 +169,9 @@ mod expand_region_tests {
         let tree = parser.parse(source)?;
 
         let scope = EditScope{
-            start_byte_offset: 10,
-            old_byte_len: 20,
-            new_byte_len: 22,
+            start_char_offset: 10,
+            old_char_len: 20,
+            new_char_len: 22,
         };
 
         let indexes = parser_core::incremental::find_edit_statements(&tree, &scope)
@@ -355,13 +355,13 @@ mod parser_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
-            start_byte_offset: 10,
-            old_byte_len: 0,
-            new_byte_len: 3,
+            start_char_offset: 10,
+            old_char_len: 0,
+            new_char_len: 3,
         };
         let config = ParserConfig{
             mode: ParseMode::ByStatement,
@@ -372,7 +372,7 @@ mod parser_tests {
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_single_statement_with_inserting.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -389,13 +389,13 @@ mod parser_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
-            start_byte_offset: 10,
-            old_byte_len: 3,
-            new_byte_len: 0,
+            start_char_offset: 10,
+            old_char_len: 3,
+            new_char_len: 0,
         };
         let config = ParserConfig{
             mode: ParseMode::ByStatement,
@@ -406,7 +406,7 @@ mod parser_tests {
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_single_statement_with_deleting.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -423,13 +423,13 @@ mod parser_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
-            start_byte_offset: 7,
-            old_byte_len: 14,
-            new_byte_len: 14,
+            start_char_offset: 7,
+            old_char_len: 14,
+            new_char_len: 14,
         };
         let config = ParserConfig{
             mode: ParseMode::ByStatement,
@@ -440,7 +440,7 @@ mod parser_tests {
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_single_with_cross_over_2_statements.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -457,13 +457,13 @@ mod parser_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
-            start_byte_offset: 13,
-            old_byte_len: 0,
-            new_byte_len: 24,
+            start_char_offset: 13,
+            old_char_len: 0,
+            new_char_len: 24,
         };
         let config = ParserConfig{
             mode: ParseMode::ByStatement,
@@ -474,7 +474,7 @@ mod parser_tests {
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_append_statment.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -491,13 +491,13 @@ mod parser_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
-            start_byte_offset: 0,
-            old_byte_len: 0,
-            new_byte_len: 24,
+            start_char_offset: 0,
+            old_char_len: 0,
+            new_char_len: 24,
         };
         let config = ParserConfig{
             mode: ParseMode::ByStatement,
@@ -508,7 +508,7 @@ mod parser_tests {
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_prepend_statment.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -525,13 +525,13 @@ mod parser_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
-            start_byte_offset: 31,
-            old_byte_len: 2,
-            new_byte_len: 26,
+            start_char_offset: 31,
+            old_char_len: 2,
+            new_char_len: 26,
         };
         let config = ParserConfig{
             mode: ParseMode::ByStatement,
@@ -542,7 +542,7 @@ mod parser_tests {
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_with_maltibyte_char.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -559,13 +559,13 @@ mod parser_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
-            start_byte_offset: 0,
-            old_byte_len: 23,
-            new_byte_len: 0,
+            start_char_offset: 0,
+            old_char_len: 23,
+            new_char_len: 0,
         };
         let config = ParserConfig{
             mode: ParseMode::ByStatement,
@@ -576,7 +576,7 @@ mod parser_tests {
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_remove_all.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -593,13 +593,13 @@ mod parser_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
-            start_byte_offset: 0,
-            old_byte_len: 0,
-            new_byte_len: 26,
+            start_char_offset: 0,
+            old_char_len: 0,
+            new_char_len: 26,
         };
         let config = ParserConfig{
             mode: ParseMode::ByStatement,
@@ -610,7 +610,7 @@ mod parser_tests {
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_insert_from_empty.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -627,13 +627,13 @@ mod parser_tests {
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
-            start_byte_offset: 9,
-            old_byte_len: 2,
-            new_byte_len: 17,
+            start_char_offset: 9,
+            old_char_len: 2,
+            new_char_len: 17,
         };
         let config = ParserConfig{
             mode: ParseMode::ByStatement,
@@ -644,7 +644,7 @@ mod parser_tests {
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_split_statement_on_inserting_semicolon.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_offset(0));
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);

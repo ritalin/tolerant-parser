@@ -330,7 +330,8 @@ fn create_token_item(
 }
 
 fn create_token_metadata_pair(event: &ScanEvent, state: usize, node_type: NodeType, patch: PatchAction, last_metadata: Option<&(ActiveIndex, NodeMetadata, NodeMetadataKey)>) -> (NodeMetadataKey, NodeMetadata) {
-    let char_len = event.value.as_ref().map(|s| s.chars().count()).unwrap_or(0);
+    // Eval as utf16 string
+    let char_len = event.value.as_ref().map(|s| s.encode_utf16().count()).unwrap_or(0);
 
     let char_offset = match last_metadata {
         Some((_, metadata, _)) => metadata.char_offset + metadata.char_len,

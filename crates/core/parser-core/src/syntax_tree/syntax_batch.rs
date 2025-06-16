@@ -280,7 +280,6 @@ pub fn apply_batches<Batch>(
     batches: Batch) -> SyntaxTree
 where Batch: IntoIterator<Item = SyntaxFragmentBatch>
 {
-    // FIXME: apply all batches
     let Some(batch) = batches.into_iter().next() else { panic!("At least SyntaxFragmentBatch is needed") };
     let batch_range = batch.replace_from..(batch.replace_from + batch.replace_size);
 

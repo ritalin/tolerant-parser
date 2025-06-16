@@ -68,3 +68,17 @@ fn test_incomplete_statement() -> Result<(), anyhow::Error> {
     test_support::verify(tree.root(), &expect_node);
     Ok(())
 }
+
+#[test]
+fn test_parse_with_surrogate_pair_string() -> Result<(), anyhow::Error> {
+    let source = "SELECT '𩸽' as s;";
+
+    let engine = sqlite_engine::create()?;
+    let parser = Parser::new(engine);
+
+    let tree = parser.parse(source)?;
+    let expect_node = serde_json::from_str::<Vec<test_support::ExpectNode>>(include_str!("fixtures/parse_tests/test_parse_with_surrogate_pair_string.json"))?;
+
+    test_support::verify(tree.root(), &expect_node);
+    Ok(())
+}

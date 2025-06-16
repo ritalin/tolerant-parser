@@ -51,20 +51,33 @@ impl SyntaxNode {
         SyntaxNodeChildren::new(self.data.clone())
     }
 
-    pub fn token_at_offset(&self, offset: usize) -> Option<SyntaxTokenItem> {
+    pub fn token_at_utf16_offset(&self, offset: usize) -> Option<SyntaxTokenItem> {
+        // Retrive byte offset as char offset
         let token = match self.data.raw.token_at_offset((offset as u32).into()) {
             rowan::TokenAtOffset::None => None,
             rowan::TokenAtOffset::Single(token) => Some(token),
             rowan::TokenAtOffset::Between(_, token) => Some(token),
         };
 
-        token.map(|raw| {
-            SyntaxTokenItem::from_raw(SyntaxTokenData::new(
+        token.and_then(|raw| {
+            let mut candidate = Some(SyntaxTokenItem::from_raw(SyntaxTokenData::new(
                 raw, 
                 self.data.metadata_table.clone(), 
                 self.data.parse_mode.clone(), 
                 self.data.engine
-            ))
+            )));
+
+            // Find a token matching the char offset
+            while let Some(token) = candidate.as_ref() {
+                let metadata = token.metadata();
+                if (metadata.char_offset..(metadata.char_offset + metadata.char_len)).contains(&offset) {
+                    return candidate;
+                }
+
+                candidate = token.next_sibling();
+            }
+
+            None
         })
     }
 
