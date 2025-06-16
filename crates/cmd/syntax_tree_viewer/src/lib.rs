@@ -13,7 +13,7 @@ pub fn print_tree(source: &str, root_node: &SyntaxNode, config: config::CmdConfi
     print_tree_internal(root_node, &config, 0, 0);
 }
 
-pub fn print_parael_statement(mut statements: parser_core::syntax_tree::SyntaxFragmentBatch, config: config::CmdConfig) {
+pub fn print_parallel_statement(mut statements: parser_core::syntax_tree::SyntaxFragmentBatch, config: config::CmdConfig) {
     if config.quiet { return }
     
     statements.fragments.sort_by(|lhs, rhs| lhs.seq().cmp(&rhs.seq()));
@@ -26,7 +26,7 @@ pub fn print_parael_statement(mut statements: parser_core::syntax_tree::SyntaxFr
         println!("--------------------------------------------------------------------------------");
 
         let adjusted_byte_offset = stmt.byte_offset();
-        let node = stmt.into_root(statements.parse_mode.clone(), statements.engine);
+        let node = stmt.into_root(parser_core::ParseMode::ByStatement, statements.engine);
         print_tree_internal(&node, &config, adjusted_byte_offset, 1);
     }
 }
