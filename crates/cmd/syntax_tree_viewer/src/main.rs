@@ -1,5 +1,5 @@
 use parser_core::{error_recovery::RecoveryPenalty, ParseMode};
-use syntax_tree_viewer::{print_tree, print_parael_statement, config};
+use syntax_tree_viewer::{print_tree, print_parallel_statement, config};
 
 fn main() -> Result<(), anyhow::Error> {
     let cmd_config = {
@@ -23,7 +23,7 @@ fn main() -> Result<(), anyhow::Error> {
         true => {
             let parser = parser_core::paralell::Parser::new(engine);
             let statements = parser.parse_with_config(&source, parse_config)?;
-            print_parael_statement(statements, cmd_config);
+            print_parallel_statement(statements, cmd_config);
         }
     }
 
