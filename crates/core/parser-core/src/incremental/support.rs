@@ -20,12 +20,12 @@ impl TreeGardener {
 
     pub fn common_anscestor(&self, lhs: Option<FoundToken>, rhs: Option<FoundToken>, except_kind: SyntaxKind) -> Option<rowan::SyntaxNode<RowanLangageImpl>> {
         let (Some(lhs), Some(rhs)) = (lhs, rhs) else { return None; };
-
+        
         // expand left hand token
         let left_neighbor = lhs.into_prev(&self.node, except_kind);
         // expand right hand token
         let right_beighbor = rhs.into_next(&self.node, except_kind);
-
+        
         // Find least common anscestor
         let left_anscestors = left_neighbor.token.parent_ancestors().collect::<Vec<_>>();
         let right_anscestors = right_beighbor.token.parent_ancestors().collect::<Vec<_>>();
@@ -144,6 +144,14 @@ impl<T> IncludeEnd for std::ops::Range<T> {
     fn include_end(self) -> std::ops::RangeInclusive<Self::Item> {
         self.start..=self.end
     }
+}
+
+pub fn adjust_edit_range(base_range: &std::ops::Range<usize>, node: &rowan::SyntaxNode<RowanLangageImpl>) -> std::ops::Range<u32> {
+    let node_range = node.text_range();
+    let lowest_offset = u32::max(base_range.start as u32, node_range.start().into());
+    let highest_offset = u32::min(base_range.end as u32, node_range.end().into());
+    
+    lowest_offset..highest_offset
 }
 
 pub fn merge_metadata_map(

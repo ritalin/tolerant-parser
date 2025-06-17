@@ -5,24 +5,18 @@ use sqlite_engine::syntax_kind;
 mod expand_region_tests {
     use super::*;
 
-    fn extend_to_neighbors(scope: &EditScope, root: Option<&SyntaxNode>, except_kind: SyntaxKind) -> EditScope {
-        let Some(root) = root else { return scope.clone() };
+    fn extend_to_neighbors(scope: std::ops::Range<usize>, root: Option<&SyntaxNode>, except_kind: SyntaxKind) -> std::ops::Range<usize> {
+        let Some(root) = root else { return scope; };
 
-        let (lowest_offset, highest_offset) = scope.adjust_range(scope.old_char_len, &root.into_raw());
+        let adjusted_range = parser_core::incremental::support::adjust_edit_range(&scope, &root.into_raw());
 
         let gardener = parser_core::incremental::support::TreeGardener{ node: root.into_raw() };
         let anscestor = gardener.common_anscestor(
-            gardener.pick_token(lowest_offset.into()),
-            gardener.pick_token(highest_offset.into()),
+            gardener.pick_token((adjusted_range.start as u32).into()),
+            gardener.pick_token((adjusted_range.end as u32).into()),
             except_kind
         );
-        let node_range = anscestor.unwrap().text_range();
-
-        EditScope{
-            start_char_offset: node_range.start().into(),
-            old_char_len: scope.old_char_len,
-            new_char_len: node_range.len().into(),
-        }
+        anscestor.unwrap().text_range().into()
     }
 
     #[test]
@@ -33,8 +27,8 @@ mod expand_region_tests {
             new_char_len: 34,
         };
 
-        let new_scope = extend_to_neighbors(&scope, None, syntax_kind::SEMI);
-        assert_eq!(scope, new_scope);
+        let new_scope = extend_to_neighbors(scope.old_char_range(), None, syntax_kind::SEMI);
+        assert_eq!(scope.old_char_range(), new_scope);
         Ok(())
     }
 
@@ -50,14 +44,8 @@ mod expand_region_tests {
             old_char_len: 27,
             new_char_len: 27,
         };
-        let new_scope = extend_to_neighbors(&scope, Some(&tree.root()), syntax_kind::SEMI);
-
-        let expect_scope = EditScope{
-            start_char_offset: 0,
-            old_char_len: 27,
-            new_char_len: 27,
-        };
-        assert_eq!(expect_scope, new_scope);
+        let new_scope = extend_to_neighbors(scope.old_char_range(), Some(&tree.root()), syntax_kind::SEMI);
+        assert_eq!(0..27, new_scope);
         Ok(())
     }
 
@@ -74,17 +62,11 @@ mod expand_region_tests {
             new_char_len: 23,
         };
         let new_scope = extend_to_neighbors(
-            &scope, 
+            scope.old_char_range(), 
             tree.root().nth_child(1).unwrap().to_node().as_ref(),
             syntax_kind::SEMI
         );
-
-        let expect_scope = EditScope{
-            start_char_offset: 10,
-            old_char_len: 33,
-            new_char_len: 27,
-        };
-        assert_eq!(expect_scope, new_scope);
+        assert_eq!(10..37, new_scope);
         Ok(())
     }
 
@@ -96,22 +78,16 @@ mod expand_region_tests {
         let tree = parser.parse(source)?;
 
         let scope = EditScope{
-            start_char_offset: 45,
+            start_char_offset: 45, // DOT
             old_char_len: 4,
             new_char_len: 3,
         };
         let new_scope = extend_to_neighbors(
-            &scope,
+            scope.old_char_range(),
             tree.root().nth_child(2).unwrap().to_node().as_ref(),
             syntax_kind::SEMI
         );
-
-        let expect_scope = EditScope{
-            start_char_offset: 44,
-            old_char_len: 4,
-            new_char_len: 11,
-        };
-        assert_eq!(expect_scope, new_scope);
+        assert_eq!(44..55, new_scope);
         Ok(())
     }
 
@@ -130,32 +106,20 @@ mod expand_region_tests {
 
         'left_hand: {
             let new_scope = extend_to_neighbors(
-                &scope,
+                scope.old_char_range(),
                 tree.root().nth_child(1).unwrap().to_node().as_ref(),
                 syntax_kind::SEMI
             );
-
-            let expect_scope = EditScope{
-                start_char_offset: 10,
-                old_char_len: 10,
-                new_char_len: 27,
-            };
-            assert_eq!(expect_scope, new_scope);
+            assert_eq!(10..37, new_scope);
             break 'left_hand;
         }
         'right_hand: {
             let new_scope = extend_to_neighbors(
-                &scope,
+                scope.old_char_range(),
                 tree.root().nth_child(2).unwrap().to_node().as_ref(),
                 syntax_kind::SEMI
             );
-
-            let expect_scope = EditScope{
-                start_char_offset: 37,
-                old_char_len: 10,
-                new_char_len: 26,
-            };
-            assert_eq!(expect_scope, new_scope);
+            assert_eq!(37..63, new_scope);
             break 'right_hand;
         }
         Ok(())
@@ -175,7 +139,7 @@ mod expand_region_tests {
         };
 
         let indexes = parser_core::incremental::find_edit_statements(&tree, &scope)
-            .map(|node| node.index())
+            .map(|node| node.into_raw().index())
             .collect::<Vec<_>>()
         ;
         assert_eq!(vec![1,2,3], indexes);
@@ -529,9 +493,9 @@ mod parser_tests {
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
-            start_char_offset: 31,
+            start_char_offset: 23,
             old_char_len: 2,
-            new_char_len: 26,
+            new_char_len: 14,
         };
         let config = ParserConfig{
             mode: ParseMode::ByStatement,
