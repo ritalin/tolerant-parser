@@ -85,7 +85,7 @@ where S: scanner_core::ScannerAccess
             Ok(ParseEvent::Reduce { .. } | ParseEvent::PatchReduce { .. }) => {
                 tree_builder.add_node(event?)?;
             }
-            Ok(ParseEvent::Emit { .. } | ParseEvent::InvalidEmit { .. }) => {
+            Ok(ParseEvent::Emit { .. } | ParseEvent::PatchEmit { .. } | ParseEvent::InvalidEmit { .. }) => {
                 tree_builder.emit_statement(event?)?;
 
                 if config.mode == ParseMode::ByStatement {

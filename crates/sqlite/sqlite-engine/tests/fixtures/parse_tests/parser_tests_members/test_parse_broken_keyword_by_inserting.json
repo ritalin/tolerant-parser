@@ -1,0 +1,50 @@
+[
+{
+    "path": ["input"],
+    "meta_key": { "byte_offset":0, "byte_len":2, "is_leaf":false },
+    "meta_obj": { "char_offset":0, "char_len":2, "node_type":"Node", "patch":"None", "edit_state":0 }
+},
+{
+    "path": ["input", "ecmd"],
+    "meta_key": { "byte_offset":0, "byte_len":2, "is_leaf":false },
+    "meta_obj": { "char_offset":0, "char_len":2, "node_type":"Node", "patch":"Shift", "edit_state":0 }
+},
+{
+    "path": ["input", "ecmd", "ANALYZE"],
+    "meta_key": { "byte_offset":0, "byte_len":0, "is_leaf":false },
+    "meta_obj": { "char_offset":0, "char_len":0, "node_type":"TokenSet", "patch":"Shift", "edit_state":0 }
+},
+{
+    "path": ["input", "ecmd", "ANALYZE", "ANALYZE"],
+    "meta_key": { "byte_offset":0, "byte_len":0, "is_leaf":true },
+    "meta_obj": { "char_offset":0, "char_len":0, "node_type":"TokenItem", "patch":"Shift", "edit_state":0 },
+    "value": null
+},
+{
+    "path": ["input", "ecmd", "ID"],
+    "meta_key": { "byte_offset":0, "byte_len":2, "is_leaf":false },
+    "meta_obj": { "char_offset":0, "char_len":2, "node_type":"TokenSet", "patch":"None", "edit_state":10 }
+},
+{
+    "path": ["input", "ecmd", "ID", "ID"],
+    "meta_key": { "byte_offset":0, "byte_len":2, "is_leaf":true },
+    "meta_obj": { "char_offset":0, "char_len":2, "node_type":"TokenItem", "patch":"None", "edit_state":10 },
+    "value": "SE"
+},
+{
+    "path": ["input", "ecmd"],
+    "meta_key": { "byte_offset":2, "byte_len":0, "is_leaf":false },
+    "meta_obj": { "char_offset":2, "char_len":0, "node_type":"Node", "patch":"None", "edit_state":0 }
+},
+{
+    "path": ["input", "ecmd", "EOF"],
+    "meta_key": { "byte_offset":2, "byte_len":0, "is_leaf":false },
+    "meta_obj": { "char_offset":2, "char_len":0, "node_type":"TokenSet", "patch":"None", "edit_state":0 }
+},
+{
+    "path": ["input", "ecmd", "EOF", "EOF"],
+    "meta_key": { "byte_offset":2, "byte_len":0, "is_leaf":true },
+    "meta_obj": { "char_offset":2, "char_len":0, "node_type":"TokenItem", "patch":"None", "edit_state":0 },
+    "value": null
+}
+]

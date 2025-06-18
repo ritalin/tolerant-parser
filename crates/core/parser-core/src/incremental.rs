@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 use engine_core::{parser_engine::ParsingRuleSet};
 use scanner_core::{Scanner, ScannerAccess, StatementScannerView};
-use crate::{event_dispatcher::ParseEventDispatcher, incremental::support::{IncludeEnd, IncrementalParserStrategy}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{FragmentNodeMetadataKey, MetadataAccess, SyntaxElement, SyntaxFragment, SyntaxFragmentBatch, SyntaxNode, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig};
+use crate::{event_dispatcher::ParseEventDispatcher, incremental::support::{IncludeEnd, IncrementalParserStrategy}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{FragmentNodeMetadataKey, MetadataAccess, SyntaxElement, SyntaxFragment, SyntaxFragmentBatch, SyntaxNode, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig, PatchAction};
 
 pub mod support;
 
@@ -108,7 +108,7 @@ impl Parser {
                     
                     let strategy = common_anscestor.pick_terminate_kind(self.engine.parsing_rules);
 
-                    // Memo: Because a last token is reduce, it scans one more token.
+                    // Note: Because a last token is reduce, it scans one more token.
                     let scanner_view = stmt_scanner.as_view(anscestor_range.start..(anscestor_range.end + 1));
                     let old_metadata_map = &self.metadata_table.statement_metadata(Some(stmt_index));
                     let metadata = old_metadata_map.map
@@ -221,8 +221,11 @@ pub fn find_edit_statements(old_tree: &SyntaxTree, scope: &EditScope) -> impl It
         }
         crate::syntax_tree::SyntaxElementDef::TokenSet(_) => None
     })
-    .skip_while(move |(_, metadata)| {
-        metadata.char_offset + metadata.char_len <= range_from
+    .skip_while(move |(_, metadata)| match (metadata.char_offset + metadata.char_len).cmp(&range_from) {
+        std::cmp::Ordering::Equal if metadata.patch != PatchAction::None => false,
+        std::cmp::Ordering::Greater => false,
+        _ => true,
+        // metadata.char_offset + metadata.char_len <= range_from
     })
     .take_while(move |(_, metadata)| {
         metadata.char_offset < range_to

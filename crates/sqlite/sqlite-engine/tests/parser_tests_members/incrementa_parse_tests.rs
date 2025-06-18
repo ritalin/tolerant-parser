@@ -615,6 +615,37 @@ mod parser_tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_parse_broken_keyword_by_inserting() -> Result<(), anyhow::Error> {
+        let source = "S";
+        let new_source = "SE";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 1,
+            old_char_len: 0,
+            new_char_len: 1,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_broken_keyword_by_inserting.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
     // FIXME: fn test_parse_concat_statement_on_removing_semicolon() // SELECT 1; SELECT 2; -> SELECT 1 SELECT 2;
     // FIXME: fn test_parse_brolken_keyword() // SELECT -> ELECT
     // FIXME: fn test_parse_keyword_only_with_semicolon() // SELECT -> SELECT;

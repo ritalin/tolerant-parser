@@ -126,8 +126,10 @@ impl IncrementalParserStrategy {
 
 impl crate::parser::ParseStrategy for IncrementalParserStrategy {
     fn is_terminated_kind(&self, kind: SyntaxKind, scanner: &impl scanner_core::ScannerAccess) -> bool {
-        if let Some(token) = scanner.lookahead() {
-            return token.main.kind == self.full_emit_kind;
+        if self.terminate_kind != self.full_emit_kind {
+            if let Some(token) = scanner.lookahead() {
+                return token.main.kind == self.full_emit_kind;
+            }
         }
         self.terminate_kind == kind
     }

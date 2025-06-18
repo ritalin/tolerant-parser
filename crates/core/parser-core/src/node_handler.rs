@@ -138,27 +138,31 @@ impl SyntaxTreeBuilder {
             }
             ParseEvent::Shift { .. } | ParseEvent::Emit { .. } | 
             ParseEvent::Invalid { .. } | ParseEvent::InvalidEmit { .. } |
-            ParseEvent::PatchDrop { .. } | ParseEvent::PatchShift { .. } => {
+            ParseEvent::PatchDrop { .. } | ParseEvent::PatchShift { .. } | ParseEvent::PatchEmit { .. } => {
                 Err(NodeBuildError::NodeFailed)
             },
         }
     }
 
     pub fn emit_statement(&mut self, event: ParseEvent) -> Result<(), NodeBuildError> {
-        let (kind, edit_state, pop_count) = match event {
+        let (kind, edit_state, pop_count, patch_action) = match event {
             ParseEvent::Emit { kind, edit_state, .. } => {
                 let pop_count = self.element_stack.len() - self.water_mark;
-                (kind, edit_state, pop_count)
+                (kind, edit_state, pop_count, PatchAction::None)
+            }
+            ParseEvent::PatchEmit { kind, edit_state, .. } => {
+                let pop_count = self.element_stack.len() - self.water_mark;
+                (kind, edit_state, pop_count, PatchAction::Shift)
             }
             ParseEvent::InvalidEmit { kind, edit_state, pop_count } => {
-                (kind, edit_state, pop_count)
+                (kind, edit_state, pop_count, PatchAction::Invalid)
             }
             _ => {
                 return Err(NodeBuildError::NodeFailed);
             }
         };
             
-        let (id, node) = create_node(kind, edit_state, pop_count, PatchAction::None, self.engine, &mut self.element_stack, self.active_map_index, &mut self.all_metadata_map);
+        let (id, node) = create_node(kind, edit_state, pop_count, patch_action, self.engine, &mut self.element_stack, self.active_map_index, &mut self.all_metadata_map);
         self.element_stack.push(Some((id, StackEntry::Node(node))));
         self.water_mark = self.element_stack.len();
 

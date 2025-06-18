@@ -109,6 +109,12 @@ mod dispatcher_tests {
         let mut dispatcher = ParseEventDispatcher::new(22, ParseMode::ByStatement, engine);
 
         'next_state: {
+            let expected_event = ParseEvent::PatchEmit{ kind: syntax_kind::r#ecmd, edit_state: 22 };
+            assert_eq!(Ok(expected_event), dispatcher.next(Some(syntax_kind::r#EOF)));
+            assert_eq!(vec![74, 22], dispatcher.state_values());
+            break 'next_state;
+        }
+        'next_state: {
             let expected_event = ParseEvent::Shift{ kind: syntax_kind::r#EOF, current_state: 22, next_state: 74, edit_state: 22 };
             assert_eq!(Ok(expected_event), dispatcher.next(Some(syntax_kind::r#EOF)));
             assert_eq!(vec![74, 22], dispatcher.state_values());
