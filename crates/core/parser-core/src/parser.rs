@@ -159,7 +159,13 @@ pub enum ParseMode {
     ByStatement,
 }
 
-#[derive(Clone)]
+impl Default for ParseMode {
+    fn default() -> Self {
+        ParseMode::ByStatement
+    }
+}
+
+#[derive(Default, Clone)]
 pub struct ParserConfig {
     pub mode: ParseMode,
     pub penalty: RecoveryPenalty,

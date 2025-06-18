@@ -146,19 +146,18 @@ pub mod exports {
         unsafe impl _rt::WasmResource for SyntaxTree{
           #[inline]
           unsafe fn drop(_handle: u32) {
-            #[cfg(not(target_arch = "wasm32"))]
-            unreachable!();
-
+            
             #[cfg(target_arch = "wasm32")]
-            {
-              #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
-              unsafe extern "C" {
-                #[link_name = "[resource-drop]syntax-tree"]
-                fn drop(_: u32);
-              }
-
-              unsafe { drop(_handle) };
+            #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
+            unsafe extern "C" {
+              #[link_name = "[resource-drop]syntax-tree"]
+              fn drop(_: i32, );
             }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            unsafe extern "C" fn drop(_: i32, ) { unreachable!() }
+            
+            unsafe { drop(_handle as i32); }
           }
         }
         
@@ -289,19 +288,18 @@ pub mod exports {
         unsafe impl _rt::WasmResource for SyntaxNode{
           #[inline]
           unsafe fn drop(_handle: u32) {
-            #[cfg(not(target_arch = "wasm32"))]
-            unreachable!();
-
+            
             #[cfg(target_arch = "wasm32")]
-            {
-              #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
-              unsafe extern "C" {
-                #[link_name = "[resource-drop]syntax-node"]
-                fn drop(_: u32);
-              }
-
-              unsafe { drop(_handle) };
+            #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
+            unsafe extern "C" {
+              #[link_name = "[resource-drop]syntax-node"]
+              fn drop(_: i32, );
             }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            unsafe extern "C" fn drop(_: i32, ) { unreachable!() }
+            
+            unsafe { drop(_handle as i32); }
           }
         }
         
@@ -432,19 +430,18 @@ pub mod exports {
         unsafe impl _rt::WasmResource for SyntaxTokenSet{
           #[inline]
           unsafe fn drop(_handle: u32) {
-            #[cfg(not(target_arch = "wasm32"))]
-            unreachable!();
-
+            
             #[cfg(target_arch = "wasm32")]
-            {
-              #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
-              unsafe extern "C" {
-                #[link_name = "[resource-drop]syntax-token-set"]
-                fn drop(_: u32);
-              }
-
-              unsafe { drop(_handle) };
+            #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
+            unsafe extern "C" {
+              #[link_name = "[resource-drop]syntax-token-set"]
+              fn drop(_: i32, );
             }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            unsafe extern "C" fn drop(_: i32, ) { unreachable!() }
+            
+            unsafe { drop(_handle as i32); }
           }
         }
         
@@ -574,19 +571,18 @@ pub mod exports {
         unsafe impl _rt::WasmResource for SyntaxTokenItem{
           #[inline]
           unsafe fn drop(_handle: u32) {
-            #[cfg(not(target_arch = "wasm32"))]
-            unreachable!();
-
+            
             #[cfg(target_arch = "wasm32")]
-            {
-              #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
-              unsafe extern "C" {
-                #[link_name = "[resource-drop]syntax-token-item"]
-                fn drop(_: u32);
-              }
-
-              unsafe { drop(_handle) };
+            #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
+            unsafe extern "C" {
+              #[link_name = "[resource-drop]syntax-token-item"]
+              fn drop(_: i32, );
             }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            unsafe extern "C" fn drop(_: i32, ) { unreachable!() }
+            
+            unsafe { drop(_handle as i32); }
           }
         }
         
@@ -756,6 +752,45 @@ pub unsafe fn __post_return_method_syntax_node_children<T: GuestSyntaxNode>(arg0
 } }
 #[doc(hidden)]
 #[allow(non_snake_case, unused_unsafe)]
+pub unsafe fn _export_method_syntax_node_descendant_nodes_cabi<T: GuestSyntaxNode>(arg0: *mut u8,) -> *mut u8 { unsafe {#[cfg(target_arch="wasm32")]
+_rt::run_ctors_once();let result0 = {
+  T::descendant_nodes(SyntaxNodeBorrow::lift(arg0 as u32 as usize).get())
+};
+let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+let vec2 = result0;
+let len2 = vec2.len();
+let layout2 = _rt::alloc::Layout::from_size_align(vec2.len() * 8, 4).unwrap();
+let (result2, _cleanup2) = wit_bindgen::rt::Cleanup::new(layout2);if let Some(cleanup) = _cleanup2 { cleanup.forget(); }
+for (i, e) in vec2.into_iter().enumerate() {
+  let base = result2.add(i * 8);
+  {
+    match e {
+      SyntaxElement::Node(e) => {
+        *base.add(0).cast::<u8>() = (0i32) as u8;
+        *base.add(4).cast::<i32>() = (e).take_handle() as i32;
+      },
+      SyntaxElement::TokenSet(e) => {
+        *base.add(0).cast::<u8>() = (1i32) as u8;
+        *base.add(4).cast::<i32>() = (e).take_handle() as i32;
+      },
+    }
+  }
+}
+*ptr1.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len2;
+*ptr1.add(0).cast::<*mut u8>() = result2;
+ptr1
+} }
+#[doc(hidden)]
+#[allow(non_snake_case)]
+pub unsafe fn __post_return_method_syntax_node_descendant_nodes<T: GuestSyntaxNode>(arg0: *mut u8,) { unsafe {
+  let l0 = *arg0.add(0).cast::<*mut u8>();
+  let l1 = *arg0.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
+  let base2 = l0;
+  let len2 = l1;
+  _rt::cabi_dealloc(base2, len2 * 8, 4);
+} }
+#[doc(hidden)]
+#[allow(non_snake_case, unused_unsafe)]
 pub unsafe fn _export_method_syntax_node_token_at_offset_cabi<T: GuestSyntaxNode>(arg0: *mut u8,arg1: i32,) -> *mut u8 { unsafe {#[cfg(target_arch="wasm32")]
 _rt::run_ctors_once();let result0 = {
   T::token_at_offset(SyntaxNodeBorrow::lift(arg0 as u32 as usize).get(), arg1 as u32)
@@ -890,6 +925,36 @@ match result0 {
     }
   },
 };ptr1
+} }
+#[doc(hidden)]
+#[allow(non_snake_case, unused_unsafe)]
+pub unsafe fn _export_method_syntax_token_set_descendant_tokens_cabi<T: GuestSyntaxTokenSet>(arg0: *mut u8,) -> *mut u8 { unsafe {#[cfg(target_arch="wasm32")]
+_rt::run_ctors_once();let result0 = {
+  T::descendant_tokens(SyntaxTokenSetBorrow::lift(arg0 as u32 as usize).get())
+};
+let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+let vec2 = result0;
+let len2 = vec2.len();
+let layout2 = _rt::alloc::Layout::from_size_align(vec2.len() * 4, 4).unwrap();
+let (result2, _cleanup2) = wit_bindgen::rt::Cleanup::new(layout2);if let Some(cleanup) = _cleanup2 { cleanup.forget(); }
+for (i, e) in vec2.into_iter().enumerate() {
+  let base = result2.add(i * 4);
+  {
+    *base.add(0).cast::<i32>() = (e).take_handle() as i32;
+  }
+}
+*ptr1.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len2;
+*ptr1.add(0).cast::<*mut u8>() = result2;
+ptr1
+} }
+#[doc(hidden)]
+#[allow(non_snake_case)]
+pub unsafe fn __post_return_method_syntax_token_set_descendant_tokens<T: GuestSyntaxTokenSet>(arg0: *mut u8,) { unsafe {
+  let l0 = *arg0.add(0).cast::<*mut u8>();
+  let l1 = *arg0.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
+  let base2 = l0;
+  let len2 = l1;
+  _rt::cabi_dealloc(base2, len2 * 4, 4);
 } }
 #[doc(hidden)]
 #[allow(non_snake_case, unused_unsafe)]
@@ -1194,44 +1259,36 @@ pub trait GuestSyntaxTree: 'static {
   unsafe fn _resource_new(val: *mut u8) -> u32
   where Self: Sized
   {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-      let _ = val;
-      unreachable!();
+    
+    #[cfg(target_arch = "wasm32")]
+    #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
+    unsafe extern "C" {
+      #[link_name = "[resource-new]syntax-tree"]
+      fn new(_: *mut u8, ) -> i32;
     }
 
-    #[cfg(target_arch = "wasm32")]
-    {
-      #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
-      unsafe extern "C" {
-        #[link_name = "[resource-new]syntax-tree"]
-        fn new(_: *mut u8) -> u32;
-      }
-      unsafe { new(val) }
-    }
+    #[cfg(not(target_arch = "wasm32"))]
+    unsafe extern "C" fn new(_: *mut u8, ) -> i32 { unreachable!() }
+    
+    unsafe { new(val) as u32 }
   }
 
   #[doc(hidden)]
   fn _resource_rep(handle: u32) -> *mut u8
   where Self: Sized
   {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-      let _ = handle;
-      unreachable!();
+    
+    #[cfg(target_arch = "wasm32")]
+    #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
+    unsafe extern "C" {
+      #[link_name = "[resource-rep]syntax-tree"]
+      fn rep(_: i32, ) -> *mut u8;
     }
 
-    #[cfg(target_arch = "wasm32")]
-    {
-      #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
-      unsafe extern "C" {
-        #[link_name = "[resource-rep]syntax-tree"]
-        fn rep(_: u32) -> *mut u8;
-      }
-      unsafe {
-        rep(handle)
-      }
-    }
+    #[cfg(not(target_arch = "wasm32"))]
+    unsafe extern "C" fn rep(_: i32, ) -> *mut u8 { unreachable!() }
+    
+    unsafe { rep(handle as i32) }
   }
 
   
@@ -1245,44 +1302,36 @@ pub trait GuestSyntaxNode: 'static {
   unsafe fn _resource_new(val: *mut u8) -> u32
   where Self: Sized
   {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-      let _ = val;
-      unreachable!();
+    
+    #[cfg(target_arch = "wasm32")]
+    #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
+    unsafe extern "C" {
+      #[link_name = "[resource-new]syntax-node"]
+      fn new(_: *mut u8, ) -> i32;
     }
 
-    #[cfg(target_arch = "wasm32")]
-    {
-      #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
-      unsafe extern "C" {
-        #[link_name = "[resource-new]syntax-node"]
-        fn new(_: *mut u8) -> u32;
-      }
-      unsafe { new(val) }
-    }
+    #[cfg(not(target_arch = "wasm32"))]
+    unsafe extern "C" fn new(_: *mut u8, ) -> i32 { unreachable!() }
+    
+    unsafe { new(val) as u32 }
   }
 
   #[doc(hidden)]
   fn _resource_rep(handle: u32) -> *mut u8
   where Self: Sized
   {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-      let _ = handle;
-      unreachable!();
+    
+    #[cfg(target_arch = "wasm32")]
+    #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
+    unsafe extern "C" {
+      #[link_name = "[resource-rep]syntax-node"]
+      fn rep(_: i32, ) -> *mut u8;
     }
 
-    #[cfg(target_arch = "wasm32")]
-    {
-      #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
-      unsafe extern "C" {
-        #[link_name = "[resource-rep]syntax-node"]
-        fn rep(_: u32) -> *mut u8;
-      }
-      unsafe {
-        rep(handle)
-      }
-    }
+    #[cfg(not(target_arch = "wasm32"))]
+    unsafe extern "C" fn rep(_: i32, ) -> *mut u8 { unreachable!() }
+    
+    unsafe { rep(handle as i32) }
   }
 
   
@@ -1296,12 +1345,15 @@ pub trait GuestSyntaxNode: 'static {
   /// it will return none if not root node
   #[allow(async_fn_in_trait)]
   fn parent(&self,) -> Option<SyntaxNode>;
-  /// all of the child nodes or the token-sets
+  /// enumerate all of the child nodes or the token-sets
   #[allow(async_fn_in_trait)]
   fn children(&self,) -> _rt::Vec::<SyntaxElement>;
-  /// look up a item of the syntax token set
+  /// enumerate all of the descendant nodes or the token-sets containing self node
   #[allow(async_fn_in_trait)]
-  fn token_at_offset(&self,byte_offset: u32,) -> Option<SyntaxTokenItem>;
+  fn descendant_nodes(&self,) -> _rt::Vec::<SyntaxElement>;
+  /// look up a item of the syntax token set (UTF-16 code unit base)
+  #[allow(async_fn_in_trait)]
+  fn token_at_offset(&self,offset: u32,) -> Option<SyntaxTokenItem>;
   /// get previous neighbor sibling node on the same parent
   #[allow(async_fn_in_trait)]
   fn prev_sibling(&self,) -> Option<SyntaxElement>;
@@ -1315,44 +1367,36 @@ pub trait GuestSyntaxTokenSet: 'static {
   unsafe fn _resource_new(val: *mut u8) -> u32
   where Self: Sized
   {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-      let _ = val;
-      unreachable!();
+    
+    #[cfg(target_arch = "wasm32")]
+    #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
+    unsafe extern "C" {
+      #[link_name = "[resource-new]syntax-token-set"]
+      fn new(_: *mut u8, ) -> i32;
     }
 
-    #[cfg(target_arch = "wasm32")]
-    {
-      #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
-      unsafe extern "C" {
-        #[link_name = "[resource-new]syntax-token-set"]
-        fn new(_: *mut u8) -> u32;
-      }
-      unsafe { new(val) }
-    }
+    #[cfg(not(target_arch = "wasm32"))]
+    unsafe extern "C" fn new(_: *mut u8, ) -> i32 { unreachable!() }
+    
+    unsafe { new(val) as u32 }
   }
 
   #[doc(hidden)]
   fn _resource_rep(handle: u32) -> *mut u8
   where Self: Sized
   {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-      let _ = handle;
-      unreachable!();
+    
+    #[cfg(target_arch = "wasm32")]
+    #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
+    unsafe extern "C" {
+      #[link_name = "[resource-rep]syntax-token-set"]
+      fn rep(_: i32, ) -> *mut u8;
     }
 
-    #[cfg(target_arch = "wasm32")]
-    {
-      #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
-      unsafe extern "C" {
-        #[link_name = "[resource-rep]syntax-token-set"]
-        fn rep(_: u32) -> *mut u8;
-      }
-      unsafe {
-        rep(handle)
-      }
-    }
+    #[cfg(not(target_arch = "wasm32"))]
+    unsafe extern "C" fn rep(_: i32, ) -> *mut u8 { unreachable!() }
+    
+    unsafe { rep(handle as i32) }
   }
 
   
@@ -1366,6 +1410,9 @@ pub trait GuestSyntaxTokenSet: 'static {
   /// it will return none if not root node
   #[allow(async_fn_in_trait)]
   fn parent(&self,) -> Option<SyntaxNode>;
+  /// enumerate all of the token items; leading trivia, main token, and trailing trivia
+  #[allow(async_fn_in_trait)]
+  fn descendant_tokens(&self,) -> _rt::Vec::<SyntaxTokenItem>;
   /// get previous neighbor sibling node on the same parent
   #[allow(async_fn_in_trait)]
   fn prev_sibling(&self,) -> Option<SyntaxElement>;
@@ -1391,44 +1438,36 @@ pub trait GuestSyntaxTokenItem: 'static {
   unsafe fn _resource_new(val: *mut u8) -> u32
   where Self: Sized
   {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-      let _ = val;
-      unreachable!();
+    
+    #[cfg(target_arch = "wasm32")]
+    #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
+    unsafe extern "C" {
+      #[link_name = "[resource-new]syntax-token-item"]
+      fn new(_: *mut u8, ) -> i32;
     }
 
-    #[cfg(target_arch = "wasm32")]
-    {
-      #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
-      unsafe extern "C" {
-        #[link_name = "[resource-new]syntax-token-item"]
-        fn new(_: *mut u8) -> u32;
-      }
-      unsafe { new(val) }
-    }
+    #[cfg(not(target_arch = "wasm32"))]
+    unsafe extern "C" fn new(_: *mut u8, ) -> i32 { unreachable!() }
+    
+    unsafe { new(val) as u32 }
   }
 
   #[doc(hidden)]
   fn _resource_rep(handle: u32) -> *mut u8
   where Self: Sized
   {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-      let _ = handle;
-      unreachable!();
+    
+    #[cfg(target_arch = "wasm32")]
+    #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
+    unsafe extern "C" {
+      #[link_name = "[resource-rep]syntax-token-item"]
+      fn rep(_: i32, ) -> *mut u8;
     }
 
-    #[cfg(target_arch = "wasm32")]
-    {
-      #[link(wasm_import_module = "[export]ritalin:parser/syntaxes@0.0.1")]
-      unsafe extern "C" {
-        #[link_name = "[resource-rep]syntax-token-item"]
-        fn rep(_: u32) -> *mut u8;
-      }
-      unsafe {
-        rep(handle)
-      }
-    }
+    #[cfg(not(target_arch = "wasm32"))]
+    unsafe extern "C" fn rep(_: i32, ) -> *mut u8 { unreachable!() }
+    
+    unsafe { rep(handle as i32) }
   }
 
   
@@ -1485,6 +1524,14 @@ macro_rules! __export_ritalin_parser_syntaxes_0_0_1_cabi{
     unsafe extern "C" fn _post_return_method_syntax_node_children(arg0: *mut u8,) {
       unsafe { $($path_to_types)*::__post_return_method_syntax_node_children::<<$ty as $($path_to_types)*::Guest>::SyntaxNode>(arg0) }
     }
+    #[unsafe(export_name = "ritalin:parser/syntaxes@0.0.1#[method]syntax-node.descendant-nodes")]
+    unsafe extern "C" fn export_method_syntax_node_descendant_nodes(arg0: *mut u8,) -> *mut u8 {
+      unsafe { $($path_to_types)*::_export_method_syntax_node_descendant_nodes_cabi::<<$ty as $($path_to_types)*::Guest>::SyntaxNode>(arg0) }
+    }
+    #[unsafe(export_name = "cabi_post_ritalin:parser/syntaxes@0.0.1#[method]syntax-node.descendant-nodes")]
+    unsafe extern "C" fn _post_return_method_syntax_node_descendant_nodes(arg0: *mut u8,) {
+      unsafe { $($path_to_types)*::__post_return_method_syntax_node_descendant_nodes::<<$ty as $($path_to_types)*::Guest>::SyntaxNode>(arg0) }
+    }
     #[unsafe(export_name = "ritalin:parser/syntaxes@0.0.1#[method]syntax-node.token-at-offset")]
     unsafe extern "C" fn export_method_syntax_node_token_at_offset(arg0: *mut u8,arg1: i32,) -> *mut u8 {
       unsafe { $($path_to_types)*::_export_method_syntax_node_token_at_offset_cabi::<<$ty as $($path_to_types)*::Guest>::SyntaxNode>(arg0, arg1) }
@@ -1512,6 +1559,14 @@ macro_rules! __export_ritalin_parser_syntaxes_0_0_1_cabi{
     #[unsafe(export_name = "ritalin:parser/syntaxes@0.0.1#[method]syntax-token-set.parent")]
     unsafe extern "C" fn export_method_syntax_token_set_parent(arg0: *mut u8,) -> *mut u8 {
       unsafe { $($path_to_types)*::_export_method_syntax_token_set_parent_cabi::<<$ty as $($path_to_types)*::Guest>::SyntaxTokenSet>(arg0) }
+    }
+    #[unsafe(export_name = "ritalin:parser/syntaxes@0.0.1#[method]syntax-token-set.descendant-tokens")]
+    unsafe extern "C" fn export_method_syntax_token_set_descendant_tokens(arg0: *mut u8,) -> *mut u8 {
+      unsafe { $($path_to_types)*::_export_method_syntax_token_set_descendant_tokens_cabi::<<$ty as $($path_to_types)*::Guest>::SyntaxTokenSet>(arg0) }
+    }
+    #[unsafe(export_name = "cabi_post_ritalin:parser/syntaxes@0.0.1#[method]syntax-token-set.descendant-tokens")]
+    unsafe extern "C" fn _post_return_method_syntax_token_set_descendant_tokens(arg0: *mut u8,) {
+      unsafe { $($path_to_types)*::__post_return_method_syntax_token_set_descendant_tokens::<<$ty as $($path_to_types)*::Guest>::SyntaxTokenSet>(arg0) }
     }
     #[unsafe(export_name = "ritalin:parser/syntaxes@0.0.1#[method]syntax-token-set.prev-sibling")]
     unsafe extern "C" fn export_method_syntax_token_set_prev_sibling(arg0: *mut u8,) -> *mut u8 {
@@ -1900,15 +1955,15 @@ pub(crate) use __export_syntax_tree_world_impl as export;
 #[unsafe(link_section = "component-type:wit-bindgen:0.42.1:ritalin:parser@0.0.1:syntax-tree-world:encoded world")]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 1972] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xac\x0e\x01A\x02\x01\
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 2055] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xff\x0e\x01A\x02\x01\
 A\x07\x01B\x08\x01m\x04\x07keyword\x0bnon-keyword\x07pattern\x0cnon-terminal\x04\
 \0\x0csymbol-group\x03\0\0\x01r\x02\x04names\x05group\x01\x04\0\x0bsyntax-kind\x03\
 \0\x02\x01m\x05\x04node\x09token-set\x0eleading-trivia\x0atoken-item\x0ftrailing\
 -trivia\x04\0\x09node-type\x03\0\x04\x01m\x04\x04none\x06delete\x05shift\x07inva\
 lid\x04\0\x0cpatch-action\x03\0\x06\x03\0\x1aritalin:parser/types@0.0.1\x05\0\x02\
 \x03\0\0\x0bsyntax-kind\x02\x03\0\0\x09node-type\x02\x03\0\0\x0cpatch-action\x01\
-BH\x02\x03\x02\x01\x01\x04\0\x0bsyntax-kind\x03\0\0\x02\x03\x02\x01\x02\x04\0\x09\
+BJ\x02\x03\x02\x01\x01\x04\0\x0bsyntax-kind\x03\0\0\x02\x03\x02\x01\x02\x04\0\x09\
 node-type\x03\0\x02\x02\x03\x02\x01\x03\x04\0\x0cpatch-action\x03\0\x04\x04\0\x0b\
 syntax-tree\x03\x01\x04\0\x0bsyntax-node\x03\x01\x04\0\x10syntax-token-set\x03\x01\
 \x04\0\x11syntax-token-item\x03\x01\x01i\x07\x01i\x08\x01q\x02\x04node\x01\x0a\0\
@@ -1920,26 +1975,27 @@ oot\x01\x13\x01h\x07\x01@\x01\x04self\x14\0\x0f\x04\0\x20[method]syntax-node.met
 adata-key\x01\x15\x01@\x01\x04self\x14\0\x11\x04\0\x1c[method]syntax-node.metada\
 ta\x01\x16\x01k\x0a\x01@\x01\x04self\x14\0\x17\x04\0\x1a[method]syntax-node.pare\
 nt\x01\x18\x01p\x0d\x01@\x01\x04self\x14\0\x19\x04\0\x1c[method]syntax-node.chil\
-dren\x01\x1a\x01i\x09\x01k\x1b\x01@\x02\x04self\x14\x0bbyte-offsety\0\x1c\x04\0#\
-[method]syntax-node.token-at-offset\x01\x1d\x01k\x0d\x01@\x01\x04self\x14\0\x1e\x04\
-\0\x20[method]syntax-node.prev-sibling\x01\x1f\x04\0\x20[method]syntax-node.next\
--sibling\x01\x1f\x01h\x08\x01@\x01\x04self\x20\0\x0f\x04\0%[method]syntax-token-\
-set.metadata-key\x01!\x01@\x01\x04self\x20\0\x11\x04\0![method]syntax-token-set.\
-metadata\x01\"\x01@\x01\x04self\x20\0\x17\x04\0\x1f[method]syntax-token-set.pare\
-nt\x01#\x01@\x01\x04self\x20\0\x1e\x04\0%[method]syntax-token-set.prev-sibling\x01\
-$\x04\0%[method]syntax-token-set.next-sibling\x01$\x01p\x1b\x01@\x01\x04self\x20\
-\0%\x04\0'[method]syntax-token-set.leading-trivia\x01&\x01@\x01\x04self\x20\0\x1b\
-\x04\0\x1e[method]syntax-token-set.token\x01'\x04\0([method]syntax-token-set.tra\
-iling-trivia\x01&\x01p\x01\x01@\x01\x04self\x20\0(\x04\0*[method]syntax-token-se\
-t.lookup-candidates\x01)\x01h\x09\x01@\x01\x04self*\0\x0f\x04\0&[method]syntax-t\
-oken-item.metadata-key\x01+\x01@\x01\x04self*\0\x11\x04\0\"[method]syntax-token-\
-item.metadata\x01,\x01k\x0b\x01@\x01\x04self*\0-\x04\0\x20[method]syntax-token-i\
-tem.parent\x01.\x01@\x01\x04self*\0\x1c\x04\0$[method]syntax-token-item.prev-tok\
-en\x01/\x04\0$[method]syntax-token-item.next-token\x01/\x01@\x01\x04self*\0s\x04\
-\0\x1f[method]syntax-token-item.value\x010\x04\0\x1dritalin:parser/syntaxes@0.0.\
-1\x05\x04\x04\0&ritalin:parser/syntax-tree-world@0.0.1\x04\0\x0b\x17\x01\0\x11sy\
-ntax-tree-world\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\
-\x070.230.0\x10wit-bindgen-rust\x060.42.1";
+dren\x01\x1a\x04\0$[method]syntax-node.descendant-nodes\x01\x1a\x01i\x09\x01k\x1b\
+\x01@\x02\x04self\x14\x06offsety\0\x1c\x04\0#[method]syntax-node.token-at-offset\
+\x01\x1d\x01k\x0d\x01@\x01\x04self\x14\0\x1e\x04\0\x20[method]syntax-node.prev-s\
+ibling\x01\x1f\x04\0\x20[method]syntax-node.next-sibling\x01\x1f\x01h\x08\x01@\x01\
+\x04self\x20\0\x0f\x04\0%[method]syntax-token-set.metadata-key\x01!\x01@\x01\x04\
+self\x20\0\x11\x04\0![method]syntax-token-set.metadata\x01\"\x01@\x01\x04self\x20\
+\0\x17\x04\0\x1f[method]syntax-token-set.parent\x01#\x01p\x1b\x01@\x01\x04self\x20\
+\0$\x04\0*[method]syntax-token-set.descendant-tokens\x01%\x01@\x01\x04self\x20\0\
+\x1e\x04\0%[method]syntax-token-set.prev-sibling\x01&\x04\0%[method]syntax-token\
+-set.next-sibling\x01&\x04\0'[method]syntax-token-set.leading-trivia\x01%\x01@\x01\
+\x04self\x20\0\x1b\x04\0\x1e[method]syntax-token-set.token\x01'\x04\0([method]sy\
+ntax-token-set.trailing-trivia\x01%\x01p\x01\x01@\x01\x04self\x20\0(\x04\0*[meth\
+od]syntax-token-set.lookup-candidates\x01)\x01h\x09\x01@\x01\x04self*\0\x0f\x04\0\
+&[method]syntax-token-item.metadata-key\x01+\x01@\x01\x04self*\0\x11\x04\0\"[met\
+hod]syntax-token-item.metadata\x01,\x01k\x0b\x01@\x01\x04self*\0-\x04\0\x20[meth\
+od]syntax-token-item.parent\x01.\x01@\x01\x04self*\0\x1c\x04\0$[method]syntax-to\
+ken-item.prev-token\x01/\x04\0$[method]syntax-token-item.next-token\x01/\x01@\x01\
+\x04self*\0s\x04\0\x1f[method]syntax-token-item.value\x010\x04\0\x1dritalin:pars\
+er/syntaxes@0.0.1\x05\x04\x04\0&ritalin:parser/syntax-tree-world@0.0.1\x04\0\x0b\
+\x17\x01\0\x11syntax-tree-world\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0d\
+wit-component\x070.234.0\x10wit-bindgen-rust\x060.42.1";
 
 #[inline(never)]
 #[doc(hidden)]

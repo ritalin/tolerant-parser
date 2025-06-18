@@ -6,6 +6,7 @@ mod resource;
 pub mod parsers {
     pub use super::parser_world::exports::ritalin::parser::parsers::{Guest, Parser};
     pub use super::resource::ParserImpl;
+    pub use super::resource::IncrementalParserImpl;
 }
 
 mod parser_types {
