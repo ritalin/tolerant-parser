@@ -47,8 +47,13 @@ impl Parser {
         let emit_region = self.engine.parsing_rules.statement_emit_config();
         // enumerate scanners except for over the new byte offset scope.
         // This includes `EOF` only statement.
+        // And removeing first char must be accept.
         let scanners = scanner.statement_scanners(emit_region.to_symbol)
-            .take_while(|scanner| scanner.index() < scan_to)
+            .take_while(|scanner| match scanner.index().cmp(&scan_to) {
+                std::cmp::Ordering::Equal if (scan_to > 0) || source.is_empty() => false,
+                std::cmp::Ordering::Greater => false,
+                _ => true,
+            })
         ;
 
         let old_char_range = self.scope.old_char_range();
@@ -74,25 +79,21 @@ impl Parser {
         for (stmt_scanner, stmt) in scanners.zip(stmts).filter(|(s, _)| s.as_view(std::ops::RangeFull).lookahead().is_some()) {
             let (new_stmt, new_metadata_entry, new_node_key) = match stmt {
                 Some(stmt) => {
-                    let stmt = stmt.into_raw();
-                    let stmt_index = stmt.index();
-                    let old_stmt_range: std::ops::Range<usize> = stmt.text_range().into();
-                    
+                    let old_stmt_range: std::ops::Range<usize> = stmt.metadata_key().byte_range();
                     let stmt_edit_range = support::adjust_edit_range(
                         if new_scope_range.clone().include_end().contains(&old_stmt_range.end) { &new_scope_range } else { &old_scope_range },
-                        &stmt
+                        &old_stmt_range
                     );
 
-                    let gardener = support::TreeGardener{ node: stmt.clone_subtree() };
+                    let gardener = support::TreeGardener::as_subtree(&stmt);
                     // Find common anscestor
-                    let common_anscestor = support::TreeGardener{ 
-                        node: gardener.common_anscestor(
+                    let common_anscestor = gardener.common_anscestor(
                             gardener.pick_token(rowan::TextSize::new(stmt_edit_range.start as u32)), 
                             gardener.pick_token(rowan::TextSize::new(stmt_edit_range.end as u32)),
                             emit_region.to_symbol
                         )
                         .expect("A metadata definitely must exist")
-                    };
+                    ;
 
                     // text_range is local coordicate because of clone_subtree()
                     let mut range: std::ops::Range<usize> = common_anscestor.node.text_range().into();
@@ -110,7 +111,7 @@ impl Parser {
 
                     // Note: Because a last token is reduce, it scans one more token.
                     let scanner_view = stmt_scanner.as_view(anscestor_range.start..(anscestor_range.end + 1));
-                    let old_metadata_map = &self.metadata_table.statement_metadata(Some(stmt_index));
+                    let old_metadata_map = common_anscestor.metadata_entry;
                     let metadata = old_metadata_map.map
                         .get(&&NodeMetadataKey::from_raw_node(&common_anscestor.node, self.engine.parsing_rules))
                         .expect("All node have metadata")

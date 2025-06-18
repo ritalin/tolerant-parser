@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use engine_core::parser_engine::ParsingRuleSet;
-use crate::{metadata::MetadataTable, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
+use crate::{metadata::{MetadataTable, StatementMetadataEntry}, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
 use super::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxElement, SyntaxNodeData, SyntaxTokenData, SyntaxTokenItem, SyntaxTokenSet};
 
 #[derive(PartialEq, Clone, Debug)]
@@ -116,6 +116,11 @@ impl MetadataAccess for SyntaxNode {
 impl SyntaxNode {
     pub(crate) fn from_raw(data: SyntaxNodeData) -> Self {
         Self { data }
+    }
+
+    pub(crate) fn metadata_entry(&self) -> &StatementMetadataEntry {
+        let index = self.data.statement_index();
+        self.data.metadata_table.statement_metadata(index)
     }
 }
 

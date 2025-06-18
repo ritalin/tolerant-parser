@@ -2,15 +2,30 @@ use std::collections::{HashMap, HashSet};
 
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
 use rowan::NodeOrToken;
-use crate::{metadata::{GlobalOffset, StatementMetadataEntry}, syntax_tree::RowanLangageImpl, NodeMetadata, NodeMetadataKey};
+use crate::{metadata::{GlobalOffset, StatementMetadataEntry}, syntax_tree::{RowanLangageImpl, SyntaxNode}, NodeMetadata, NodeMetadataKey};
 
-pub struct TreeGardener {
+pub struct TreeGardener<'a> {
     pub node: rowan::SyntaxNode<RowanLangageImpl>,
+    pub metadata_entry: &'a StatementMetadataEntry,
 }
 
-impl TreeGardener {
-    pub fn pick_token(&self, offset: rowan::TextSize) -> Option<FoundToken> {
-        match self.node.token_at_offset(offset) {
+impl<'a> TreeGardener<'a> {
+    pub fn new(stmt: &'a SyntaxNode) -> Self {
+        Self {
+            node: stmt.into_raw(),
+            metadata_entry: stmt.metadata_entry()
+        }
+    }
+
+    pub fn as_subtree(stmt: &'a SyntaxNode) -> Self {
+        Self {
+            node: stmt.into_raw().clone_subtree(),
+            metadata_entry: stmt.metadata_entry()
+        }
+    }
+
+    pub fn pick_token(&self, byte_offset: rowan::TextSize) -> Option<FoundToken> {
+        match self.node.token_at_offset(byte_offset) {
             rowan::TokenAtOffset::None => return None,
             rowan::TokenAtOffset::Single(token) | rowan::TokenAtOffset::Between(_, token) => {
                 Some(FoundToken{ token })
@@ -18,7 +33,7 @@ impl TreeGardener {
         }
     }
 
-    pub fn common_anscestor(&self, lhs: Option<FoundToken>, rhs: Option<FoundToken>, except_kind: SyntaxKind) -> Option<rowan::SyntaxNode<RowanLangageImpl>> {
+    pub fn common_anscestor(&self, lhs: Option<FoundToken>, rhs: Option<FoundToken>, except_kind: SyntaxKind) -> Option<TreeGardener> {
         let (Some(lhs), Some(rhs)) = (lhs, rhs) else { return None; };
         
         // expand left hand token
@@ -38,6 +53,10 @@ impl TreeGardener {
         lca.and_then(|node| {
             let needle = node.text_range();
             node.ancestors().take_while(|anscestor| anscestor.text_range() == needle).last()
+        })
+        .map(|node| TreeGardener {
+            node,
+            metadata_entry: self.metadata_entry,
         })
     }
 
@@ -148,10 +167,9 @@ impl<T> IncludeEnd for std::ops::Range<T> {
     }
 }
 
-pub fn adjust_edit_range(base_range: &std::ops::Range<usize>, node: &rowan::SyntaxNode<RowanLangageImpl>) -> std::ops::Range<u32> {
-    let node_range = node.text_range();
-    let lowest_offset = u32::max(base_range.start as u32, node_range.start().into());
-    let highest_offset = u32::min(base_range.end as u32, node_range.end().into());
+pub fn adjust_edit_range(base_range: &std::ops::Range<usize>, node_byte_range: &std::ops::Range<usize>) -> std::ops::Range<u32> {
+    let lowest_offset = u32::max(base_range.start as u32, node_byte_range.start as u32);
+    let highest_offset = u32::min(base_range.end as u32, node_byte_range.end as u32);
     
     lowest_offset..highest_offset
 }

@@ -40,6 +40,10 @@ impl NodeMetadataKey {
         }
     }
 
+    pub fn byte_range(&self) -> std::ops::Range<usize> {
+        self.offset..(self.offset + self.len)
+    }
+
     pub fn into_local(self, stmt_offset: usize) -> Self {
         Self {
             kind: self.kind,
