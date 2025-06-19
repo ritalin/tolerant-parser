@@ -44,34 +44,48 @@ impl Parser {
         let scan_to = convert_offset_from_utf16_to_byte(self.scope.new_char_range().end, &source).unwrap_or(source.len());
 
         let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone())?;
+
         let emit_region = self.engine.parsing_rules.statement_emit_config();
         // enumerate scanners except for over the new byte offset scope.
         // This includes `EOF` only statement.
         // And removeing first char must be accept.
-        let scanners = scanner.statement_scanners(emit_region.to_symbol)
+        let mut scanners = scanner.statement_scanners(emit_region.to_symbol)
             .take_while(|scanner| match scanner.index().cmp(&scan_to) {
                 std::cmp::Ordering::Equal if (scan_to > 0) || source.is_empty() => false,
                 std::cmp::Ordering::Greater => false,
                 _ => true,
             })
+            .peekable()
         ;
 
         let old_char_range = self.scope.old_char_range();
+
+        // If it prepend the statement, skip a first old statement.
+        let skip_as_prepend = match (old_char_range.start, old_char_range.end, scanners.peek()) {
+            (0, 0, Some(scanner)) => {
+                match scanner.as_view((scan_to.saturating_sub(1))..).lookahead() {
+                    Some(lookahead) if lookahead.main.kind == emit_region.to_symbol => 1,
+                    _ => 0
+                }
+            }
+            _ => 0
+        };
+
         // Determine old edit range start
         let old_token_start = 
-            token_offset_at_scope(self.statements.first(), old_char_range.start, self.following_statement.as_ref())
+            token_offset_at_scope(self.statements.get(skip_as_prepend), old_char_range.start, self.following_statement.as_ref())
             .unwrap_or_default()
         ;
         // Determine old edit range end
         let old_token_end = 
-            token_offset_at_scope(self.statements.last(), old_char_range.end, self.following_statement.as_ref())
+            token_offset_at_scope(self.statements.iter().skip(skip_as_prepend).last(), old_char_range.end, self.following_statement.as_ref())
             .unwrap_or(source.len())
         ;
 
         let new_scope_range = old_token_start..scan_to;
         let old_scope_range = old_token_start..old_token_end;
 
-        let stmts = self.statements.iter().map(Some).chain(std::iter::repeat(None));
+        let stmts = self.statements.iter().skip(skip_as_prepend).map(Some).chain(std::iter::repeat(None));
         
         let mut fragments = vec![];
         let mut old_first_fragment_key = None;
@@ -87,13 +101,21 @@ impl Parser {
 
                     let gardener = support::TreeGardener::as_subtree(&stmt);
                     // Find common anscestor
-                    let common_anscestor = gardener.common_anscestor(
-                            gardener.pick_token(rowan::TextSize::new(stmt_edit_range.start as u32)), 
-                            gardener.pick_token(rowan::TextSize::new(stmt_edit_range.end as u32)),
-                            emit_region.to_symbol
-                        )
-                        .expect("A metadata definitely must exist")
-                    ;
+                    let common_anscestor = match stmt.metadata().patch {
+                        PatchAction::None => {
+                            // No error in  the previous parsing
+                            gardener.common_anscestor(
+                                gardener.pick_token(rowan::TextSize::new(stmt_edit_range.start as u32)), 
+                                gardener.pick_token(rowan::TextSize::new(stmt_edit_range.end as u32)),
+                                emit_region.to_symbol
+                            )
+                            .expect("A metadata definitely must exist")
+                        }
+                        _ => {
+                            // Parse whole statement
+                            gardener.clone()
+                        }
+                    };
 
                     // text_range is local coordicate because of clone_subtree()
                     let mut range: std::ops::Range<usize> = common_anscestor.node.text_range().into();
@@ -172,7 +194,7 @@ impl Parser {
         let batch = SyntaxFragmentBatch{
             fragments,
             replace_from: self.replace_from,
-            replace_size: self.statements.len(),
+            replace_size: self.statements.iter().skip(skip_as_prepend).count(),
             old_first_fragment_key,
             engine: self.engine.parsing_rules,
         };
@@ -228,8 +250,10 @@ pub fn find_edit_statements(old_tree: &SyntaxTree, scope: &EditScope) -> impl It
         _ => true,
         // metadata.char_offset + metadata.char_len <= range_from
     })
-    .take_while(move |(_, metadata)| {
-        metadata.char_offset < range_to
+    .take_while(move |(_, metadata)| match metadata.char_offset.cmp(&range_to) {
+        std::cmp::Ordering::Equal if range_to > 0 => false,
+        std::cmp::Ordering::Greater => false,
+        _ => true
     })
     .map(|(node, _)| node)
 }

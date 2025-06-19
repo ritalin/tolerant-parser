@@ -4,6 +4,7 @@ use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
 use rowan::NodeOrToken;
 use crate::{metadata::{GlobalOffset, StatementMetadataEntry}, syntax_tree::{RowanLangageImpl, SyntaxNode}, NodeMetadata, NodeMetadataKey};
 
+#[derive(Clone)]
 pub struct TreeGardener<'a> {
     pub node: rowan::SyntaxNode<RowanLangageImpl>,
     pub metadata_entry: &'a StatementMetadataEntry,
@@ -80,6 +81,7 @@ impl<'a> TreeGardener<'a> {
         anscestor: &rowan::SyntaxNode<RowanLangageImpl>) -> rowan::GreenNode
     {
         let Some(parent) = anscestor.parent() else {
+            // Leqast common anscestor is the statement
             return new_node;
         };
         let index = anscestor.index();
@@ -228,13 +230,18 @@ pub fn merge_metadata_map(
 
         // Phase2: regenerate anscestors metadata
         for node in old_anscestor.ancestors() {                
-            let mut key = NodeMetadataKey::from_raw_node(&node, engine);
-            let mut metadata = old_metadata.get(&key).expect("All of nodes need to have a metadata").clone();
+            // Generate old and new metadata key
+            let old_key = NodeMetadataKey::from_raw_node(&node, engine);
+            let new_key = NodeMetadataKey{ len: old_key.len + new_byte_len - old_byte_len, ..old_key.clone() };
 
-            key.len = key.len + new_byte_len - old_byte_len;
-            metadata.char_len = metadata.char_len + new_char_len - old_char_len;
-
-            new_metadata_map.insert(key, metadata);
+            new_metadata_map.entry(new_key).or_insert_with(|| {
+                // Update metadata from old entry
+                old_metadata.get(&old_key)
+                    .map(|metadata| {
+                        NodeMetadata { char_len: metadata.char_len + new_char_len - old_char_len, ..metadata.clone() }
+                    })
+                    .expect("All of nodes need to have a metadata")
+            });
         }
     }
 
