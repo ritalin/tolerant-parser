@@ -750,6 +750,37 @@ mod parser_tests {
     }
 
     #[test]
+    fn test_parse_statement_by_dropping_semicolon() -> Result<(), anyhow::Error> {
+        let source = "SELECT 42;";
+        let new_source = "SELECT 42";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 9,
+            old_char_len: 1,
+            new_char_len: 0,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_semicolon.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_parse_statement_by_filling_value() -> Result<(), anyhow::Error> {
         let source = "SELECT ";
         let new_source = "SELECT 42;";

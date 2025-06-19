@@ -33,6 +33,8 @@ export function initialize(element: HTMLDivElement) {
             visualizeTree(result, tree);
         }
     })
+
+    void monitor;
 }
 
 function visualizeTree(result: HTMLTextAreaElement, tree: parser.syntaxes.SyntaxTree) {
@@ -71,17 +73,19 @@ function visualizeTree(result: HTMLTextAreaElement, tree: parser.syntaxes.Syntax
 function visualizeNode(buffer: string[], key: parser.syntaxes.MetadataKey, metadata: parser.syntaxes.Metadata, value: string | null, depth: number) {
     const byteRange = `(${key.offset}-${key.offset+key.len})`;
     const nodeType = `${metadata.nodeType}${metadata.patch !== 'none' ? `(patch:${metadata.patch})` : ''}`;
-    const nodeValue = value ? `${value}` : '';
+    const nodeValue = value ? `"${value}"` : '';
 
-    buffer.push(`${byteRange.padEnd(16)}${nodeType.padEnd(30)} | ${' '.repeat(depth * 2)}${key.kind.name} "${nodeValue}"`);    
+    buffer.push(`${byteRange.padEnd(16)}${nodeType.padEnd(30)} | ${' '.repeat(depth * 2)}${key.kind.name} ${nodeValue}`);    
 }
 
 class TextInputMonitor {
   private editor: HTMLTextAreaElement;
   private onChange: (beforeStart: number, beforeLength: number, afterLength: number) => any;
   private isComposing = false;
+  private isCtrlAsciiCommand = false;
   private beforeInputStart: number | null = null;
   private beforeInputEnd: number | null = null;
+  private lastEditLength: number = 0;
 
   constructor(
     editor: HTMLTextAreaElement,
@@ -90,11 +94,19 @@ class TextInputMonitor {
     this.editor = editor;
     this.onChange = onChange;
 
+    this.editor.addEventListener("keydown", this.onKeydown);
     this.editor.addEventListener("compositionstart", this.onCompositionStart);
     this.editor.addEventListener("compositionend", this.onCompositionEnd);
     this.editor.addEventListener("beforeinput", this.onBeforeInput);
     this.editor.addEventListener("input", this.onInput);
   }
+
+  private onKeydown = (ev: KeyboardEvent) => {
+    if (this.isComposing) return;
+    if (! ev.ctrlKey) return;
+
+    this.isCtrlAsciiCommand = ['d', 'h','k', 'u', 'w'].includes(ev.key.toLowerCase());
+  };
 
   private onCompositionStart = () => {
     this.isComposing = true;
@@ -105,6 +117,20 @@ class TextInputMonitor {
   };
 
   private onBeforeInput = () => {
+    if (this.isCtrlAsciiCommand) {
+      this.isCtrlAsciiCommand = false;
+      setTimeout(() => {
+        if (this.lastEditLength === this.editor.value.length) return;
+
+        const beforeStart = this.editor.selectionStart;
+        const beforeLength = Math.abs(this.lastEditLength - this.editor.value.length);
+        const afterLength = 0;
+
+        this.doChange(beforeStart, beforeLength, afterLength);
+      }, 0);
+      return;
+    }
+
     this.beforeInputStart = this.editor.selectionStart;
     this.beforeInputEnd = this.editor.selectionEnd;
   };
@@ -113,14 +139,27 @@ class TextInputMonitor {
     if (this.isComposing) return;
 
     if (this.beforeInputStart !== null && this.beforeInputEnd !== null) {
-      const beforeStart = this.beforeInputStart;
+      let beforeStart = this.beforeInputStart;
       const beforeLength = this.beforeInputEnd - this.beforeInputStart;
-      const afterLength = this.editor.selectionStart - beforeStart;
+      let afterLength = this.editor.selectionStart - beforeStart;
 
+      if (afterLength < 0) {
+        beforeStart += afterLength;
+        afterLength = Math.abs(afterLength);
+      }
+
+      this.doChange(beforeStart, beforeLength, afterLength);
+    }
+  };
+
+  private doChange = (beforeStart: number, beforeLength: number, afterLength: number) => {
+    try {
       this.onChange(beforeStart, beforeLength, afterLength);
-
+    }
+    finally {
       this.beforeInputStart = null;
       this.beforeInputEnd = null;
+      this.lastEditLength = this.editor.value.length;
     }
   };
 
