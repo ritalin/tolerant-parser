@@ -120,19 +120,10 @@ impl Parser {
                     // text_range is local coordicate because of clone_subtree()
                     let mut range: std::ops::Range<usize> = common_anscestor.node.text_range().into();
                     (range.start, range.end) = (range.start + global_byte_offset, range.end + global_byte_offset);
-                    // Adgust by the edit distance
-                    let anscestor_range = std::ops::Range {
-                        start: range.start,
-                        end: match old_scope_range.contains(&range.start) { 
-                            true => range.end + old_stmt_range.start - stmt_scanner.index(),
-                            false => range.end + new_scope_range.end - old_scope_range.end
-                        },
-                    };
                     
                     let strategy = common_anscestor.pick_terminate_kind(self.engine.parsing_rules);
 
-                    // Note: Because a last token is reduce, it scans one more token.
-                    let scanner_view = stmt_scanner.as_view(anscestor_range.start..(anscestor_range.end + 1));
+                    let scanner_view = stmt_scanner.as_view(range.start..);
                     let old_metadata_map = common_anscestor.metadata_entry;
                     let metadata = old_metadata_map.map
                         .get(&&NodeMetadataKey::from_raw_node(&common_anscestor.node, self.engine.parsing_rules))
