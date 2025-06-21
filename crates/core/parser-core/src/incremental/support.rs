@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
-use rowan::NodeOrToken;
+use rowan::{NodeOrToken, TextSize};
 use crate::{metadata::{GlobalOffset, StatementMetadataEntry}, syntax_tree::{RowanLangageImpl, SyntaxNode}, NodeMetadata, NodeMetadataKey};
 
 #[derive(Clone)]
@@ -25,8 +25,9 @@ impl<'a> TreeGardener<'a> {
         }
     }
 
-    pub fn pick_token(&self, byte_offset: rowan::TextSize) -> Option<FoundToken> {
-        match self.node.token_at_offset(byte_offset) {
+    pub fn pick_token(&self, byte_offset: usize) -> Option<FoundToken> {
+        let local_byte_offset = byte_offset - self.metadata_entry.global_offset.of_byte;
+        match self.node.token_at_offset(TextSize::new(local_byte_offset as u32)) {
             rowan::TokenAtOffset::None => return None,
             rowan::TokenAtOffset::Single(token) | rowan::TokenAtOffset::Between(_, token) => {
                 Some(FoundToken{ token })
@@ -169,9 +170,9 @@ impl<T> IncludeEnd for std::ops::Range<T> {
     }
 }
 
-pub fn adjust_edit_range(base_range: &std::ops::Range<usize>, node_byte_range: &std::ops::Range<usize>) -> std::ops::Range<u32> {
-    let lowest_offset = u32::max(base_range.start as u32, node_byte_range.start as u32);
-    let highest_offset = u32::min(base_range.end as u32, node_byte_range.end as u32);
+pub fn adjust_edit_range(base_range: &std::ops::Range<usize>, node_byte_range: &std::ops::Range<usize>) -> std::ops::Range<usize> {
+    let lowest_offset = usize::max(base_range.start, node_byte_range.start);
+    let highest_offset = usize::min(base_range.end, node_byte_range.end);
     
     lowest_offset..highest_offset
 }

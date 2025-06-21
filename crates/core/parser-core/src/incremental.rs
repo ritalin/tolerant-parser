@@ -105,8 +105,8 @@ impl Parser {
                         PatchAction::None => {
                             // No error in  the previous parsing
                             gardener.common_anscestor(
-                                gardener.pick_token(rowan::TextSize::new(stmt_edit_range.start as u32)), 
-                                gardener.pick_token(rowan::TextSize::new(stmt_edit_range.end as u32)),
+                                gardener.pick_token(stmt_edit_range.start), 
+                                gardener.pick_token(stmt_edit_range.end),
                                 emit_region.to_symbol
                             )
                             .expect("A metadata definitely must exist")
