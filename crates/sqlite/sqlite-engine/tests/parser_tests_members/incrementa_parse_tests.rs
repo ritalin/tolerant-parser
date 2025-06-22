@@ -142,8 +142,8 @@ mod expand_region_tests {
             new_char_len: 22,
         };
 
-        let indexes = parser_core::incremental::find_edit_statements(&tree, &scope)
-            .map(|node| node.into_raw().index())
+        let indexes = parser_core::incremental::init_edit_hint(&tree, &scope)
+            .map(|(node, _)| node.into_raw().index())
             .collect::<Vec<_>>()
         ;
         assert_eq!(vec![1,2,3], indexes);
@@ -866,6 +866,37 @@ mod parser_tests {
         let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_editing_latter.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_statement_with_semicolon_after_newline() -> Result<(), anyhow::Error> {
+        let source = "SELECT 42;";
+        let new_source = "SELECT 42;\n";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 10,
+            old_char_len: 0,
+            new_char_len: 1,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_with_semicolon_after_newline.json"))?;
 
         let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
