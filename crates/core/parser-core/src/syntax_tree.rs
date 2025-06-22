@@ -45,7 +45,7 @@ pub trait LookupCandidate {
     fn lookup_candidates(&self) -> impl Iterator<Item = SyntaxKind>;
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct SyntaxNodeData {
     raw: rowan::SyntaxNode<RowanLangageImpl>,
     metadata_table: Rc<MetadataTable>,
@@ -123,6 +123,13 @@ impl MetadataAccess for SyntaxNodeData {
         self.metadata_with(index, &self.metadata_key())
     }
 }
+
+impl PartialEq for SyntaxNodeData {
+    fn eq(&self, other: &Self) -> bool {
+        self.raw == other.raw && self.parse_mode == other.parse_mode
+    }
+}
+impl Eq for SyntaxNodeData {}
 
 #[derive(PartialEq, Clone, Debug)]
 pub(crate) struct SyntaxTokenData {

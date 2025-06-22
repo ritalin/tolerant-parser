@@ -102,6 +102,10 @@ impl NodeMetadata {
             }
         }
     }
+
+    pub fn char_range(&self) -> std::ops::Range<usize> {
+        self.char_offset..(self.char_offset + self.char_len)
+    }
 }
 
 #[derive(PartialEq, Clone, Debug, serde::Serialize, serde::Deserialize)]

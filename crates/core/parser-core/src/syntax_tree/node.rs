@@ -3,7 +3,7 @@ use engine_core::parser_engine::ParsingRuleSet;
 use crate::{metadata::{MetadataTable, StatementMetadataEntry}, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
 use super::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxElement, SyntaxNodeData, SyntaxTokenData, SyntaxTokenItem, SyntaxTokenSet};
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct SyntaxNode {
     data: SyntaxNodeData,
 }
