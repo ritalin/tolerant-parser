@@ -132,7 +132,7 @@ mod expand_region_tests {
 }
 
 mod edit_hint_init_tests {
-    use parser_core::incremental::support::EditHint;
+    use parser_core::incremental::edit_hint::EditHint;
     use super::*;
 
     #[test]
@@ -240,7 +240,7 @@ mod edit_hint_init_tests {
 }
 
 mod edit_hint_eval_tests {
-    use parser_core::incremental::support::EditHint;
+    use parser_core::incremental::edit_hint::EditHint;
     use scanner_core::Scanner;
     use super::*;
 
@@ -264,7 +264,7 @@ mod edit_hint_eval_tests {
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
         let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
 
-        assert_eq!(Vec::<usize>::new(), result.statements.into_iter().map(|node| node.into_raw().index()).collect::<Vec<_>>());
+        assert_eq!(Vec::<Option<usize>>::new(), result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(1, result.skip_scanner);
         assert_eq!(1, result.replace_from);
         Ok(())
@@ -290,7 +290,7 @@ mod edit_hint_eval_tests {
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
         let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
 
-        assert_eq!(vec![0], result.statements.into_iter().map(|node| node.into_raw().index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
         assert_eq!(0, result.replace_from);
         Ok(())
@@ -316,7 +316,7 @@ mod edit_hint_eval_tests {
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
         let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
 
-        assert_eq!(vec![0], result.statements.into_iter().map(|node| node.into_raw().index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
         assert_eq!(0, result.replace_from);
         Ok(())
@@ -342,7 +342,7 @@ mod edit_hint_eval_tests {
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
         let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
 
-        assert_eq!(vec![0], result.statements.into_iter().map(|node| node.into_raw().index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
         assert_eq!(0, result.replace_from);
         Ok(())
@@ -368,14 +368,243 @@ mod edit_hint_eval_tests {
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
         let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
 
-        assert_eq!(vec![0], result.statements.into_iter().map(|node| node.into_raw().index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
         assert_eq!(0, result.replace_from);
         Ok(())
     }
 
     #[test]
-    fn test_eval_edit_hint() -> Result<(), anyhow::Error> {
-        todo!()
+    fn test_eval_edit_hint_for_prepend_statement() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;";
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "SELECT 0;SELECT 1;";
+        let scope = EditScope{
+            start_char_offset: 0,
+            old_char_len: 0,
+            new_char_len: 9,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
+        let scan_from = 0;
+        let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
+        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+
+        assert_eq!(Vec::<Option<usize>>::new(), result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
+        assert_eq!(0, result.skip_scanner);
+        assert_eq!(0, result.replace_from);
+        Ok(())
+   }
+
+    #[test]
+    fn test_eval_edit_hint_for_prepend_trivia() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;";
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "\nSELECT 1;";
+        let scope = EditScope{
+            start_char_offset: 0,
+            old_char_len: 0,
+            new_char_len: 1,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
+        let scan_from = 0;
+        let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
+        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+
+        assert_eq!(vec![Some(0)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
+        assert_eq!(0, result.skip_scanner);
+        assert_eq!(0, result.replace_from);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_edit_hint_for_prepend_token() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;";
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "WITH v AS (SELECT 42) SELECT 1;";
+        let scope = EditScope{
+            start_char_offset: 0,
+            old_char_len: 0,
+            new_char_len: 22,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
+        let scan_from = 0;
+        let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
+        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+
+        assert_eq!(vec![Some(0)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
+        assert_eq!(0, result.skip_scanner);
+        assert_eq!(0, result.replace_from);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_edit_hint_for_insert_statement() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;SELECT 2;SELECT 3;SELECT 4;";
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "SELECT 1;SELECT 2;SELECT 'a';SELECT 'b';SELECT 3;SELECT 4;";
+        let scope = EditScope{
+            start_char_offset: 18,
+            old_char_len: 0,
+            new_char_len: 22,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
+        let scan_from = 9;
+        let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
+        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+
+        assert_eq!(Vec::<Option<usize>>::new(), result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
+        assert_eq!(1, result.skip_scanner);
+        assert_eq!(2, result.replace_from);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_edit_hint_for_insert_by_appending_trivia() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;SELECT 2;SELECT 3;SELECT 4;";
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "SELECT 1;SELECT 2;\nSELECT 3;SELECT 4;";
+        let scope = EditScope{
+            start_char_offset: 18,
+            old_char_len: 0,
+            new_char_len: 22,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
+        let scan_from = 9;
+        let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
+        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+
+        assert_eq!(vec![Some(1)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
+        assert_eq!(0, result.skip_scanner);
+        assert_eq!(1, result.replace_from);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_edit_hint_for_insert_by_prepending_trivia() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;SELECT 2;SELECT 3;SELECT 4;";
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "SELECT 1;SELECT 2;/* (comment) */ SELECT 3;SELECT 4;";
+        let scope = EditScope{
+            start_char_offset: 18,
+            old_char_len: 0,
+            new_char_len: 16,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
+        let scan_from = 9;
+        let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
+        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+
+        assert_eq!(vec![Some(2)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
+        assert_eq!(1, result.skip_scanner);
+        assert_eq!(2, result.replace_from);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_edit_hint_for_insert_by_prepending_token() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;SELECT 2;SELECT 3;SELECT 4;";
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "SELECT 1;SELECT 2;WITH v AS (SELECT 42) SELECT 3;SELECT 4;";
+        let scope = EditScope{
+            start_char_offset: 18,
+            old_char_len: 0,
+            new_char_len: 22,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
+        let scan_from = 9;
+        let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
+        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+
+        assert_eq!(vec![Some(2)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
+        assert_eq!(1, result.skip_scanner);
+        assert_eq!(2, result.replace_from);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_edit_hint_for_update_single() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;SELECT 2;SELECT 3;";
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "SELECT 1;SELECT 42;SELECT 3;";
+        let scope = EditScope{
+            start_char_offset: 16,
+            old_char_len: 1,
+            new_char_len: 2,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
+        let scan_from = 9;
+        let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
+        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+
+        assert_eq!(vec![Some(1)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
+        assert_eq!(0, result.skip_scanner);
+        assert_eq!(1, result.replace_from);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_edit_hint_for_update_many() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;SELECT 2;SELECT 3;SELECT 4;SELECT 5;";
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "SELECT 1;SELECT 42;SELECT 43;SELECT 44;SELECT 5;";
+        let scope = EditScope{
+            start_char_offset: 16,
+            old_char_len: 18,
+            new_char_len: 21,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
+        let scan_from = 9;
+        let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
+        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+
+        assert_eq!(vec![Some(1), Some(2), Some(3)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
+        assert_eq!(0, result.skip_scanner);
+        assert_eq!(1, result.replace_from);
+        Ok(())
     }
 }
