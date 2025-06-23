@@ -75,7 +75,6 @@ impl EditHint {
     }
 
     pub fn eval_hint(&self, scanners: &Vec<StatementScanner>, new_edit_byte_range: std::ops::Range<usize>, emit_region: &EmitConfig) -> EditHintEval {
-        use crate::syntax_tree::MetadataAccess;
         use scanner_core::ScannerAccess;
 
         let mut skip_scanner = 0;
@@ -97,18 +96,9 @@ impl EditHint {
                 }
             }
             (EditHint::Append{ candidate }, Some(scanner)) => {
-                let end_token_set = super::support::find_last_token_set(candidate);
-
-                match (scanner.as_view(new_edit_byte_range.start..).lookahead(), end_token_set) {
-                    (Some(lookahead), Some(token_set)) if token_set.metadata_key().offset == lookahead.main.offset => {
-                        // append trailing trivia
-                        EditHintEval{ statements: vec![Some(candidate.clone())], skip_scanner: 0, replace_from }
-                    }
-                    (_, Some(token_set)) if token_set.metadata_key().kind != emit_region.to_symbol => {
-                        // update statement but not append
-                        EditHintEval{ statements: vec![Some(candidate.clone())], skip_scanner: 0, replace_from }
-                    }
-                    _ => {
+                match eval_append_hint(scanner.as_view(new_edit_byte_range.start..), candidate, emit_region, 0, replace_from) {
+                    Some(result) => result,
+                    None => {
                         // append new statement
                         EditHintEval{ statements: vec![], skip_scanner: 1, replace_from: replace_from + 1 }
                     }
@@ -116,18 +106,8 @@ impl EditHint {
             }
             (EditHint::InsertBetween { prev, next }, Some(scanner)) => {
                 // eval as append
-                let end_token_set = super::support::find_last_token_set(prev);
-
-                match (scanner.as_view(new_edit_byte_range.start..).lookahead(), end_token_set) {
-                    (Some(lookahead), Some(token_set)) if token_set.metadata_key().offset == lookahead.main.offset => {
-                        // update prev statement by appending trailing trivia
-                        return EditHintEval{ statements: vec![Some(prev.clone())], skip_scanner, replace_from };
-                    }
-                    (_, Some(token_set)) if token_set.metadata_key().kind != emit_region.to_symbol => {
-                        // update statement but not append
-                        return EditHintEval{ statements: vec![Some(prev.clone())], skip_scanner, replace_from };
-                    }
-                    _ => {}
+                if let Some(result) = eval_append_hint(scanner.as_view(new_edit_byte_range.start..), prev, emit_region, skip_scanner, replace_from) {
+                    return result;
                 }
 
                 skip_scanner += 1;
@@ -154,6 +134,26 @@ impl EditHint {
                 // No change
                 EditHintEval{ statements: vec![], skip_scanner: 0, replace_from }
             }
+        }
+    }
+}
+
+fn eval_append_hint(scanner: impl scanner_core::ScannerAccess, stmt: &SyntaxNode, emit_region: &EmitConfig, skip_scanner: usize, replace_from: usize) -> Option<EditHintEval> {
+    use crate::syntax_tree::MetadataAccess;
+
+    let end_token_set = super::support::find_last_token_set(stmt);
+
+    match (scanner.lookahead(), end_token_set) {
+        (Some(lookahead), Some(token_set)) if token_set.metadata_key().offset == lookahead.main.offset => {
+            // update prev statement by appending trailing trivia
+            Some(EditHintEval{ statements: vec![Some(stmt.clone())], skip_scanner, replace_from })
+        }
+        (_, Some(token_set)) if token_set.metadata_key().kind != emit_region.to_symbol => {
+            // update statement but not append
+            Some(EditHintEval{ statements: vec![Some(stmt.clone())], skip_scanner, replace_from })
+        }
+        _ => {
+            None
         }
     }
 }
