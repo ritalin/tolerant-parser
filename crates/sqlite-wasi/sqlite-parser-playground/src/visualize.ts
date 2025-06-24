@@ -61,7 +61,7 @@ function visualizeTree(result: HTMLTextAreaElement, tree: parser.syntaxes.Syntax
             const token = el.val.token();
             visualizeNode(buffer, token.metadataKey(), token.metadata(), token.value(), depth + 1);
 
-            for (const trivia of el.val.leadingTrivia()) {
+            for (const trivia of el.val.trailingTrivia()) {
                 visualizeNode(buffer, trivia.metadataKey(), trivia.metadata(), trivia.value(), depth + 1);
             }
         }
@@ -122,11 +122,11 @@ class TextInputMonitor {
       setTimeout(() => {
         if (this.lastEditLength === this.editor.value.length) return;
 
-        const beforeStart = this.editor.selectionStart;
-        const beforeLength = Math.abs(this.lastEditLength - this.editor.value.length);
-        const afterLength = 0;
-
-        this.doChange(beforeStart, beforeLength, afterLength);
+        this.doChange({
+          start: this.editor.selectionStart, 
+          beforeLength: Math.abs(this.lastEditLength - this.editor.value.length), 
+          afterLength: 0,
+        });
       }, 0);
       return;
     }
@@ -135,26 +135,45 @@ class TextInputMonitor {
     this.beforeInputEnd = this.editor.selectionEnd;
   };
 
-  private onInput = () => {
+  private onInput = (ev: Event) => {
     if (this.isComposing) return;
 
     if (this.beforeInputStart !== null && this.beforeInputEnd !== null) {
-      let beforeStart = this.beforeInputStart;
-      const beforeLength = this.beforeInputEnd - this.beforeInputStart;
-      let afterLength = this.editor.selectionStart - beforeStart;
+      let beforeSelection = {
+        start: this.beforeInputStart,
+        end: this.beforeInputEnd,
+      };
+      let afterSelection = {
+        start: this.editor.selectionStart,
+        end: this.editor.selectionEnd,
+      };
 
-      if (afterLength < 0) {
-        beforeStart += afterLength;
-        afterLength = Math.abs(afterLength);
+      if ((ev as InputEvent).inputType  == 'historyUndo') {
+        // swap selection
+        [beforeSelection.start, afterSelection.start] = [afterSelection.start, beforeSelection.start]
       }
-
-      this.doChange(beforeStart, beforeLength, afterLength);
+      
+      if (afterSelection.start < beforeSelection.start) {
+        // Swap beforeLength and afterLength when the selection is reversed 
+        this.doChange({
+          start: afterSelection.start, 
+          beforeLength: beforeSelection.start - afterSelection.start, 
+          afterLength: beforeSelection.end - beforeSelection.start,
+        });
+      }
+      else {
+        this.doChange({
+          start: beforeSelection.start, 
+          beforeLength: beforeSelection.end - beforeSelection.start, 
+          afterLength: afterSelection.start - beforeSelection.start
+        });
+      }
     }
   };
 
-  private doChange = (beforeStart: number, beforeLength: number, afterLength: number) => {
+  private doChange = ({start, beforeLength, afterLength}: {start: number, beforeLength: number, afterLength: number}) => {
     try {
-      this.onChange(beforeStart, beforeLength, afterLength);
+      this.onChange(start, beforeLength, afterLength);
     }
     finally {
       this.beforeInputStart = null;
