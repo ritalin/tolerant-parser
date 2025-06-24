@@ -258,11 +258,13 @@ mod edit_hint_eval_tests {
             new_char_len: 9,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 0;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![None], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(1, result.skip_scanner);
@@ -284,11 +286,13 @@ mod edit_hint_eval_tests {
             new_char_len: 18,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 0;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![None, None], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(1, result.skip_scanner);
@@ -310,11 +314,13 @@ mod edit_hint_eval_tests {
             new_char_len: 1,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 0;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![Some(0)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
@@ -336,11 +342,13 @@ mod edit_hint_eval_tests {
             new_char_len: 1,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 0;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![Some(0)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
@@ -362,11 +370,13 @@ mod edit_hint_eval_tests {
             new_char_len: 1,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 0;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![Some(0)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
@@ -388,13 +398,43 @@ mod edit_hint_eval_tests {
             new_char_len: 1,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 0;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![Some(0)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
+        assert_eq!(0, result.skip_scanner);
+        assert_eq!(0, result.replace_from);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_edit_hint_for_no_append() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1";
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "SELECT 1";
+        let scope = EditScope{
+            start_char_offset: 8,
+            old_char_len: 0,
+            new_char_len: 0,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
+        let scan_from = 0;
+        let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
+
+        assert_eq!(Vec::<Option<usize>>::new(), result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
         assert_eq!(0, result.replace_from);
         Ok(())
@@ -414,11 +454,13 @@ mod edit_hint_eval_tests {
             new_char_len: 9,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 0;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![None], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
@@ -440,11 +482,13 @@ mod edit_hint_eval_tests {
             new_char_len: 19,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 0;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![None, None], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
@@ -466,11 +510,13 @@ mod edit_hint_eval_tests {
             new_char_len: 1,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 0;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![Some(0)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
@@ -492,11 +538,13 @@ mod edit_hint_eval_tests {
             new_char_len: 22,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 0;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![Some(0)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
@@ -518,13 +566,43 @@ mod edit_hint_eval_tests {
             new_char_len: 33,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 0;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![None, None, Some(0)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
+        assert_eq!(0, result.skip_scanner);
+        assert_eq!(0, result.replace_from);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_edit_hint_for_no_prepend() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;";
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "SELECT 1;";
+        let scope = EditScope{
+            start_char_offset: 0,
+            old_char_len: 0,
+            new_char_len: 0,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
+        let scan_from = 0;
+        let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
+
+        assert_eq!(Vec::<Option<usize>>::new(), result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
         assert_eq!(0, result.replace_from);
         Ok(())
@@ -544,11 +622,13 @@ mod edit_hint_eval_tests {
             new_char_len: 22,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 9;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![None, None], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(1, result.skip_scanner);
@@ -570,11 +650,13 @@ mod edit_hint_eval_tests {
             new_char_len: 1,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 9;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![Some(1)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
@@ -596,11 +678,13 @@ mod edit_hint_eval_tests {
             new_char_len: 16,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 9;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![Some(2)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(1, result.skip_scanner);
@@ -622,15 +706,45 @@ mod edit_hint_eval_tests {
             new_char_len: 22,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 9;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![Some(2)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(1, result.skip_scanner);
         assert_eq!(2, result.replace_from);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_edit_hint_for_no_insert() -> Result<(), anyhow::Error> {
+        let source = "SELECT 4;SELECT 3;SELECT 2";
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "SELECT 4;SELECT 3;SELECT 2";
+        let scope = EditScope{
+            start_char_offset: 9,
+            old_char_len: 0,
+            new_char_len: 0,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
+        let scan_from = 0;
+        let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
+
+        assert_eq!(Vec::<Option<usize>>::new(), result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
+        assert_eq!(0, result.skip_scanner);
+        assert_eq!(0, result.replace_from);
         Ok(())
     }
 
@@ -648,11 +762,13 @@ mod edit_hint_eval_tests {
             new_char_len: 2,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 9;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![Some(1)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
@@ -674,11 +790,13 @@ mod edit_hint_eval_tests {
             new_char_len: 21,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 9;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![Some(1), Some(2), Some(3)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
@@ -687,7 +805,7 @@ mod edit_hint_eval_tests {
     }
 
     #[test]
-    fn test_eval_edit_hint_for_update_ny_splitting() -> Result<(), anyhow::Error> {
+    fn test_eval_edit_hint_for_update_by_splitting() -> Result<(), anyhow::Error> {
         let source = "SELECT 42;";
         let engine = sqlite_engine::create()?;
         let parser = Parser::new(engine.clone());
@@ -700,11 +818,13 @@ mod edit_hint_eval_tests {
             new_char_len: 17,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 0;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![Some(0), None, None], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);
@@ -713,7 +833,7 @@ mod edit_hint_eval_tests {
     }
 
     #[test]
-    fn test_eval_edit_hint_for_update_ny_merging() -> Result<(), anyhow::Error> {
+    fn test_eval_edit_hint_for_update_by_merging() -> Result<(), anyhow::Error> {
         let source = "SELECT 4;SELECT 3;SELECT 2";
         let engine = sqlite_engine::create()?;
         let parser = Parser::new(engine.clone());
@@ -726,11 +846,69 @@ mod edit_hint_eval_tests {
             new_char_len: 0,
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
         let scan_from = 0;
         let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
-        let result = hint.eval_hint(&scanner.statement_scanners(emit_region.to_symbol).collect(), scope.new_char_range(), &emit_region);
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
+
+        assert_eq!(vec![Some(0), Some(1), Some(2)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
+        assert_eq!(0, result.skip_scanner);
+        assert_eq!(0, result.replace_from);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_edit_hint_for_update_by_removing_all() -> Result<(), anyhow::Error> {
+        let source = "SELECT 4;SELECT 3;SELECT 2";
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "";
+        let scope = EditScope{
+            start_char_offset: 0,
+            old_char_len: 26,
+            new_char_len: 0,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
+        let scan_from = 0;
+        let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
+
+        assert_eq!(vec![Some(0), Some(1), Some(2)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
+        assert_eq!(0, result.skip_scanner);
+        assert_eq!(0, result.replace_from);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_edit_hint_for_update_by_removing() -> Result<(), anyhow::Error> {
+        let source = "SELECT 4;SELECT 3;SELECT 2";
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "ELECT 4;SELECT 3;SELECT 2";
+        let scope = EditScope{
+            start_char_offset: 0,
+            old_char_len: 1,
+            new_char_len: 0,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range(), tree.root().children().last().as_ref());
+        let scan_from = 0;
+        let scanner = Scanner::create_without_scan(new_source, scan_from, engine.scanning_rules)?;
+        let stmt_scanners = &scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect();
+        let result = hint.eval_hint(&stmt_scanners, scope.new_char_range(), &emit_region);
 
         assert_eq!(vec![Some(0)], result.statements.into_iter().map(|node| node.map(|x| x.into_raw().index())).collect::<Vec<_>>());
         assert_eq!(0, result.skip_scanner);

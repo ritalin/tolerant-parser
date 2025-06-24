@@ -68,10 +68,16 @@ impl RecoveryEventDispatcher {
     }
 
     pub fn handle_as_invalid(&self, lookaheads: LookaheadIterator) -> Vec<RecoveryEvent> {
-        let len = lookaheads.len();
+        let full_emit_symbol = self.engine.full_emit_config().to_symbol;
+        let mut invalids = Vec::with_capacity(lookaheads.len());
 
-        lookaheads.enumerate()
-        .map(|(i, la)| RecoveryEvent::Invalid { kind: la.main.kind, need_emit: i + 1 == len }).collect()
+        let mut iter = lookaheads.filter(|la| la.main.kind != full_emit_symbol).peekable();
+
+        while let Some(la) = iter.next() {
+            invalids.push(RecoveryEvent::Invalid { kind: la.main.kind, need_emit: iter.peek().is_none() });
+        }
+
+        invalids
     }
 
     pub fn penalty(&self) -> RecoveryPenalty {

@@ -66,7 +66,7 @@ impl SyntaxTreeBuilder {
         Ok(())
     }
 
-    pub fn add_patch_shift_token_set(&mut self, event: ParseEvent) -> Result<(), NodeBuildError> {
+    pub fn add_patch_shift_token_set(&mut self, event: ParseEvent, last_offset: usize) -> Result<(), NodeBuildError> {
         let ParseEvent::PatchShift { kind, edit_state, .. } = event else {
             return Err(NodeBuildError::TokenSetFailed);
         };
@@ -74,7 +74,7 @@ impl SyntaxTreeBuilder {
         let top_element = self.element_stack.iter().rev().flatten().next();
         let offset = match get_node_metadata_key(&self.all_metadata_map, top_element) {
             Some(key) => key.offset + key.len,
-            None => 0,
+            None => last_offset,
         };
         let lookahead = Token{
             leading_trivia: None,
@@ -393,7 +393,10 @@ fn pop_node_from_stack(element_stack: &mut Vec<Option<(NodeId, StackEntry)>>, mu
             Some(Some((id, StackEntry::Invisible(element)))) => {
                 elements.push((id, NodeElement::Node(element) ));
             }
-            _ => {}
+            None => {
+                // no more element
+                break;
+            }
         }
         if pop_count == 0 { break }
     }

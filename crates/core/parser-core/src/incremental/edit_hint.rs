@@ -79,7 +79,13 @@ impl EditHint {
         let mut skip_scanner = 0;
         let mut replace_from = self.replace_from(); 
 
-        let scanner_iter = scanners.iter().take_while(|scanner| scanner.scan_range().start < new_edit_byte_range.end);
+        let scanner_iter = scanners.iter()
+            .take_while(|scanner| match scanner.scan_range().start.cmp(&new_edit_byte_range.end) {
+                std::cmp::Ordering::Equal if (new_edit_byte_range.len() > 0) => false, // For remove word
+                std::cmp::Ordering::Greater => false,
+                _ => true,
+            })
+        ;
 
         match (self, scanners.first()) {
             (EditHint::Prepend { candidate }, Some(_)) => {
@@ -172,9 +178,9 @@ impl EditHint {
                 };
             }
             (EditHint::Update { candidates, .. }, _) => {
-                // FIXME: unmatched old statement count and scanners count
                 let scanner_count = scanner_iter.count();
-                statements.extend(candidates.iter().take(scanner_count).cloned().map(Some).collect::<Vec<_>>());
+
+                statements.extend(candidates.iter().cloned().map(Some));
                 
                 if statements.len() < scanner_count { 
                     // the statement is splitted
@@ -182,7 +188,7 @@ impl EditHint {
                 }
             }
             (_, None)  => {
-                // No change         
+                // No change
             }
         }
 
@@ -202,7 +208,7 @@ fn eval_append_hint(scanner: &StatementScanner, stmt: &SyntaxNode, end_token_set
             // update prev statement by appending trailing trivia
             Some(Some(stmt.clone()))
         }
-        (_, Some(token_set)) if token_set.metadata_key().kind != emit_region.to_symbol => {
+        (_, Some(token_set)) if (edit_scope_range.len() > 0) && token_set.metadata_key().kind != emit_region.to_symbol => {
             // update statement but not append
             Some(Some(stmt.clone()))
         }
@@ -219,16 +225,23 @@ fn eval_append_hint(scanner: &StatementScanner, stmt: &SyntaxNode, end_token_set
 fn eval_prepend_hint(scanner: &StatementScanner, stmt: &SyntaxNode, edit_scope_range: &std::ops::Range<usize>, emit_region: &EmitConfig) -> Option<Option<SyntaxNode>> {
     use scanner_core::ScannerAccess;
 
-    let scan_from = usize::min(scanner.scan_range().end, edit_scope_range.end);
+    let scan_from = scanner.scan_range().end
+        .min(edit_scope_range.end)
+        .saturating_sub(1)
+    ;
     
-    match scanner.as_view((scan_from.saturating_sub(1))..).lookahead() {
+    match scanner.as_view(scan_from..).lookahead() {
         Some(lookahead) if lookahead.main.kind == emit_region.to_symbol => {
             // prepend statement
             Some(None)
         }
-        _ => {
+        Some(lookahead) if (edit_scope_range.len() > 0) && lookahead.token_range().contains(&scan_from) => {
             // update statement 
             Some(Some(stmt.clone()))
+        }
+        Some(_) | None => {
+            // out of range
+            None
         }
     }
 }

@@ -98,6 +98,7 @@ where S: scanner_core::ScannerAccess
             Err(ParseEventError::RequestRecovery) => {
                 let state_stack = dispatcher.borrow_stack();
                 let lookaheads = scanner.prefetch_iter(terminate_symbol);
+
                 match recovery_handler.handle(state_stack, lookaheads.clone()) {
                     Some(events) => {
                         // Recovery succeed
@@ -118,7 +119,8 @@ where S: scanner_core::ScannerAccess
                 tree_builder.add_invisible_token_set(event?, lookahead.as_ref())?;
             }
             Ok(ParseEvent::PatchShift { .. }) => {
-                tree_builder.add_patch_shift_token_set(event?)?;
+                let last_offset = lookahead.map(|token| token.lowest_offset()).unwrap_or_default();
+                tree_builder.add_patch_shift_token_set(event?, last_offset)?;
             }
             Err(err) => {
                 Err(err)?;

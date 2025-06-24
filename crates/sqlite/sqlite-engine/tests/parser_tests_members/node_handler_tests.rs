@@ -418,7 +418,7 @@ mod build_tree_tests {
         handler.add_token_set(events[0].clone(), lookaheads.get(0))?;
         handler.add_node(events[1].clone())?;
         handler.add_node(events[2].clone())?;
-        handler.add_patch_shift_token_set(events[3].clone())?;
+        handler.add_patch_shift_token_set(events[3].clone(), 0)?;
         handler.add_token_set(events[4].clone(), lookaheads.get(1))?;
 
         let tree = handler.build(events[5].clone())?;

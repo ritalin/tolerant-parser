@@ -1,96 +1,82 @@
 use std::{collections::HashMap, rc::Rc};
-use engine_core::{parser_engine::ParsingRuleSet};
+use engine_core::parser_engine::ParsingRuleSet;
 use scanner_core::{Scanner, ScannerAccess, StatementScannerView};
 use crate::{event_dispatcher::ParseEventDispatcher, incremental::support::{IncludeEnd, IncrementalParserStrategy}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{FragmentNodeMetadataKey, MetadataAccess, SyntaxElement, SyntaxFragment, SyntaxFragmentBatch, SyntaxNode, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig, PatchAction};
 
 pub mod support;
+pub mod edit_hint;
 
 pub struct Parser {
     scope: EditScope,
-    statements: Vec<SyntaxNode>,
+    edit_hint: edit_hint::EditHint,
     following_statement: Option<SyntaxElement>,
-    replace_from: usize,
     engine: engine_core::Engine,
     metadata_table: Rc<MetadataTable>,
 }
 
 impl Parser {
     pub fn new(old_tree: &SyntaxTree, scope: EditScope, engine: engine_core::Engine) -> Self {
-        let statements = find_edit_statements(old_tree, &scope).collect::<Vec<_>>();
-        let replace_from = statements.first()
-            .map(|stmt| stmt.into_raw().index())
-            .unwrap_or_else(|| {
-                old_tree.metadata_table().index_at_offset(scope.start_char_offset)
-            })
-        ;
-        let eof_statement = old_tree.root().children().skip(replace_from + statements.len()).next();
+        let eof_statement = old_tree.root().children().last();
+        let edit_hint = edit_hint::EditHint::new(old_tree, scope.old_char_range(), eof_statement.as_ref());
 
         Self {
             scope,
-            statements,
+            edit_hint,
             following_statement: eof_statement,
-            replace_from,
             engine,
             metadata_table: old_tree.metadata_table(),
         }
     }
 
     pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<Vec<SyntaxFragmentBatch>, crate::parser::ParseError> {
-        // Determine first statement byte offset
-        let mut global_byte_offset = self.metadata_table.statement_metadata(Some(self.replace_from)).global_offset.of_byte;
+        let replace_from = self.edit_hint.replace_from();
         
+        let new_edit_byte_range = convert_from_utf16_to_byte_range(self.scope.new_char_range(), source);
+
         // Determin scanning byte offset
-        let scan_from = self.metadata_table.statement_metadata(Some(self.replace_from)).global_offset.of_byte;
-        let scan_to = convert_offset_from_utf16_to_byte(self.scope.new_char_range().end, &source).unwrap_or(source.len());
+        let scan_from = self.metadata_table.statement_metadata(Some(replace_from)).global_offset.of_byte;
+        let scan_to = new_edit_byte_range.end;
 
         let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone())?;
 
         let emit_region = self.engine.parsing_rules.statement_emit_config();
-        // enumerate scanners except for over the new byte offset scope.
-        // This includes `EOF` only statement.
-        // And removeing first char must be accept.
-        let mut scanners = scanner.statement_scanners(emit_region.to_symbol)
-            .take_while(|scanner| match scanner.index().cmp(&scan_to) {
-                std::cmp::Ordering::Equal if (scan_to > 0) || source.is_empty() => false,
-                std::cmp::Ordering::Greater => false,
-                _ => true,
-            })
-            .peekable()
-        ;
+        let full_emit_region = self.engine.parsing_rules.full_emit_config();
 
+        // enumerate scanners except for over the new byte offset scope.
+        let scanners = scanner.statement_scanners(emit_region.to_symbol, Some(full_emit_region.to_symbol)).collect::<Vec<_>>();
+
+        let edit_hint::EditHintEval { statements, skip_scanner, replace_from } = self.edit_hint.eval_hint(&scanners, new_edit_byte_range, &emit_region);
         let old_char_range = self.scope.old_char_range();
 
-        // If it prepend the statement, skip a first old statement.
-        let skip_as_prepend = match (old_char_range.start, old_char_range.end, scanners.peek()) {
-            (0, 0, Some(scanner)) => {
-                match scanner.as_view((scan_to.saturating_sub(1))..).lookahead() {
-                    Some(lookahead) if lookahead.main.kind == emit_region.to_symbol => 1,
-                    _ => 0
-                }
-            }
-            _ => 0
-        };
+        // Determine first statement byte offset
+        let mut global_byte_offset = self.metadata_table.statement_metadata(Some(replace_from)).global_offset.of_byte;
 
         // Determine old edit range start
-        let old_token_start = 
-            token_offset_at_scope(self.statements.get(skip_as_prepend), old_char_range.start, self.following_statement.as_ref())
+        let old_token_start = {
+            let first_stmt = statements.first();
+            token_offset_at_scope(first_stmt, old_char_range.start, self.following_statement.as_ref())
             .unwrap_or_default()
-        ;
+        };
         // Determine old edit range end
-        let old_token_end = 
-            token_offset_at_scope(self.statements.iter().skip(skip_as_prepend).last(), old_char_range.end, self.following_statement.as_ref())
+        let old_token_end = {
+            let last_stmt = statements.last();
+            token_offset_at_scope(last_stmt, old_char_range.end, self.following_statement.as_ref())
             .unwrap_or(source.len())
-        ;
+        };
 
         let new_scope_range = old_token_start..scan_to;
         let old_scope_range = old_token_start..old_token_end;
 
-        let stmts = self.statements.iter().skip(skip_as_prepend).map(Some).chain(std::iter::repeat(None));
+        let iter = scanners.into_iter()
+            .skip(skip_scanner)
+            .zip(&statements)
+            .filter(|(s, _)| s.as_view(std::ops::RangeFull).lookahead().is_some())
+        ;
         
         let mut fragments = vec![];
         let mut old_first_fragment_key = None;
 
-        for (stmt_scanner, stmt) in scanners.zip(stmts).filter(|(s, _)| s.as_view(std::ops::RangeFull).lookahead().is_some()) {
+        for (stmt_scanner, stmt) in iter {
             let (new_stmt, new_metadata_entry, new_node_key) = match stmt {
                 Some(stmt) => {
                     let old_stmt_range: std::ops::Range<usize> = stmt.metadata_key().byte_range();
@@ -184,8 +170,8 @@ impl Parser {
 
         let batch = SyntaxFragmentBatch{
             fragments,
-            replace_from: self.replace_from,
-            replace_size: self.statements.iter().skip(skip_as_prepend).count(),
+            replace_from: replace_from,
+            replace_size: statements.into_iter().flatten().count(),
             old_first_fragment_key,
             engine: self.engine.parsing_rules,
         };
@@ -223,33 +209,7 @@ impl EditScope {
     }
 }
 
-pub fn find_edit_statements(old_tree: &SyntaxTree, scope: &EditScope) -> impl Iterator<Item = SyntaxNode> {
-    use crate::syntax_tree::MetadataAccess;
-
-    let (range_from, range_to) = (scope.start_char_offset, scope.start_char_offset + scope.old_char_len);
-
-    old_tree.root().children()
-    .filter_map(|node| match node {
-        crate::syntax_tree::SyntaxElementDef::Node(node) => {
-            Some((node.clone(), node.metadata()))
-        }
-        crate::syntax_tree::SyntaxElementDef::TokenSet(_) => None
-    })
-    .skip_while(move |(_, metadata)| match (metadata.char_offset + metadata.char_len).cmp(&range_from) {
-        std::cmp::Ordering::Equal if metadata.patch != PatchAction::None => false,
-        std::cmp::Ordering::Greater => false,
-        _ => true,
-        // metadata.char_offset + metadata.char_len <= range_from
-    })
-    .take_while(move |(_, metadata)| match metadata.char_offset.cmp(&range_to) {
-        std::cmp::Ordering::Equal if range_to > 0 => false,
-        std::cmp::Ordering::Greater => false,
-        _ => true
-    })
-    .map(|(node, _)| node)
-}
-
-fn convert_offset_from_utf16_to_byte(char_offset: usize, source: &str) -> Option<usize> {
+fn convert_from_utf16_to_byte_offset(char_offset: usize, source: &str) -> Option<usize> {
     let mut current_char_offset = 0;
 
     for (byte_offset, ch) in source.char_indices() {
@@ -263,8 +223,22 @@ fn convert_offset_from_utf16_to_byte(char_offset: usize, source: &str) -> Option
     None
 }
 
-fn token_offset_at_scope(stmt: Option<&SyntaxNode>, char_offset: usize, following_stmt: Option<&SyntaxElement>) -> Option<usize> {
-    stmt.and_then(|stmt| stmt.token_at_utf16_offset(char_offset))
+fn convert_from_utf16_to_byte_range(char_range: std::ops::Range<usize>, source: &str) -> std::ops::Range<usize> {
+    if let Some(from_offset) = convert_from_utf16_to_byte_offset(char_range.start, source) {
+        return match convert_from_utf16_to_byte_offset(char_range.end, &source[from_offset..]) {
+            Some(to_len) => from_offset..(from_offset + to_len),
+            None => from_offset..source.len()
+        }
+    }
+
+    0..source.len()
+}
+fn token_offset_at_scope(stmt: Option<&Option<SyntaxNode>>, char_offset: usize, following_stmt: Option<&SyntaxElement>) -> Option<usize> {
+    let Some(Some(stmt)) = stmt else {
+        return None;
+    };
+
+    stmt.token_at_utf16_offset(char_offset)
         .map(|token| token.metadata_key())
         .or_else(|| following_stmt.map(|stmt| stmt.metadata_key()))
         .map(|key| key.offset)

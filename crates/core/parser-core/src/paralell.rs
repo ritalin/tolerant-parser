@@ -17,7 +17,7 @@ impl Parser {
     pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<SyntaxFragmentBatch, ParseError> {
         let scanner = Scanner::create_without_scan(source, 0, self.engine.scanning_rules.clone())?;
         
-        let scanners = scanner.statement_scanners(self.engine.parsing_rules.statement_emit_config().to_symbol)
+        let scanners = scanner.statement_scanners(self.engine.parsing_rules.statement_emit_config().to_symbol, None)
             .enumerate()   
             .collect::<Vec<_>>()
         ;
@@ -54,7 +54,7 @@ impl Request {
         parse_with_config_internal(&mut self.scanner.as_view(..), &mut dispatcher, &mut tree_builder, &self.config, self.engine, DefaultParserStrategy)?;
         let (node, metadata) = tree_builder.build_branch()?;
 
-        let global_byte_offset = self.scanner.index();
+        let global_byte_offset = self.scanner.scan_range().start;
         let metadata = metadata.into_iter()
             .map(|(key, metadata)| {
                 (key.into_local(global_byte_offset), metadata)
@@ -65,7 +65,7 @@ impl Request {
 
         Ok(
             SyntaxFragment::new(self.seq, node, StatementMetadataEntry{ map: metadata, ..Default::default() }, key)
-            .adjust_byte_offset(self.scanner.index())
+            .adjust_byte_offset(self.scanner.scan_range().start)
         )
     }
 }

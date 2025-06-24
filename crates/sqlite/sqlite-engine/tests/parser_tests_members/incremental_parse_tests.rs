@@ -1,155 +1,5 @@
-use engine_core::SyntaxKind;
-use parser_core::{incremental::EditScope, syntax_tree::SyntaxNode, Parser};
+use parser_core::{incremental::EditScope, Parser};
 use sqlite_engine::syntax_kind;
-
-mod expand_region_tests {
-    use parser_core::syntax_tree::MetadataAccess;
-
-    use super::*;
-
-    fn extend_to_neighbors(scope: std::ops::Range<usize>, root: Option<&SyntaxNode>, except_kind: SyntaxKind) -> std::ops::Range<usize> {
-        let Some(root) = root else { return scope; };
-
-        let adjusted_range = parser_core::incremental::support::adjust_edit_range(&scope, &root.metadata_key().byte_range());
-
-        let gardener = parser_core::incremental::support::TreeGardener::as_subtree(root);
-        let anscestor = gardener.common_anscestor(
-            gardener.pick_token(adjusted_range.start),
-            gardener.pick_token(adjusted_range.end),
-            except_kind
-        ).unwrap();
-        let range: std::ops::Range<usize> = anscestor.node.text_range().into();
-
-        (range.start + anscestor.metadata_entry.global_offset.of_byte)..(range.end + anscestor.metadata_entry.global_offset.of_byte)
-    }
-
-    #[test]
-    fn test_extend_to_neighbor_without_node() -> Result<(), anyhow::Error> {
-        let scope = EditScope {
-            start_char_offset: 11,
-            old_char_len: 23,
-            new_char_len: 34,
-        };
-
-        let new_scope = extend_to_neighbors(scope.old_char_range(), None, syntax_kind::SEMI);
-        assert_eq!(scope.old_char_range(), new_scope);
-        Ok(())
-    }
-
-    #[test]
-    fn test_extend_to_neighbor_for_fitting_node() -> Result<(), anyhow::Error> {
-        let source = "SELECT 101 AS x FROM foo u;";
-        let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
-        let tree = parser.parse(source)?;
-
-        let scope = EditScope{
-            start_char_offset: 0,
-            old_char_len: 27,
-            new_char_len: 27,
-        };
-        let new_scope = extend_to_neighbors(scope.old_char_range(), Some(&tree.root()), syntax_kind::SEMI);
-        assert_eq!(0..27, new_scope);
-        Ok(())
-    }
-
-    #[test]
-    fn test_extend_to_neighbor_for_overall_node() -> Result<(), anyhow::Error> {
-        let source = "SELECT 42;SELECT 101 AS x FROM foo u;SELECT a.b FROM bar;";
-        let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
-        let tree = parser.parse(source)?;
-
-        let scope = EditScope{
-            start_char_offset: 7,
-            old_char_len: 33,
-            new_char_len: 23,
-        };
-        let new_scope = extend_to_neighbors(
-            scope.old_char_range(), 
-            tree.root().nth_child(1).unwrap().to_node().as_ref(),
-            syntax_kind::SEMI
-        );
-        assert_eq!(10..37, new_scope);
-        Ok(())
-    }
-
-    #[test]
-    fn test_extend_to_neighbor_for_inside_node() -> Result<(), anyhow::Error> {
-        let source = "SELECT 42;SELECT 101 AS x FROM foo u;SELECT a.xyz AS v FROM bar;";
-        let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
-        let tree = parser.parse(source)?;
-
-        let scope = EditScope{
-            start_char_offset: 45, // DOT
-            old_char_len: 4,
-            new_char_len: 3,
-        };
-        let new_scope = extend_to_neighbors(
-            scope.old_char_range(),
-            tree.root().nth_child(2).unwrap().to_node().as_ref(),
-            syntax_kind::SEMI
-        );
-        assert_eq!(44..55, new_scope);
-        Ok(())
-    }
-
-    #[test]
-    fn test_extend_to_neighbor_cross_over_2_nodes() -> Result<(), anyhow::Error> {
-        let source = "SELECT 42;SELECT 101 AS x FROM foo u;SELECT a.xyz AS v FROM bar;";
-        let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
-        let tree = parser.parse(source)?;
-
-        let scope = EditScope{
-            start_char_offset: 32,
-            old_char_len: 10,
-            new_char_len: 13,
-        };
-
-        'left_hand: {
-            let new_scope = extend_to_neighbors(
-                scope.old_char_range(),
-                tree.root().nth_child(1).unwrap().to_node().as_ref(),
-                syntax_kind::SEMI
-            );
-            assert_eq!(10..37, new_scope);
-            break 'left_hand;
-        }
-        'right_hand: {
-            let new_scope = extend_to_neighbors(
-                scope.old_char_range(),
-                tree.root().nth_child(2).unwrap().to_node().as_ref(),
-                syntax_kind::SEMI
-            );
-            assert_eq!(37..63, new_scope);
-            break 'right_hand;
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn test_find_edit_statements() -> Result<(), anyhow::Error> {
-        let source = "SELECT 1;SELECT 2;SELECT 3;SELECT 4;SELECT 5;";
-        let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
-        let tree = parser.parse(source)?;
-
-        let scope = EditScope{
-            start_char_offset: 10,
-            old_char_len: 20,
-            new_char_len: 22,
-        };
-
-        let indexes = parser_core::incremental::init_edit_hint(&tree, &scope)
-            .map(|(node, _)| node.into_raw().index())
-            .collect::<Vec<_>>()
-        ;
-        assert_eq!(vec![1,2,3], indexes);
-        Ok(())
-    }
-}
 
 mod incremental_support_tests {
     use parser_core::incremental::support;
@@ -897,6 +747,37 @@ mod parser_tests {
         let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_with_semicolon_after_newline.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_statement_following_incorrent_statement() -> Result<(), anyhow::Error> {
+        let source = ";";
+        let new_source = ";S";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 1,
+            old_char_len: 0,
+            new_char_len: 1,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_following_incorrent_statement.json"))?;
 
         let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
