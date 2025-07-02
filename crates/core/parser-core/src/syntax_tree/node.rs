@@ -97,9 +97,6 @@ impl SyntaxNode {
                 _ => None
             }
         })
-        // self.data.raw.descendants_with_tokens().count()
-
-
     }
 }
 

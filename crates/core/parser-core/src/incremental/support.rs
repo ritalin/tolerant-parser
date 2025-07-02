@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
 use rowan::{NodeOrToken, TextSize};
-use crate::{metadata::{GlobalOffset, StatementMetadataEntry}, syntax_tree::{RowanLangageImpl, SyntaxElement, SyntaxNode, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey};
+use crate::{metadata::{GlobalOffset, StatementMetadataEntry}, syntax_tree::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxElement, SyntaxNode, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey};
 
 #[derive(Clone)]
 pub struct TreeGardener<'a> {
@@ -36,7 +36,7 @@ impl<'a> TreeGardener<'a> {
     }
 
     pub fn common_anscestor(&self, lhs: Option<FoundToken>, rhs: Option<FoundToken>, except_kind: SyntaxKind) -> Option<TreeGardener> {
-        let (Some(lhs), Some(rhs)) = (lhs, rhs) else { return None; };
+        let (Some(lhs), Some(rhs)) = (lhs, rhs) else { return Some(self.clone()); };
         
         // expand left hand token
         let left_neighbor = lhs.into_prev(&self.node, except_kind);
@@ -71,7 +71,11 @@ impl<'a> TreeGardener<'a> {
         };
 
         let full_emit_kind = engine.full_emit_config().to_symbol;
-        let terminate_kind = kind.unwrap_or(full_emit_kind);
+        let terminate_kind = match (kind, token.kind()) {
+            (Some(next_kind), _) => Some(next_kind),
+            (None, kind_id) if kind_id != full_emit_kind.id => Some(full_emit_kind),
+            _ => None,
+        };
 
         IncrementalParserStrategy{ full_emit_kind, terminate_kind }
     }
@@ -132,7 +136,7 @@ impl FoundToken {
 
 pub struct IncrementalParserStrategy {
     full_emit_kind: SyntaxKind,
-    terminate_kind: SyntaxKind,
+    terminate_kind: Option<SyntaxKind>,
 }
 
 impl IncrementalParserStrategy {
@@ -141,19 +145,25 @@ impl IncrementalParserStrategy {
 
         Self {
             full_emit_kind: kind,
-            terminate_kind: kind,
+            terminate_kind: Some(kind),
         }
     }
 }
 
 impl crate::parser::ParseStrategy for IncrementalParserStrategy {
     fn is_terminated_kind(&self, kind: SyntaxKind, scanner: &impl scanner_core::ScannerAccess) -> bool {
-        if self.terminate_kind != self.full_emit_kind {
-            if let Some(token) = scanner.lookahead() {
-                return token.main.kind == self.full_emit_kind;
+        match (self.terminate_kind, scanner.lookahead()) {
+            (Some(terminate_kind), Some(lookahead)) if terminate_kind != self.full_emit_kind => {
+                lookahead.main.kind == self.full_emit_kind
+            }
+            (Some(terminate_kind), _)  => {
+                terminate_kind == kind
+            }
+            (None, _) => {
+                // continue until accepting
+                false
             }
         }
-        self.terminate_kind == kind
     }
 }
 
@@ -275,7 +285,33 @@ fn measure_char_len_internal(node: NodeOrToken<&rowan::GreenNodeData, &rowan::Gr
     }
 }
 
-pub fn find_last_token_set(stmt: &SyntaxNode) -> Option<SyntaxTokenSet> {
+pub fn find_first_token_set(stmt: Option<&SyntaxNode>) -> Option<SyntaxTokenSet> {
+    let Some(stmt) = stmt else {
+        return None;
+    };
+
+    let mut next_node = Some(stmt.clone());
+
+    while let Some(node) = next_node {
+        match node.nth_child(0) {
+            Some(SyntaxElement::Node(node)) => {
+                next_node = Some(node);
+            }
+            Some(SyntaxElement::TokenSet(token_set)) => {
+                return Some(token_set);
+            }
+            None => break
+        }
+    }
+
+    None
+}
+
+pub fn find_last_token_set(stmt: Option<&SyntaxNode>) -> Option<SyntaxTokenSet> {
+    let Some(stmt) = stmt else {
+        return None;
+    };
+
     let mut next_node = Some(stmt.clone());
 
     while let Some(node) = next_node {
@@ -291,4 +327,26 @@ pub fn find_last_token_set(stmt: &SyntaxNode) -> Option<SyntaxTokenSet> {
     }
 
     None
+}
+
+pub fn trim_trivia_char_range(node: &SyntaxNode) -> Option<std::ops::Range<usize>> {
+    let char_range = node.metadata().char_range();
+
+    let first_main_token = node.token_at_utf16_offset(char_range.start)
+        .and_then(|token| token.parent())
+        .map(|token_set| token_set.token())
+    ;
+    let last_main_token = find_first_token_set(Some(node))
+        .map(|token_set| token_set.token())
+    ;
+
+    match (first_main_token, last_main_token) {
+        (Some(lhs), Some(rhs)) => {
+            let start = lhs.metadata().char_range().start;
+            let end = rhs.metadata().char_range().end;
+
+            Some(start..end)
+        }
+        _ => None,
+    }
 }

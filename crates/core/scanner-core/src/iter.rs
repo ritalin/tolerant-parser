@@ -46,7 +46,9 @@ impl<'a> Iterator for LookaheadIterator<'a> {
 }
 
 pub struct StatementScanner {
+    scanner_type: StatementScannerType,
     scan_range: std::ops::Range<usize>,
+    is_full_emit: bool,
     lookaheads: VecDeque<Token>,
 }
 
@@ -77,13 +79,18 @@ impl StatementScanner {
                 (usize::min(i, from), usize::max(i, to))
             })
         ;
+
         let (from, len) = if from == usize::MAX { (0, 0) } else { (from, to - from + 1) };
 
-        crate::scanner::StatementScannerView::new(&self.lookaheads, from, len)
+        crate::scanner::StatementScannerView::new(&self.lookaheads, from, if self.is_full_emit { len + 1 } else { len })
     }
 
     pub fn scan_range(&self) -> std::ops::Range<usize> {
         self.scan_range.clone()
+    }
+
+    pub fn scanner_type(&self) -> StatementScannerType {
+        self.scanner_type.clone()
     }
 }
 
@@ -104,16 +111,20 @@ impl std::fmt::Display for StatementScanner {
     }
 }
 
+#[derive(PartialEq, Clone)]
+pub enum StatementScannerType { Statement, Eof }
+
 pub struct StatementScannerIterator {
     lookaheads: VecDeque<Token>,
     emit_symbol: SyntaxKind,
-    full_emit_symbol: Option<SyntaxKind>,
+    full_emit_symbol: SyntaxKind,
+    next_source_from: usize,
     dispatcher: ScanEventDispatcher,
 }
 
 impl StatementScannerIterator {
-    pub fn new(lookaheads: VecDeque<Token>, dispatcher: ScanEventDispatcher, emit_symbol: SyntaxKind, full_emit_symbol: Option<SyntaxKind>) -> Self {
-        Self { lookaheads, emit_symbol, full_emit_symbol, dispatcher }
+    pub fn new(lookaheads: VecDeque<Token>, dispatcher: ScanEventDispatcher, emit_symbol: SyntaxKind, full_emit_symbol: SyntaxKind) -> Self {
+        Self { lookaheads, emit_symbol, full_emit_symbol, next_source_from: dispatcher.index(), dispatcher }
     }
 }
 
@@ -121,31 +132,47 @@ impl Iterator for StatementScannerIterator {
     type Item = StatementScanner;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let source_from = self.dispatcher.index();
+        let source_from = self.next_source_from;
         let size = crate::scanner::prefetch_internal(self.emit_symbol, &mut self.dispatcher, &mut self.lookaheads);
         if size == 0 {
             return None;
         }
-        let source_to = self.dispatcher.index();
+        let mut is_full_emit = false;
+        self.next_source_from = self.dispatcher.index();
 
-        match (self.lookaheads.front(), self.full_emit_symbol) {
-            (Some(lookahead), Some(symbol)) if lookahead.main.kind == symbol => {
-                // Drop Eof only statement scanner
-                return None;
+        if let Some(lookahead) = self.lookaheads.back() {
+             if (size > 1) && (lookahead.main.kind == self.full_emit_symbol) {
+                // Prefetch is finished without emitting the statement
+                // So To create Eof statement, push back the full emit token to lookahead cache
+                self.lookaheads.push_back(lookahead.clone());
+                self.next_source_from -= 1;
+                is_full_emit = true;
             }
-            _ => {}
         }
 
-        match self.lookaheads.len() == size {
-            true => {
+        match (self.lookaheads.len() == size, self.lookaheads.front()) {
+            (true, Some(lookahead)) if lookahead.main.kind == self.full_emit_symbol => {
+                // Eof only statement scanner
                 Some(StatementScanner {
-                    scan_range: source_from..source_to,
+                    scanner_type: StatementScannerType::Eof,
+                    scan_range: source_from..(source_from + lookahead.token_len()),
+                    is_full_emit: true,
+                    lookaheads: std::mem::take(&mut self.lookaheads)
+                })
+            }
+            (true, _) => {
+                Some(StatementScanner {
+                    scanner_type: StatementScannerType::Statement,
+                    scan_range: source_from..self.next_source_from,
+                    is_full_emit,
                     lookaheads: std::mem::take(&mut self.lookaheads),
                 })
             }
-            false => {
+            (false, _) => {
                 Some(StatementScanner {
-                    scan_range: source_from..source_to,
+                    scanner_type: StatementScannerType::Statement,
+                    scan_range: source_from..self.next_source_from,
+                    is_full_emit,
                     lookaheads: self.lookaheads.drain(0..size).collect()
                 })
             }

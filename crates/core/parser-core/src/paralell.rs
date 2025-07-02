@@ -17,7 +17,10 @@ impl Parser {
     pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<SyntaxFragmentBatch, ParseError> {
         let scanner = Scanner::create_without_scan(source, 0, self.engine.scanning_rules.clone())?;
         
-        let scanners = scanner.statement_scanners(self.engine.parsing_rules.statement_emit_config().to_symbol, None)
+        let emit_symbol = self.engine.parsing_rules.statement_emit_config().to_symbol;
+        let full_emit_symbol = self.engine.parsing_rules.full_emit_config().to_symbol;
+
+        let scanners = scanner.statement_scanners(emit_symbol, full_emit_symbol)
             .enumerate()   
             .collect::<Vec<_>>()
         ;

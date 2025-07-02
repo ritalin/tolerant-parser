@@ -1,255 +1,359 @@
-use engine_core::parser_engine::EmitConfig;
-use scanner_core::iter::StatementScanner;
+use scanner_core::{iter::StatementScanner, ScannerAccess};
+use crate::{incremental::support, syntax_tree::{MetadataAccess, NodeOperation, SyntaxElement, SyntaxNode, SyntaxTree}};
 
-use crate::syntax_tree::{SyntaxElement, SyntaxNode, SyntaxTokenSet, SyntaxTree};
-
-
+/// Contains information about the edit region and its surrounding statements.
+///
+/// This struct is used for incremental re-parsing. It divides the syntax tree into:
+/// - `statements`: the statements that intersect with the edited range.
+/// - `precedings`: up to two statements before the edited range (ordered outer to inner).
+/// - `followings`: up to two statements after the edited range (ordered inner to outer).
+///
+/// Examples:
+/// - If the edit covers `statement#1`, and the full list is `[stmt#0, statement#1, stmt#2, EOF]`:
+///     - `statements = [statement#1]`
+///     - `precedings = [Some(stmt#0)]`
+///     - `followings = [Some(stmt#2)]`
+/// - If the edit is empty and at the end:
+///     - `statements = []`
+///     - `followings = [EOF]`
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub enum EditHint {
-    Prepend{ candidate: SyntaxNode },
-    Append{ candidate: SyntaxNode },
-    Update{ candidates: Vec<SyntaxNode>, replace_from: usize },
-    InsertBetween{ left: SyntaxNode, right: SyntaxNode }
+pub struct EditHint {
+    /// Statements fully or partially covered by the edited range.
+    pub statements: Vec<SyntaxNode>,
+    /// Up to two statements preceding the edited range.
+    pub precedings: [Option<SyntaxNode>; 2], 
+    /// Up to two statements following the edited range.
+    pub followings: [Option<SyntaxNode>; 3],
 }
 
+const FOLLOWING_SIZE: usize = 3;
+
 impl EditHint {
-    pub fn replace_from(&self) -> usize {
-        match self {
-            EditHint::Prepend{ candidate: node } => node.into_raw().index(),
-            EditHint::Append{ candidate: node } => node.into_raw().index(),
-            EditHint::Update{ replace_from, .. } => *replace_from,
-            EditHint::InsertBetween { left: prev, .. } => prev.into_raw().index(),
-        }
+    pub fn scan_from(&self) -> usize {
+        let stmt = self.precedings.iter().flatten().last()
+            .or(self.statements.first())
+            .or(self.followings.first().and_then(|node| node.as_ref()))
+            .expect("At least, `followings.first()` hits at EOF statement")
+        ;
+        stmt.metadata_key().offset
     }
 
-    pub fn new(old_tree: &SyntaxTree, range: std::ops::Range<usize>, eof_statement: Option<&SyntaxElement>) -> Self {
+    pub fn new(old_tree: &SyntaxTree, range: std::ops::Range<usize>) -> Self {
         use crate::syntax_tree::MetadataAccess;
-
-        let eof_statement = eof_statement.and_then(|el| el.to_node());
 
         // Skip out of range statements
         let mut iter = old_tree.root().children()
             .filter_map(|node| match node {
                 crate::syntax_tree::SyntaxElementDef::Node(node) => {
-                    Some((node.clone(), node.metadata()))
+                    Some((node.clone(), node.metadata().char_range()))
                 }
                 crate::syntax_tree::SyntaxElementDef::TokenSet(_) => None
             })
-            .skip_while(move |(_, metadata)| metadata.char_range().end < range.start)
+            .skip_while(move |(_, char_range)| {
+                char_range.end < range.start
+            })
             .peekable()
         ;
 
-        match iter.peek() {
-            None => {
-                Self::Update{ candidates: vec![], replace_from: 0 }
-            }
-            Some((node, _)) if eof_statement.as_ref().zip(Some(node)).filter(|(node, needle)| node == needle).is_some() => {
-                //  If EOF statement
-                Self::Update{ candidates: vec![], replace_from: node.into_raw().index() }
-            }
-            Some((_, metadata)) if (metadata.char_offset + metadata.char_len == range.start) && (range.start == range.end) => {
-                match (iter.next(), iter.next()) {
-                    (Some((prev, _)), Some((next, _))) if eof_statement.as_ref().zip(Some(&next)).filter(|(node, needle)| node == needle).is_some() => {
-                        Self::Append{ candidate: prev.clone() }
+        // pick up precedings
+        let left = 'precedings: {
+            if let Some((stmt, char_range)) = iter.peek() {
+                break 'precedings match char_range.end <= range.start {
+                    true if (char_range.len() > 0) && (range.start > 0) => {
+                        let node = stmt.clone();
+                        iter.next();
+                        Some(SyntaxElement::Node(node))
                     }
-                    (Some((prev, _)), Some((next, _))) => Self::InsertBetween { left: prev.clone(), right: next.clone() },
-                    (Some((prev, _)), None) => Self::Update{ candidates: vec![], replace_from: prev.into_raw().index() }, // same as EOF statement
-                    _ => unreachable!("Peek returned Some, but next was None")
+                    false if char_range.len() > 0 => {
+                        stmt.prev_sibling()
+                    }
+                    _ => None
                 }
             }
-            Some((first_node, _)) if (range.start == range.end) && (range.start == 0) => {
-                Self::Prepend { candidate: first_node.clone() }
-            }
-            Some((first_node, _)) => {
-                let replace_from = first_node.into_raw().index();
-                let nodes = iter
-                    .take_while(|(_, metadata)| {
-                        metadata.char_offset < range.end
-                    })
-                    .map(|(node, _)| node.clone())
-                    .collect::<Vec<_>>()
-                ;
-                Self::Update { candidates: nodes, replace_from }
-            }
-        } 
-    }
+            None
+        };
 
-    pub fn eval_hint(&self, scanners: &Vec<StatementScanner>, new_edit_byte_range: std::ops::Range<usize>, emit_region: &EmitConfig) -> EditHintEval {
-        let mut statements = vec![];
-        let mut skip_scanner = 0;
-        let mut replace_from = self.replace_from(); 
-
-        let scanner_iter = scanners.iter()
-            .take_while(|scanner| match scanner.scan_range().start.cmp(&new_edit_byte_range.end) {
-                std::cmp::Ordering::Equal if (new_edit_byte_range.len() > 0) => false, // For remove word
-                std::cmp::Ordering::Greater => false,
-                _ => true,
+        let precedings = std::iter::successors(left, |node| node.prev_sibling())
+            .take(2)
+            .enumerate()
+            .fold([None, None], |mut acc, (i, node)| {
+                acc[i] = node.to_node();
+                acc
             })
         ;
-
-        match (self, scanners.first()) {
-            (EditHint::Prepend { candidate }, Some(_)) => {
-                for scanner in scanner_iter {
-                    // If it contains the emit symbol, it is inserting statement.
-                    match eval_prepend_hint(scanner, candidate, &new_edit_byte_range, emit_region) {
-                        Some(Some(stmt)) => statements.push(Some(stmt)),
-                        Some(None) => statements.push(None),
-                        None => {}
-                    }
+        
+        // pick up within range
+        let mut statements = vec![];
+        while let Some((stmt, char_range)) = iter.peek() {
+            match ((char_range.start < range.end), (char_range.end > range.start)) {
+                (true, true) => {
+                    statements.push(stmt.clone());
+                    iter.next();
                 }
+                _ => break,
             }
-            (EditHint::Append{ candidate }, Some(_)) => {
-                let end_token_set = super::support::find_last_token_set(candidate);
-
-                for scanner in scanner_iter {
-                    match eval_append_hint(scanner, candidate, end_token_set.as_ref(), &new_edit_byte_range, emit_region) {
-                        Some(Some(stmt)) => {
-                            statements.push(Some(stmt));
-                        }
-                        Some(None) if statements.is_empty() => {
-                            statements.push(None);
-                            skip_scanner += 1;
-                            replace_from += 1;
-                        }
-                        Some(None) => {
-                            statements.push(None)
-                        }
-                        None => {
-                            // out of range
-                        }
-                    }
-                }
-            }
-            (EditHint::InsertBetween { left, right }, Some(_)) => {
-                #[derive(PartialEq)]
-                enum InsertEvalState {
-                    AppendEnabled,
-                    Appending,
-                    PrependEnabled,
-                    Prepending,
-                }
-
-                let left_end_token_set = super::support::find_last_token_set(left);
-                let mut state = InsertEvalState::AppendEnabled;
-
-                for scanner in scanner_iter {
-                    match state {
-                        InsertEvalState::AppendEnabled | InsertEvalState::Appending => {
-                            // eval as append
-                            match eval_append_hint(scanner, left, left_end_token_set.as_ref(), &new_edit_byte_range, emit_region) {
-                                Some(Some(stmt)) => {
-                                    // update statement
-                                    statements.push(Some(stmt));
-                                    state = InsertEvalState::Appending;
-                                }
-                                Some(None) if state == InsertEvalState::Appending => {
-                                    // append new statement
-                                    statements.push(None);
-                                }
-                                _ => {
-                                    // disable to append
-                                    state = InsertEvalState::PrependEnabled;
-                                }
-                            };
-                        }
-                        InsertEvalState::PrependEnabled | InsertEvalState::Prepending => {
-                            // eval as prepend
-                            match eval_prepend_hint(scanner, right, &new_edit_byte_range, emit_region) {
-                                Some(Some(stmt)) => {
-                                    // update statement
-                                    statements.push(Some(stmt));
-                                    state = InsertEvalState::Prepending;
-                                }
-                                Some(None) => {
-                                    // prepend new statement
-                                    statements.push(None);
-                                    state = InsertEvalState::Prepending;
-                                }
-                                None => {}
-                            }
-                        }
-                    }
-                }
-
-                // if accept prepend, shift scanner
-                if state == InsertEvalState::Prepending { 
-                    skip_scanner += 1;
-                    replace_from += 1;
-                };
-            }
-            (EditHint::Update { candidates, .. }, _) => {
-                let scanner_count = scanner_iter.count();
-
-                statements.extend(candidates.iter().cloned().map(Some));
+        }
                 
-                if statements.len() < scanner_count { 
-                    // the statement is splitted
-                    statements.extend(vec![None; scanner_count - statements.len()]) 
-                }
-            }
-            (_, None)  => {
-                // No change
-            }
-        }
+        // pick up followings
+        let right = iter.next().map(|(node, _)| SyntaxElement::Node(node.clone()));
+        let followings = std::iter::successors(right, |node| node.next_sibling())
+            .take(FOLLOWING_SIZE)
+            .enumerate()
+            .fold([const { None }; FOLLOWING_SIZE], |mut acc, (i, node)| {
+                acc[i] = node.to_node();
+                acc
+            })
+        ;
+        
+        Self { statements, precedings, followings }
+    }
 
-        EditHintEval{ statements, skip_scanner, replace_from }
+    pub fn eval_hint(&self, scanners: &[StatementScanner], new_edit_byte_range: std::ops::Range<usize>) -> EditHintEval {
+        let scanners = extend_statement_scanners(scanners, &new_edit_byte_range);
+        let preceding_len = self.precedings.iter().flatten().count();
+        let following_len = self.followings.iter().flatten().count();
+
+        let (skip_scanner, statements) = match find_anchor_index(&self.precedings, &self.followings, &scanners) {
+            EvalState::ForwardScan{ head_anchor: index, tail_anchor: tail_index } => {
+                let scanner_start = preceding_len - index;
+                let scanner_end = scanners.len() - (following_len - tail_index.unwrap_or_default());
+                
+                let statements = eval_hint_internal(
+                    self.precedings[0..=index].iter().flatten().rev()
+                        .chain(self.statements.iter())
+                        .chain(self.followings.iter().flatten().take(tail_index.unwrap_or(following_len)))
+                        .skip(1),
+                    scanners[scanner_start..scanner_end].iter()
+                );
+
+                (scanner_start, statements)
+            }
+            EvalState::ReverseScan{ head_anchor: index, tail_anchor: tail_index, need_skip } if need_skip => {
+                let scanner_start = preceding_len - tail_index.unwrap_or(preceding_len);
+                let scanner_end = scanners.len() - (following_len - index);
+                
+                let mut statements = eval_hint_internal(
+                    self.precedings.iter().flatten().rev()
+                        .chain(self.statements.iter())
+                        .chain(self.followings[0..=index].iter().flatten())
+                        .rev()
+                        .skip(1),
+                    scanners[scanner_start..scanner_end].iter().rev()
+                );
+                statements.reverse();
+                (scanner_start, statements)
+            }
+            EvalState::ReverseScan{ head_anchor: index, tail_anchor: tail_index, .. } => {
+                let scanner_start = tail_index.map(|i| i + 1).unwrap_or_default();
+                let scanner_end = scanners.len();
+                
+                let mut statements = eval_hint_internal(
+                    self.precedings.iter().flatten().rev()
+                        .chain(self.statements.iter())
+                        .chain(self.followings[0..=index].iter().flatten())
+                        .rev(),
+                    scanners[scanner_start..scanner_end].iter().rev()
+                );
+                statements.reverse();
+                (scanner_start, statements)
+            }
+        };
+
+        EditHintEval{ statements, skip_scanner: skip_scanner, replace_from: replace_from(self, skip_scanner) }
     }
 }
 
-fn eval_append_hint(scanner: &StatementScanner, stmt: &SyntaxNode, end_token_set: Option<&SyntaxTokenSet>, edit_scope_range: &std::ops::Range<usize>, emit_region: &EmitConfig) -> Option<Option<SyntaxNode>> {
-    use scanner_core::ScannerAccess;
-    use crate::syntax_tree::MetadataAccess;
+#[derive(PartialEq)]
+enum EvalState {
+    ForwardScan{ head_anchor: usize, tail_anchor: Option<usize> },
+    ReverseScan{ head_anchor: usize, tail_anchor: Option<usize>, need_skip: bool },
+}
 
-    let scan_from = usize::max(scanner.scan_range().start, edit_scope_range.start);
-    let scan_to = usize::min(scanner.scan_range().end, edit_scope_range.end);
+fn extend_statement_scanners<'a>(scanners: &'a [StatementScanner], byte_range: &'a std::ops::Range<usize>) -> Vec<&'a StatementScanner> {
+    let mut result = Vec::with_capacity(scanners.len());
+    let mut iter = scanners.iter().peekable();
+    let mut left = FOLLOWING_SIZE;
 
-    match (scanner.as_view(scan_from..scan_to).lookahead(), end_token_set.as_ref()) {
-        (Some(lookahead), Some(token_set)) if token_set.metadata_key().offset == lookahead.main.offset => {
-            // update prev statement by appending trailing trivia
-            Some(Some(stmt.clone()))
+    while let Some(scanner) = iter.next() {        
+        if scanner.scan_range().end > byte_range.end {
+            if left == 0 { break }
+            left -= 1;
         }
-        (_, Some(token_set)) if (edit_scope_range.len() > 0) && token_set.metadata_key().kind != emit_region.to_symbol => {
-            // update statement but not append
-            Some(Some(stmt.clone()))
+        result.push(scanner);
+    }
+
+    result
+}
+
+fn find_anchor_index(precedings: &[Option<SyntaxNode>], followings: &[Option<SyntaxNode>], scanners: &[&StatementScanner]) -> EvalState {
+    let preceding_anchor = find_preceding_anchor_index(precedings, scanners);
+    let following_anchor = find_following_anchor_index(followings, scanners);
+
+    match (preceding_anchor, following_anchor) {
+        (Some((head_anchor, _)), Some((tail_anchor, _))) => {
+            EvalState::ForwardScan { head_anchor, tail_anchor: Some(tail_anchor) }
         }
-        (Some(_), _) => {
-            Some(None)
+        (None, Some((head_anchor, need_skip))) => {
+            EvalState::ReverseScan{ head_anchor: head_anchor, tail_anchor: None, need_skip }
         }
-        (None, _) => {
-            // out of range
-            None
+        (Some(_), None) => {
+            unreachable!("followings must contain at least EOF and match as anchor")
+        }
+        (None, None) => {
+            unreachable!("followings must contain at least EOF and match as anchor")
         }
     }
 }
 
-fn eval_prepend_hint(scanner: &StatementScanner, stmt: &SyntaxNode, edit_scope_range: &std::ops::Range<usize>, emit_region: &EmitConfig) -> Option<Option<SyntaxNode>> {
-    use scanner_core::ScannerAccess;
+fn find_preceding_anchor_index(siblings: &[Option<SyntaxNode>], scanners: &[&StatementScanner]) -> Option<(usize, bool)> {
+    let end = siblings.iter().flatten().count();
+    let scanners = &scanners[0..end];
 
-    let scan_from = scanner.scan_range().end
-        .min(edit_scope_range.end)
-        .saturating_sub(1)
-    ;
+    for (i, sibling) in siblings.iter().enumerate() {
+        let Some(stmt) = sibling else { continue };
+
+        for scanner in scanners.iter().rev() {
+            if stmt.metadata_key().byte_range() == scanner.scan_range() {
+                return Some((i, true));
+            }
+        }
+    }
     
-    match scanner.as_view(scan_from..).lookahead() {
-        Some(lookahead) if lookahead.main.kind == emit_region.to_symbol => {
-            // prepend statement
-            Some(None)
-        }
-        Some(lookahead) if (edit_scope_range.len() > 0) && lookahead.token_range().contains(&scan_from) => {
-            // update statement 
-            Some(Some(stmt.clone()))
-        }
-        Some(_) | None => {
-            // out of range
-            None
+    None
+}
+
+fn find_following_anchor_index(followings: &[Option<SyntaxNode>], scanners: &[&StatementScanner]) -> Option<(usize, bool)> {
+    let siblings = followings.iter().flatten().collect::<Vec<_>>();
+
+    for i in 0..2 {
+        if (siblings.len() == FOLLOWING_SIZE) && scanners.len() >= FOLLOWING_SIZE {
+            let followings_window = &siblings[i..];
+            let scanners_window = &scanners[..];
+
+            if let Some(index) = match_full(followings_window, scanners_window, i) {
+                return Some((index, true));
+            }
         }
     }
+
+    let followings_window_end = usize::min(siblings.len(), FOLLOWING_SIZE-1);
+    let followings_window = &siblings[0..followings_window_end];
+    let scanners_window = &scanners[..];
+
+    if let Some(index) = match_tail(followings_window, scanners_window) {
+        return Some((index, true));
+    }
+    
+    Some((siblings.len() - 1, false))
+}
+
+fn match_full(followings: &[&SyntaxNode], scanners: &[&StatementScanner], slide: usize) -> Option<usize> {
+    let mut scanner_iter = scanners.iter().rev();
+    
+    for following in followings.iter().rev() {
+        let Some(scanner) = scanner_iter.next() else { break };
+        if ! match_statement(following, scanner) { 
+            return None;
+        }
+    }
+    
+    Some(slide)
+}
+
+fn match_tail(followings: &[&SyntaxNode], scanners: &[&StatementScanner]) -> Option<usize> {
+    let mut best_match = None;
+
+    let mut scanner_iter = scanners.iter().rev();
+    
+    for (i, following) in followings.iter().enumerate().rev() {
+        let Some(scanner) = scanner_iter.next() else { break };
+        if ! match_statement(following, scanner) { break }
+
+        best_match = Some(i);
+    }
+
+    best_match
+}
+
+fn match_statement(stmt: &SyntaxNode, scanner: &StatementScanner) -> bool {
+    if scanner.scan_range().len() != stmt.metadata_key().byte_range().len() { return false }
+    let Some(first_token_set) = support::find_first_token_set(Some(stmt)) else { return false };
+
+    let scanner_view = scanner.as_view(..);
+    let Some(lookahead) = scanner_view.lookahead() else { return false };
+    let mut trivia_nodes = first_token_set.leading_trivia().peekable();
+    
+    match lookahead.leading_trivia.as_ref() {
+        Some(trivias) => {
+            let matched = trivias.iter().all(|new_token| {
+                let node = trivia_nodes.next();
+                let (node_kind, node_value) = node.as_ref()
+                    .map(|node| (Some(node.metadata_key().kind), Some(node.value())))
+                    .unwrap_or((None, None))
+                ;
+
+                (node_kind == Some(new_token.kind)) && (node_value == new_token.value.as_deref())
+            });
+            matched && trivia_nodes.peek().is_none()
+        }
+        None => trivia_nodes.peek().is_none(),
+    }
+}
+
+fn eval_hint_internal<'a>(mut statements: impl Iterator<Item = &'a SyntaxNode>, mut scanners: impl Iterator<Item = &'a &'a StatementScanner>) -> Vec<StatementSlot> {
+    let mut result = Vec::with_capacity(statements.size_hint().0 + scanners.size_hint().0);
+
+    loop {
+        match (statements.next(), scanners.next()) {
+            (Some(stmt), Some(_)) => {
+                result.push(StatementSlot::Replacing { node: stmt.clone() });
+            }
+            (Some(stmt), None) => {
+                result.push(StatementSlot::Deleting { node: stmt.clone() });
+            }
+            (None, Some(_)) => {
+                result.push(StatementSlot::Inserting);
+            }
+            (None, None) => {
+                break;
+            }
+        }
+    }
+    
+    result
+}
+
+fn replace_from(hint: &EditHint, skip: usize) -> usize {
+    let stmt = hint.precedings.iter().flatten().rev()
+        .chain(&hint.statements)
+        .chain(hint.followings.iter().flatten())
+        .skip(skip)
+        .next()
+        .expect("At least, `followings.first()` hits at EOF statement")
+    ;
+    stmt.into_raw().index()
 }
 
 #[derive(PartialEq, Debug)]
 pub struct EditHintEval {
-    pub statements: Vec<Option<SyntaxNode>>,
+    pub statements: Vec<StatementSlot>,
     pub skip_scanner: usize,
     pub replace_from: usize,
 }
 
+#[derive(PartialEq, Debug)]
+pub enum StatementSlot {
+    Replacing{ node: SyntaxNode },
+    Deleting{ node: SyntaxNode },
+    Inserting,
+}
+
+impl StatementSlot {
+    pub fn index(&self) -> Option<usize> {
+        match self {
+            StatementSlot::Replacing { node } => Some(node.into_raw().index()),
+            StatementSlot::Deleting { node } => Some(node.into_raw().index()),
+            StatementSlot::Inserting => None,
+        }
+    }
+}
