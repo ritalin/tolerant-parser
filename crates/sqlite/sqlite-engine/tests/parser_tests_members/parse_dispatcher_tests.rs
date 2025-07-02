@@ -433,7 +433,7 @@ mod dispatcher_support_tests {
         let engine = sqlite_engine::create()?.parsing_rules;
         let mut dispatcher = ParseEventDispatcher::new(0, ParseMode::ByStatement, engine);
         let penalty = RecoveryPenalty{ delete_slot: 0, shift_limit: 0, shift_decay: 0, next_shift_decay: 0, max_shift_packet_size: 0 };
-        let recovery_handler = RecoveryEventDispatcher::new(penalty, engine);
+        let recovery_handler = RecoveryEventDispatcher::new(penalty, &[], engine);
 
         prepare_dispatcher_state(&mut dispatcher, &[
             (syntax_kind::SELECT, 1),

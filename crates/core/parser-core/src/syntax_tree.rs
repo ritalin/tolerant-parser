@@ -87,13 +87,10 @@ impl SyntaxNodeData {
         }
 
         let stmt_symbol = self.engine.statement_emit_config().from_symbol;
-        let stmt = raw.ancestors().skip_while(|node| {
+        raw.ancestors().find_map(|node| {
             let kind = self.engine.from_kind_id(node.kind());
-            kind.id != stmt_symbol.id
+            (kind.id == stmt_symbol.id).then(|| node.index())
         })
-        .next();
-
-        stmt.map(|node| node.index())
     }
 
     pub(crate) fn metadata_with(&self, index: Option<usize>, key: &NodeMetadataKey) -> NodeMetadata {

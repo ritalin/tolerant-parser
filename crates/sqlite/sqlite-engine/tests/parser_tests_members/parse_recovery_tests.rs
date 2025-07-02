@@ -158,6 +158,8 @@ mod delete_recovery_tests {
 
 #[cfg(test)]
 mod shift_recovery_tests {
+    use std::collections::HashSet;
+
     use engine_core::scanner_engine::ScanEvent;
     use parser_core::error_recovery::{shift_recovery::ShiftErrorRecovery, stitch_handler::StitchRecoveryHandler, RecoveryEvent, RecoveryEventPayload, RecoveryPenalty, RecoveryReport};
     use scanner_core::Token;
@@ -186,7 +188,7 @@ mod shift_recovery_tests {
             trailing_trivia: None,
         };
 
-        let mut handler = ShiftErrorRecovery::new(state_histories, penalty, engine.parsing_rules);
+        let mut handler = ShiftErrorRecovery::new(state_histories, penalty, &HashSet::new(), engine.parsing_rules);
         let Some(report) = handler.handle(&lookahead) else {
             panic!("Actual value must be returned");
         };
@@ -217,7 +219,7 @@ mod shift_recovery_tests {
             trailing_trivia: None,
         };
 
-        let mut handler = ShiftErrorRecovery::new(state_histories, penalty, engine.parsing_rules);
+        let mut handler = ShiftErrorRecovery::new(state_histories, penalty, &HashSet::new(), engine.parsing_rules);
         let report = handler.handle(&lookahead);
         assert_eq!(None, report);
         Ok(())
@@ -247,7 +249,7 @@ mod shift_recovery_tests {
             trailing_trivia: None,
         };
 
-        let mut handler = ShiftErrorRecovery::new(state_histories, penalty, engine.parsing_rules);
+        let mut handler = ShiftErrorRecovery::new(state_histories, penalty, &HashSet::new(), engine.parsing_rules);
         let Some(report) = handler.handle(&lookahead) else {
             panic!("Actual value must be returned");
         };
@@ -368,7 +370,7 @@ mod recovery_tests {
             },
         ]);
 
-        let mut handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
+        let mut handler = RecoveryEventDispatcher::new(penalty, &[], engine.parsing_rules);
         let Some(events) = handler.handle_from_history(state_histories, LookaheadIterator::new(&lookaheads, 0, lookaheads.len())) else {
             panic!("Actual value must be returned");
         };
@@ -432,7 +434,7 @@ mod recovery_tests {
             },
         ]);
 
-        let mut handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
+        let mut handler = RecoveryEventDispatcher::new(penalty, &[], engine.parsing_rules);
         let Some(events) = handler.handle_from_history(state_histories, LookaheadIterator::new(&lookaheads, 0, lookaheads.len())) else {
             panic!("Actual value must be returned");
         };
@@ -492,7 +494,7 @@ mod recovery_tests {
             },
         ]);
 
-        let mut handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
+        let mut handler = RecoveryEventDispatcher::new(penalty, &[], engine.parsing_rules);
         let events = handler.handle_from_history(state_histories, LookaheadIterator::new(&lookaheads, 0, lookaheads.len()));
 
         assert_eq!(None, events);
@@ -538,7 +540,7 @@ mod recovery_tests {
             },
         ]);
 
-        let handler = RecoveryEventDispatcher::new(penalty, engine.parsing_rules);
+        let handler = RecoveryEventDispatcher::new(penalty, &[], engine.parsing_rules);
         let events = handler.handle_as_invalid(LookaheadIterator::new(&lookaheads, 0, lookaheads.len()));
 
         let expect_events = vec![

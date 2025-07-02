@@ -36,15 +36,19 @@ impl ParseEventCapture {
             _ => VecDeque::new(),
         };
         let penalty = RecoveryPenalty{ delete_slot: 3, shift_limit: 10, shift_decay: 0, next_shift_decay: 1, max_shift_packet_size: 10 };
-        let stmt_term_kind = engine.parsing_rules.statement_emit_config().to_symbol;
+        let stmt_emit = engine.parsing_rules.statement_emit_config();
+        let recovery_except_kind = match config.mode {
+            ParseMode::ByStatement => vec![stmt_emit.from_symbol],
+            ParseMode::Full => vec![],
+        };
 
         let this = Self { 
             scanner, 
             dispatcher: ParseEventDispatcher::new(0, config.mode.clone(), engine.parsing_rules),
-            recovery_handler: RecoveryEventDispatcher::new(penalty, engine.parsing_rules),
+            recovery_handler: RecoveryEventDispatcher::new(penalty, &recovery_except_kind, engine.parsing_rules),
             config: config,
             event_queue,
-            stmt_term_kind,
+            stmt_term_kind: stmt_emit.to_symbol,
             accepted: false,
         };
 

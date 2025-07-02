@@ -82,10 +82,11 @@ impl SyntaxNode {
     }
 
     pub fn descendant_nodes(&self) -> impl Iterator<Item = SyntaxElement> {
+        let index = self.data.statement_index();
+        
         self.data.raw.descendants()
-        .filter_map(|node| {
+        .filter_map(move |node| {
             let key = NodeMetadataKey::from_raw_node(&node, self.data.engine);
-            let index = self.data.statement_index_raw(&node);
             
             match self.data.metadata_with(index, &key).node_type {
                 NodeType::Node => {
