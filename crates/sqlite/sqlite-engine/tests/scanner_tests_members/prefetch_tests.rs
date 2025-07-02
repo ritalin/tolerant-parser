@@ -205,7 +205,7 @@ mod pregetch_stmt_tests {
         let source = "SELECT * FROM foo;";
         let engine = sqlite_engine::create()?;
         let scanner = Scanner::create(source, 0, engine.scanning_rules)?;
-        let stmt_scanners = scanner.statement_scanners(syntax_kind::SEMI, None).collect::<Vec<_>>();
+        let stmt_scanners = scanner.statement_scanners(syntax_kind::SEMI, syntax_kind::EOF).collect::<Vec<_>>();
         assert_eq!(2, stmt_scanners.len());
 
         'prefetch: {
@@ -219,7 +219,7 @@ mod pregetch_stmt_tests {
             // EOF only
             let mut view = stmt_scanners[1].as_view(0..30);
             let iter = view.prefetch_iter(syntax_kind::SEMI);
-            assert_eq!(1, iter.len());
+            assert_eq!(2, iter.len());
             assert_eq!(1, iter.count());
             break 'prefetch;
         }
@@ -231,7 +231,7 @@ mod pregetch_stmt_tests {
         let source = "SELECT * FROM foo;";
         let engine = sqlite_engine::create()?;
         let scanner = Scanner::create(source, 0, engine.scanning_rules)?;
-        let stmt_scanners = scanner.statement_scanners(syntax_kind::SEMI, None).collect::<Vec<_>>();
+        let stmt_scanners = scanner.statement_scanners(syntax_kind::SEMI, syntax_kind::EOF).collect::<Vec<_>>();
         assert_eq!(2, stmt_scanners.len());
 
         'prefetch: {
@@ -249,8 +249,8 @@ mod pregetch_stmt_tests {
             // EOF only
             let mut view = stmt_scanners[1].as_view(7..10);
             let iter = view.prefetch_iter(syntax_kind::SEMI);
-            assert_eq!(0, iter.len());
-            assert_eq!(0, iter.count());
+            assert_eq!(1, iter.len());
+            assert_eq!(1, iter.count());
             break 'prefetch;
         }
 
@@ -262,7 +262,7 @@ mod pregetch_stmt_tests {
         let source = "SELECT * FROM foo;SELECT 42;";
         let engine = sqlite_engine::create()?;
         let scanner = Scanner::create(source, 0, engine.scanning_rules)?;
-        let stmt_scanners = scanner.statement_scanners(syntax_kind::SEMI, None).collect::<Vec<_>>();
+        let stmt_scanners = scanner.statement_scanners(syntax_kind::SEMI, syntax_kind::EOF).collect::<Vec<_>>();
         assert_eq!(3, stmt_scanners.len());
 
         'prefetch: {
@@ -292,8 +292,8 @@ mod pregetch_stmt_tests {
             // EOF only
             let mut view = stmt_scanners[2].as_view(10..26);
             let iter = view.prefetch_iter(syntax_kind::SEMI);
-            assert_eq!(0, iter.len());
-            assert_eq!(0, iter.count());
+            assert_eq!(1, iter.len());
+            assert_eq!(1, iter.count());
             break 'prefetch;
         }
 
@@ -305,7 +305,7 @@ mod pregetch_stmt_tests {
         let source = "SELECT * FROM foo;SELECT 42;  SELECT 'foo' FROM x;";
         let engine = sqlite_engine::create()?;
         let scanner = Scanner::create(source, 0, engine.scanning_rules)?;
-        let stmt_scanners = scanner.statement_scanners(syntax_kind::SEMI, None).collect::<Vec<_>>();
+        let stmt_scanners = scanner.statement_scanners(syntax_kind::SEMI, syntax_kind::EOF).collect::<Vec<_>>();
         assert_eq!(4, stmt_scanners.len());
 
         'prefetch: {
