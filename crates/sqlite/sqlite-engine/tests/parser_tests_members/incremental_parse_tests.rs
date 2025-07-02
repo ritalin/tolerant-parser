@@ -444,6 +444,40 @@ mod parser_tests {
     }
 
     #[test]
+    fn test_parse_insert_changining_full() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;SELECT 2;";
+        let new_source = "SELECT 11;SELECT 22;";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
+        assert_eq!(source, rebuilded_source);
+
+        let scope = EditScope{
+            start_char_offset: 0,
+            old_char_len: 18,
+            new_char_len: 20,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_insert_changining_full.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_parse_split_statement_on_inserting_semicolon() -> Result<(), anyhow::Error> {
         let source = "SELECT 1 AS x;";
         let new_source = "SELECT 1 AS y; SELECT 2 AS x;";
@@ -509,7 +543,7 @@ mod parser_tests {
     }
 
     #[test]
-    fn test_parse_broken_keyword_by_removing_first() -> Result<(), anyhow::Error> {
+    fn test_parse_broken_keyword_by_removing_first_char() -> Result<(), anyhow::Error> {
         let source = "SELECT";
         let new_source = "ELECT";
 
@@ -529,7 +563,7 @@ mod parser_tests {
 
         let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
         let new_tree = tree.apply_batches(batches);
-        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_broken_keyword_by_removing_first.json"))?;
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_broken_keyword_by_removing_first_char.json"))?;
 
         let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
@@ -602,6 +636,37 @@ mod parser_tests {
     }
 
     #[test]
+    fn test_parse_statement_by_appending_leading_trivia() -> Result<(), anyhow::Error> {
+        let source = "SELECT 42";
+        let new_source = "SELECT 42/* Answer to the Ultimate Question of Life, the Universe, and Everything */";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 9,
+            old_char_len: 0,
+            new_char_len: 75,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_appending_leading_trivia.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_parse_statement_by_dropping_semicolon() -> Result<(), anyhow::Error> {
         let source = "SELECT 42;";
         let new_source = "SELECT 42";
@@ -623,6 +688,286 @@ mod parser_tests {
         let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_semicolon.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_statement_by_dropping_first_statement() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;SELECT 42;";
+        let new_source = "SELECT 42;";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 0,
+            old_char_len: 9,
+            new_char_len: 0,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_first_statement.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_statement_by_dropping_first_statement_without_trailing_trivia() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;\nSELECT 42;";
+        let new_source = "\nSELECT 42;";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 0,
+            old_char_len: 9,
+            new_char_len: 0,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_first_statement_without_trailing_trivia.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_statement_by_dropping_first_statement_without_leading_trivia() -> Result<(), anyhow::Error> {
+        let source = "/* comment */SELECT 1;\nSELECT 2;\n";
+        let new_source = "/* comment */SELECT 2;\n";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 13,
+            old_char_len: 10,
+            new_char_len: 0,
+        };
+
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_first_statement_without_leading_trivia.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_statement_by_dropping_middle_statement() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;\nSELECT 2;\nSELECT 3;\nSELECT 4;\n";
+        let new_source = "SELECT 1;\nSELECT 4;\n";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 10,
+            old_char_len: 20,
+            new_char_len: 0,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_middle_statement.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_statement_by_dropping_middle_statement_without_trailing_trivia() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;\nSELECT 2;\nSELECT 3;\nSELECT 4;\n";
+        let new_source = "SELECT 1;\n\nSELECT 4;\n";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 10,
+            old_char_len: 19,
+            new_char_len: 0,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_middle_statement_without_trailing_trivia.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_statement_by_dropping_middle_statement_without_leading_trivia() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;\n/* comment */SELECT 2;\nSELECT 3;\nSELECT 4;\n";
+        let new_source = "SELECT 1;\n/* comment */\nSELECT 4;\n";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 23,
+            old_char_len: 19,
+            new_char_len: 0,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_middle_statement_without_leading_trivia.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_statement_by_dropping_last_statement() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;\nSELECT 2;\nSELECT 3;\nSELECT 4;\n";
+        let new_source = "SELECT 1;\nSELECT 2;\n";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 20,
+            old_char_len: 20,
+            new_char_len: 0,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_last_statement.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_statement_by_dropping_last_statement_without_trailing_trivia() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;\nSELECT 2;\nSELECT 3;\nSELECT 4;\n";
+        let new_source = "SELECT 1;\nSELECT 2;\n\n";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 20,
+            old_char_len: 19,
+            new_char_len: 0,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_last_statement_without_trailing_trivia.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_statement_by_dropping_last_statement_without_leading_trivia() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;\n/* comment */SELECT 2;\nSELECT 3;\nSELECT 4;\n";
+        let new_source = "SELECT 1;\n/* comment */";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 23,
+            old_char_len: 30,
+            new_char_len: 0,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_last_statement_without_leading_trivia.json"))?;
 
         let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);

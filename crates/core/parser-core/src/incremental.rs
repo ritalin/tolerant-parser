@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 use engine_core::parser_engine::ParsingRuleSet;
-use scanner_core::{Scanner, ScannerAccess, StatementScannerView};
-use crate::{event_dispatcher::ParseEventDispatcher, incremental::{edit_hint::StatementSlot, support::{IncludeEnd, IncrementalParserStrategy}}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{FragmentNodeMetadataKey, MetadataAccess, SyntaxElement, SyntaxFragment, SyntaxFragmentBatch, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig, PatchAction};
+use scanner_core::{Scanner, StatementScannerView};
+use crate::{event_dispatcher::ParseEventDispatcher, incremental::{edit_hint::SlotEvent, support::{IncludeEnd, IncrementalParserStrategy}}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{FragmentNodeMetadataKey, MetadataAccess, SyntaxElement, SyntaxFragment, SyntaxFragmentBatch, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig, PatchAction};
 
 pub mod support;
 pub mod edit_hint;
@@ -42,42 +42,20 @@ impl Parser {
 
         // enumerate scanners except for over the new byte offset scope.
         let scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
-
-        let edit_hint::EditHintEval { statements, skip_scanner, replace_from } = self.edit_hint.eval_hint(&scanners, new_edit_byte_range);
-        let old_char_range = self.scope.old_char_range();
+        let slots = self.edit_hint.eval_hint(scanners, new_edit_byte_range.clone());
 
         // Determine first statement byte offset
-        let mut global_byte_offset = self.metadata_table.statement_metadata(Some(replace_from)).global_offset.of_byte;
+        let mut global_byte_offset = self.metadata_table.statement_metadata(Some(slots.replace_from)).global_offset.of_byte;
 
-        // Determine old edit range start
-        let old_token_start = {
-            let first_stmt = statements.first();
-            token_offset_at_scope(first_stmt, old_char_range.start, self.following_statement.as_ref())
-            .unwrap_or_default()
-        };
-        // Determine old edit range end
-        let old_token_end = {
-            let last_stmt = statements.last();
-            token_offset_at_scope(last_stmt, old_char_range.end, self.following_statement.as_ref())
-            .unwrap_or(source.len())
-        };
-
-        let new_scope_range = old_token_start..scan_to;
-        let old_scope_range = old_token_start..old_token_end;
-
-        let mut statement_iter = statements.iter();
-        let mut scanner_iter = scanners.into_iter()
-            .skip(skip_scanner)
-            .filter(|s| s.as_view(std::ops::RangeFull).lookahead().is_some())
-            .peekable()
-        ;
+        let old_scope_range = slots.replace_byte_range.unwrap_or_else(|| 0..source.len());
+        let new_scope_range = old_scope_range.start..scan_to;
         
         let mut fragments = vec![];
         let mut old_first_fragment_key = None;
 
-        while let (Some(stmt_scanner), Some(stmt)) = (scanner_iter.peek(), statement_iter.next()) {
-            let (new_stmt, new_metadata_entry, new_node_key) = match stmt {
-                StatementSlot::Replacing {node: stmt } => {
+        for event in &slots.events {
+            let (new_stmt, new_metadata_entry, new_node_key) = match event {
+                SlotEvent::Replacing {node: stmt, scanner: stmt_scanner } => {
                     let old_stmt_range: std::ops::Range<usize> = stmt.metadata_key().byte_range();
                     let stmt_edit_range = support::adjust_edit_range(
                         if new_scope_range.clone().include_end().contains(&old_stmt_range.end) { &new_scope_range } else { &old_scope_range },
@@ -106,7 +84,7 @@ impl Parser {
                     let mut range: std::ops::Range<usize> = common_anscestor.node.text_range().into();
                     (range.start, range.end) = (range.start + global_byte_offset, range.end + global_byte_offset);
                     
-                    let strategy = common_anscestor.pick_terminate_kind(self.engine.parsing_rules);
+                    let strategy = common_anscestor.pick_terminate_kind(stmt_scanner.scanner_type(), self.engine.parsing_rules);
 
                     let scanner_view = stmt_scanner.as_view(range.start..);
                     let old_metadata_map = common_anscestor.metadata_entry;
@@ -133,11 +111,10 @@ impl Parser {
                         global_byte_offset, metadata.char_offset,
                         self.engine.parsing_rules
                     );
-                    scanner_iter.next(); // consume iterator
 
                     (new_stmt, metadata_entry, new_key)
                 }
-                StatementSlot::Inserting => {
+                SlotEvent::Inserting { scanner: stmt_scanner } => {
                     let scanner_view = stmt_scanner.as_view(std::ops::RangeFull);
                     let strategy = IncrementalParserStrategy::default_strategy(self.engine.parsing_rules);
 
@@ -158,11 +135,10 @@ impl Parser {
                         0, // Because always global_char_offset = 0 in the statement
                         self.engine.parsing_rules
                     );
-                    scanner_iter.next(); // consume iterator
 
                     (new_stmt.clone(), metadata_entry, new_key)
                 }
-                StatementSlot::Deleting{ .. } => {
+                SlotEvent::Deleting{ .. } => {
                     // no parse action
                     // Note that it does not consume iterator
                     continue;
@@ -174,14 +150,14 @@ impl Parser {
             fragments.push(SyntaxFragment::new(fragments.len(), new_stmt, new_metadata_entry, new_node_key))
         }
 
-        let replace_size = statements.into_iter()
-            .filter(|slot| matches!(slot, StatementSlot::Replacing{..} | StatementSlot::Deleting{..}))
+        let replace_size = slots.events.into_iter()
+            .filter(|slot| matches!(slot, SlotEvent::Replacing{..} | SlotEvent::Deleting{..}))
             .count()
         ;
 
         let batch = SyntaxFragmentBatch{
             fragments,
-            replace_from: replace_from,
+            replace_from: slots.replace_from,
             replace_size,
             old_first_fragment_key,
             engine: self.engine.parsing_rules,
@@ -243,17 +219,6 @@ fn convert_from_utf16_to_byte_range(char_range: std::ops::Range<usize>, source: 
     }
 
     0..source.len()
-}
-fn token_offset_at_scope(slot: Option<&StatementSlot>, char_offset: usize, following_stmt: Option<&SyntaxElement>) -> Option<usize> {
-    let stmt = match slot {
-        Some(StatementSlot::Replacing { node } | StatementSlot::Deleting { node }) => node,
-        Some(StatementSlot::Inserting) | None => return None,
-    };
-
-    stmt.token_at_utf16_offset(char_offset)
-        .map(|token| token.metadata_key())
-        .or_else(|| following_stmt.map(|stmt| stmt.metadata_key()))
-        .map(|key| key.offset)
 }
 
 fn parse_internal(

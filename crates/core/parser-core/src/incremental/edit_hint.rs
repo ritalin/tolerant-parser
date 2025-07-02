@@ -108,12 +108,12 @@ impl EditHint {
         Self { statements, precedings, followings }
     }
 
-    pub fn eval_hint(&self, scanners: &[StatementScanner], new_edit_byte_range: std::ops::Range<usize>) -> EditHintEval {
+    pub fn eval_hint(&self, scanners: Vec<StatementScanner>, new_edit_byte_range: std::ops::Range<usize>) -> EditHintSlots {
         let scanners = extend_statement_scanners(scanners, &new_edit_byte_range);
         let preceding_len = self.precedings.iter().flatten().count();
         let following_len = self.followings.iter().flatten().count();
 
-        let (skip_scanner, statements) = match find_anchor_index(&self.precedings, &self.followings, &scanners) {
+        let (skip_scanner, events) = match find_anchor_index(&self.precedings, &self.followings, &scanners) {
             EvalState::ForwardScan{ head_anchor: index, tail_anchor: tail_index } => {
                 let scanner_start = preceding_len - index;
                 let scanner_end = scanners.len() - (following_len - tail_index.unwrap_or_default());
@@ -123,7 +123,8 @@ impl EditHint {
                         .chain(self.statements.iter())
                         .chain(self.followings.iter().flatten().take(tail_index.unwrap_or(following_len)))
                         .skip(1),
-                    scanners[scanner_start..scanner_end].iter()
+                    // scanners[scanner_start..scanner_end].into_iter()
+                    scanners.into_iter().skip(scanner_start).take(scanner_end - scanner_start).rev()
                 );
 
                 (scanner_start, statements)
@@ -138,7 +139,7 @@ impl EditHint {
                         .chain(self.followings[0..=index].iter().flatten())
                         .rev()
                         .skip(1),
-                    scanners[scanner_start..scanner_end].iter().rev()
+                    scanners.into_iter().skip(scanner_start).take(scanner_end - scanner_start).rev()
                 );
                 statements.reverse();
                 (scanner_start, statements)
@@ -152,14 +153,21 @@ impl EditHint {
                         .chain(self.statements.iter())
                         .chain(self.followings[0..=index].iter().flatten())
                         .rev(),
-                    scanners[scanner_start..scanner_end].iter().rev()
+                    // scanners[scanner_start..scanner_end].into_iter().rev()
+                    scanners.into_iter().skip(scanner_start).take(scanner_end - scanner_start).rev()
                 );
                 statements.reverse();
                 (scanner_start, statements)
             }
         };
 
-        EditHintEval{ statements, skip_scanner: skip_scanner, replace_from: replace_from(self, skip_scanner) }
+        let replace_from_range = extract_replace_range(&events);
+
+        EditHintSlots{ 
+            events, 
+            replace_from: replace_from(self, skip_scanner), 
+            replace_byte_range: replace_from_range,
+        }
     }
 }
 
@@ -169,9 +177,9 @@ enum EvalState {
     ReverseScan{ head_anchor: usize, tail_anchor: Option<usize>, need_skip: bool },
 }
 
-fn extend_statement_scanners<'a>(scanners: &'a [StatementScanner], byte_range: &'a std::ops::Range<usize>) -> Vec<&'a StatementScanner> {
+fn extend_statement_scanners(scanners: Vec<StatementScanner>, byte_range: &std::ops::Range<usize>) -> Vec<StatementScanner> {
     let mut result = Vec::with_capacity(scanners.len());
-    let mut iter = scanners.iter().peekable();
+    let mut iter = scanners.into_iter();
     let mut left = FOLLOWING_SIZE;
 
     while let Some(scanner) = iter.next() {        
@@ -185,13 +193,16 @@ fn extend_statement_scanners<'a>(scanners: &'a [StatementScanner], byte_range: &
     result
 }
 
-fn find_anchor_index(precedings: &[Option<SyntaxNode>], followings: &[Option<SyntaxNode>], scanners: &[&StatementScanner]) -> EvalState {
+fn find_anchor_index(precedings: &[Option<SyntaxNode>], followings: &[Option<SyntaxNode>], scanners: &[StatementScanner]) -> EvalState {
     let preceding_anchor = find_preceding_anchor_index(precedings, scanners);
     let following_anchor = find_following_anchor_index(followings, scanners);
 
     match (preceding_anchor, following_anchor) {
-        (Some((head_anchor, _)), Some((tail_anchor, _))) => {
+        (Some((head_anchor, _)), Some((tail_anchor, need_skip))) if need_skip => {
             EvalState::ForwardScan { head_anchor, tail_anchor: Some(tail_anchor) }
+        }
+        (Some((head_anchor, _)), Some((tail_anchor, _))) => {
+            EvalState::ForwardScan { head_anchor, tail_anchor: Some(tail_anchor + 1) }
         }
         (None, Some((head_anchor, need_skip))) => {
             EvalState::ReverseScan{ head_anchor: head_anchor, tail_anchor: None, need_skip }
@@ -205,7 +216,7 @@ fn find_anchor_index(precedings: &[Option<SyntaxNode>], followings: &[Option<Syn
     }
 }
 
-fn find_preceding_anchor_index(siblings: &[Option<SyntaxNode>], scanners: &[&StatementScanner]) -> Option<(usize, bool)> {
+fn find_preceding_anchor_index(siblings: &[Option<SyntaxNode>], scanners: &[StatementScanner]) -> Option<(usize, bool)> {
     let end = siblings.iter().flatten().count();
     let scanners = &scanners[0..end];
 
@@ -222,11 +233,11 @@ fn find_preceding_anchor_index(siblings: &[Option<SyntaxNode>], scanners: &[&Sta
     None
 }
 
-fn find_following_anchor_index(followings: &[Option<SyntaxNode>], scanners: &[&StatementScanner]) -> Option<(usize, bool)> {
+fn find_following_anchor_index(followings: &[Option<SyntaxNode>], scanners: &[StatementScanner]) -> Option<(usize, bool)> {
     let siblings = followings.iter().flatten().collect::<Vec<_>>();
 
-    for i in 0..2 {
-        if (siblings.len() == FOLLOWING_SIZE) && scanners.len() >= FOLLOWING_SIZE {
+    if (siblings.len() == FOLLOWING_SIZE) && scanners.len() >= FOLLOWING_SIZE {
+        for i in 0..2 {
             let followings_window = &siblings[i..];
             let scanners_window = &scanners[..];
 
@@ -247,7 +258,7 @@ fn find_following_anchor_index(followings: &[Option<SyntaxNode>], scanners: &[&S
     Some((siblings.len() - 1, false))
 }
 
-fn match_full(followings: &[&SyntaxNode], scanners: &[&StatementScanner], slide: usize) -> Option<usize> {
+fn match_full(followings: &[&SyntaxNode], scanners: &[StatementScanner], slide: usize) -> Option<usize> {
     let mut scanner_iter = scanners.iter().rev();
     
     for following in followings.iter().rev() {
@@ -260,7 +271,7 @@ fn match_full(followings: &[&SyntaxNode], scanners: &[&StatementScanner], slide:
     Some(slide)
 }
 
-fn match_tail(followings: &[&SyntaxNode], scanners: &[&StatementScanner]) -> Option<usize> {
+fn match_tail(followings: &[&SyntaxNode], scanners: &[StatementScanner]) -> Option<usize> {
     let mut best_match = None;
 
     let mut scanner_iter = scanners.iter().rev();
@@ -300,19 +311,19 @@ fn match_statement(stmt: &SyntaxNode, scanner: &StatementScanner) -> bool {
     }
 }
 
-fn eval_hint_internal<'a>(mut statements: impl Iterator<Item = &'a SyntaxNode>, mut scanners: impl Iterator<Item = &'a &'a StatementScanner>) -> Vec<StatementSlot> {
+fn eval_hint_internal<'a>(mut statements: impl Iterator<Item = &'a SyntaxNode>, mut scanners: impl Iterator<Item = StatementScanner>) -> Vec<SlotEvent> {
     let mut result = Vec::with_capacity(statements.size_hint().0 + scanners.size_hint().0);
 
     loop {
         match (statements.next(), scanners.next()) {
-            (Some(stmt), Some(_)) => {
-                result.push(StatementSlot::Replacing { node: stmt.clone() });
+            (Some(stmt), Some(scanner)) => {
+                result.push(SlotEvent::Replacing { node: stmt.clone(), scanner });
             }
             (Some(stmt), None) => {
-                result.push(StatementSlot::Deleting { node: stmt.clone() });
+                result.push(SlotEvent::Deleting { node: stmt.clone() });
             }
-            (None, Some(_)) => {
-                result.push(StatementSlot::Inserting);
+            (None, Some(scanner)) => {
+                result.push(SlotEvent::Inserting { scanner });
             }
             (None, None) => {
                 break;
@@ -334,26 +345,39 @@ fn replace_from(hint: &EditHint, skip: usize) -> usize {
     stmt.into_raw().index()
 }
 
+fn extract_replace_range(slots: &[SlotEvent]) -> Option<std::ops::Range<usize>> {
+    let start = slots.iter().find_map(|slot| match slot {
+        SlotEvent::Replacing { node, .. } | SlotEvent::Deleting { node } => Some(node.metadata_key().offset),
+        SlotEvent::Inserting { .. } => None,
+    });
+    let end = slots.iter().rev().find_map(|slot| match slot {
+        SlotEvent::Replacing { node, .. } | SlotEvent::Deleting { node } => Some(node.metadata_key().byte_range().end),
+        SlotEvent::Inserting { .. } => None,
+    });
+
+    start.zip(end).map(|(start, end)| start..end)
+}
+
 #[derive(PartialEq, Debug)]
-pub struct EditHintEval {
-    pub statements: Vec<StatementSlot>,
-    pub skip_scanner: usize,
+pub struct EditHintSlots {
+    pub events: Vec<SlotEvent>,
     pub replace_from: usize,
+    pub replace_byte_range: Option<std::ops::Range<usize>>,
 }
 
 #[derive(PartialEq, Debug)]
-pub enum StatementSlot {
-    Replacing{ node: SyntaxNode },
+pub enum SlotEvent {
+    Replacing{ node: SyntaxNode, scanner: StatementScanner },
     Deleting{ node: SyntaxNode },
-    Inserting,
+    Inserting{ scanner: StatementScanner },
 }
 
-impl StatementSlot {
+impl SlotEvent {
     pub fn index(&self) -> Option<usize> {
         match self {
-            StatementSlot::Replacing { node } => Some(node.into_raw().index()),
-            StatementSlot::Deleting { node } => Some(node.into_raw().index()),
-            StatementSlot::Inserting => None,
+            SlotEvent::Replacing { node, .. } => Some(node.into_raw().index()),
+            SlotEvent::Deleting { node } => Some(node.into_raw().index()),
+            SlotEvent::Inserting { .. } => None,
         }
     }
 }

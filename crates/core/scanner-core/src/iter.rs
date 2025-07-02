@@ -45,6 +45,7 @@ impl<'a> Iterator for LookaheadIterator<'a> {
     }
 }
 
+#[derive(PartialEq, Debug)]
 pub struct StatementScanner {
     scanner_type: StatementScannerType,
     scan_range: std::ops::Range<usize>,
@@ -111,7 +112,7 @@ impl std::fmt::Display for StatementScanner {
     }
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum StatementScannerType { Statement, Eof }
 
 pub struct StatementScannerIterator {

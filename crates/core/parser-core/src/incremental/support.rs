@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
 use rowan::{NodeOrToken, TextSize};
+use scanner_core::iter::StatementScannerType;
 use crate::{metadata::{GlobalOffset, StatementMetadataEntry}, syntax_tree::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxElement, SyntaxNode, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey};
 
 #[derive(Clone)]
@@ -62,22 +63,22 @@ impl<'a> TreeGardener<'a> {
         })
     }
 
-    pub fn pick_terminate_kind(&self, engine: ParsingRuleSet) -> IncrementalParserStrategy {
-        let token = self.node.last_token().unwrap();
-        
-        let kind = match token.next_token() {
-            Some(neighbor) => neighbor.parent().map(|x| engine.from_kind_id(x.kind())),
-            None => None
-        };
-
+    pub fn pick_terminate_kind(&self, scanner_type: StatementScannerType, engine: ParsingRuleSet) -> IncrementalParserStrategy {
         let full_emit_kind = engine.full_emit_config().to_symbol;
-        let terminate_kind = match (kind, token.kind()) {
-            (Some(next_kind), _) => Some(next_kind),
-            (None, kind_id) if kind_id != full_emit_kind.id => Some(full_emit_kind),
-            _ => None,
-        };
 
-        IncrementalParserStrategy{ full_emit_kind, terminate_kind }
+        match scanner_type {
+            StatementScannerType::Statement => {
+                let next_kind = self.node.last_token().and_then(|x| x.next_token()).map(|x| x.kind());
+                let terminate_kind = match next_kind {
+                    Some(kind) => Some(engine.from_kind_id(kind)),
+                    None => Some(full_emit_kind),
+                };
+                IncrementalParserStrategy{ full_emit_kind, terminate_kind }
+            }
+            StatementScannerType::Eof => {
+                IncrementalParserStrategy{ full_emit_kind, terminate_kind: None }
+            }
+        }
     }
 
     pub fn replace_with_new_node(
