@@ -457,6 +457,62 @@ mod edit_hint_eval_tests {
     }
 
     #[test]
+    fn test_eval_edit_hint_for_remove_from_new_line_only() -> Result<(), anyhow::Error> {
+        let source = "\n\n";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "\n";
+        let scope = EditScope{
+            start_char_offset: 1,
+            old_char_len: 1,
+            new_char_len: 0,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range());
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
+        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+
+        assert_eq!(vec![Some(0)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(0, result.replace_from);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_edit_hint_for_append_line_comment_after_statement() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;\n-";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "SELECT 1;\n--";
+        let scope = EditScope{
+            start_char_offset: 11,
+            old_char_len: 0,
+            new_char_len: 1,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range());
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
+        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+
+        assert_eq!(vec![Some(1), Some(2)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(1, result.replace_from);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_eval_edit_hint_for_no_append() -> Result<(), anyhow::Error> {
         let source = "SELECT 1";
         let engine = sqlite_engine::create()?;
@@ -1027,4 +1083,33 @@ mod edit_hint_eval_tests {
         assert_eq!(0, result.replace_from);
         Ok(())
     }
+
+    #[test]
+    fn test_eval_edit_hint_for_remove_line_comment_after_statement() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;\n--#1\n--#2";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "SELECT 1;\n-\n--#2";
+        let scope = EditScope{
+            start_char_offset: 11,
+            old_char_len: 3,
+            new_char_len: 0,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range());
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
+        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+
+        assert_eq!(vec![None, Some(1)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(1, result.replace_from);
+
+        Ok(())
+    }
+
 }

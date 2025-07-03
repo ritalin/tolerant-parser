@@ -1,4 +1,4 @@
-use scanner_core::{iter::StatementScanner, ScannerAccess};
+use scanner_core::{iter::{StatementScanner, StatementScannerType}, ScannerAccess};
 use crate::{incremental::support, syntax_tree::{MetadataAccess, NodeOperation, SyntaxElement, SyntaxNode, SyntaxTree}};
 
 /// Contains information about the edit region and its surrounding statements.
@@ -86,7 +86,7 @@ impl EditHint {
         let mut statements = vec![];
         while let Some((stmt, char_range)) = iter.peek() {
             match ((char_range.start < range.end), (char_range.end > range.start)) {
-                (true, true) => {
+                (true, true) if stmt.next_sibling().is_some() => {
                     statements.push(stmt.clone());
                     iter.next();
                 }
@@ -129,7 +129,7 @@ impl EditHint {
                 (scanner_start, statements)
             }
             EvalState::ReverseScan{ head_anchor: index, tail_anchor: tail_index, need_skip } if need_skip => {
-                let scanner_start = preceding_len - tail_index.unwrap_or(preceding_len);
+                let scanner_start = tail_index.map(|i| preceding_len - i).unwrap_or_default();
                 let scanner_end = scanners.len() - (following_len - index);
                 
                 let mut statements = eval_hint_internal(
@@ -144,11 +144,11 @@ impl EditHint {
                 (scanner_start, statements)
             }
             EvalState::ReverseScan{ head_anchor: index, tail_anchor: tail_index, .. } => {
-                let scanner_start = tail_index.map(|i| i + 1).unwrap_or_default();
+                let scanner_start = tail_index.map(|i| preceding_len - i).unwrap_or_default();
                 let scanner_end = scanners.len();
                 
                 let mut statements = eval_hint_internal(
-                    self.precedings.iter().flatten().rev()
+                    self.precedings[0..(tail_index.unwrap_or(preceding_len))].iter().flatten().rev()
                         .chain(self.statements.iter())
                         .chain(self.followings[0..=index].iter().flatten())
                         .rev(),
@@ -200,7 +200,7 @@ fn find_anchor_index(precedings: &[Option<SyntaxNode>], followings: &[Option<Syn
             EvalState::ForwardScan { head_anchor, tail_anchor: Some(tail_anchor) }
         }
         (Some((head_anchor, _)), Some((tail_anchor, _))) => {
-            EvalState::ForwardScan { head_anchor, tail_anchor: Some(tail_anchor + 1) }
+            EvalState::ReverseScan{ head_anchor: tail_anchor, tail_anchor: Some(head_anchor), need_skip: false }
         }
         (None, Some((head_anchor, need_skip))) => {
             EvalState::ReverseScan{ head_anchor: head_anchor, tail_anchor: None, need_skip }
@@ -222,7 +222,7 @@ fn find_preceding_anchor_index(siblings: &[Option<SyntaxNode>], scanners: &[Stat
         let Some(stmt) = sibling else { continue };
 
         for scanner in scanners.iter().rev() {
-            if stmt.metadata_key().byte_range() == scanner.scan_range() {
+            if (scanner.scanner_type() == StatementScannerType::Statement) && (stmt.metadata_key().byte_range() == scanner.scan_range()) {
                 return Some((i, true));
             }
         }
