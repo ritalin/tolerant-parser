@@ -16,10 +16,14 @@ export function initialize(element: HTMLDivElement) {
         const startTime = performance.now();
 
         if (tree === null) {
+            console.log("[FULL]");
+
             tree = p.parse(editor.value);
             fullParseTime.textContent = `${performance.now() - startTime}msec`
         }
         else {
+            console.log(`[INCL] startOffset: ${offset}, oldLen: ${oldLen}, newLen: ${newLen} }`);
+
             tree = p.incremental(tree, [{
                 startOffset: offset,
                 oldLen: oldLen,
