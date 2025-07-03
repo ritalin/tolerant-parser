@@ -145,8 +145,9 @@ impl Iterator for StatementScannerIterator {
              if (size > 1) && (lookahead.main.kind == self.full_emit_symbol) {
                 // Prefetch is finished without emitting the statement
                 // So To create Eof statement, push back the full emit token to lookahead cache
+                let token_len = lookahead.token_len();
                 self.lookaheads.push_back(lookahead.clone());
-                self.next_source_from -= 1;
+                self.next_source_from -= token_len + 1;
                 is_full_emit = true;
             }
         }

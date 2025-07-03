@@ -267,7 +267,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![None], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![None], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(9..18)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(1, result.replace_from);
         Ok(())
     }
@@ -293,7 +294,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![None, None], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![None, None], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(9..18), Some(18..27), ], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(1, result.replace_from);
         Ok(())
     }
@@ -319,7 +321,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(0)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0..9)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
         Ok(())
     }
@@ -345,7 +348,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(0)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0..9)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
         Ok(())
     }
@@ -371,7 +375,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(0)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0..10)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
         Ok(())
     }
@@ -397,7 +402,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(0)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0..9)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
         Ok(())
     }
@@ -423,8 +429,9 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(0), Some(1)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
-        assert_eq!(0, result.replace_from);
+        assert_eq!(vec![Some(1)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(8..21)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
+        assert_eq!(1, result.replace_from);
         Ok(())
     }
 
@@ -450,7 +457,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(0)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0..2)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
 
         Ok(())
@@ -478,7 +486,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(0)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0..1)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
 
         Ok(())
@@ -506,7 +515,37 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(1), Some(2)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(1), Some(2)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![None, Some(10..12)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
+        assert_eq!(1, result.replace_from);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_edit_hint_for_append_line_comment_after_statement_2() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;\nSELECT 2;\n\n";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let new_source = "SELECT 1;\nSELECT 2;\n-\n";
+        let scope = EditScope{
+            start_char_offset: 20,
+            old_char_len: 0,
+            new_char_len: 1,
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range());
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
+        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+
+        assert_eq!(vec![Some(1), None], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(10..20), Some(20..22)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(1, result.replace_from);
 
         Ok(())
@@ -533,7 +572,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(Vec::<Option<usize>>::new(), result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(Vec::<Option<usize>>::new(), result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(Vec::<Option<std::ops::Range<usize>>>::new(), result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(1, result.replace_from);
         Ok(())
     }
@@ -559,7 +599,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![None], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![None], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0..9)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
         Ok(())
    }
@@ -585,8 +626,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![None, None], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
-        assert_eq!(0, result.replace_from);
+        assert_eq!(vec![None, None], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0..10), Some(10..19)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         Ok(())
    }
 
@@ -611,7 +652,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(0)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0..10)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
         Ok(())
     }
@@ -637,7 +679,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(0)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0..31)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
         Ok(())
     }
@@ -663,7 +706,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![None, None, Some(0)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![None, None, Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0..11), Some(11..22), Some(22..53)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
         Ok(())
     }
@@ -689,7 +733,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(Vec::<Option<usize>>::new(), result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(Vec::<Option<usize>>::new(), result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(Vec::<Option<std::ops::Range<usize>>>::new(), result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
         Ok(())
     }
@@ -715,7 +760,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![None, None], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![None, None], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(18..29), Some(29..40)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(2, result.replace_from);
         Ok(())
     }
@@ -741,7 +787,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(1)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(1)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(9..19)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(1, result.replace_from);
         Ok(())
     }
@@ -767,7 +814,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(2)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(2)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(18..43)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(2, result.replace_from);
         Ok(())
     }
@@ -793,7 +841,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(2)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(2)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(18..49)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(2, result.replace_from);
         Ok(())
     }
@@ -819,7 +868,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(Vec::<Option<usize>>::new(), result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(Vec::<Option<usize>>::new(), result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(Vec::<Option<std::ops::Range<usize>>>::new(), result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(1, result.replace_from);
         Ok(())
     }
@@ -845,7 +895,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(1)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(1)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(9..19)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(1, result.replace_from);
         Ok(())
     }
@@ -871,7 +922,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(1), Some(2), Some(3)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(1), Some(2), Some(3)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(9..19), Some(19..29), Some(29..39)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(1, result.replace_from);
         Ok(())
     }
@@ -897,14 +949,15 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![None, None, Some(0)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![None, None, Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0..9), Some(9..18), Some(18..27)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
         Ok(())
     }
 
     #[test]
     fn test_eval_edit_hint_for_update_by_merging() -> Result<(), anyhow::Error> {
-        let source = "SELECT 4;SELECT 3;SELECT 2";
+        let source = "SELECT 4;SELECT 3;SELECT 2;";
         let engine = sqlite_engine::create()?;
         let parser = Parser::new(engine.clone());
         let tree = parser.parse(source)?;
@@ -923,7 +976,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(0), Some(1), Some(2)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0), Some(1), Some(2)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![None, None, Some(0..10)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
         Ok(())
     }
@@ -949,7 +1003,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![None, Some(0)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![None, Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0..15), Some(15..29)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
         Ok(())
     }
@@ -975,7 +1030,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(1), Some(2)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(1), Some(2)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![None, None], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(1, result.replace_from);
         Ok(())
     }
@@ -1001,7 +1057,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(0), Some(1), Some(2)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0), Some(1), Some(2)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![None, None, Some(0..11)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
         Ok(())
     }
@@ -1027,7 +1084,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(1), Some(2), Some(3), Some(4)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(1), Some(2), Some(3), Some(4)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![None, None, None, Some(10..23)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(1, result.replace_from);
         Ok(())
     }
@@ -1053,7 +1111,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(0), Some(1), Some(2)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0), Some(1), Some(2)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![None, None, None], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
         Ok(())
     }
@@ -1079,7 +1138,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![Some(0)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(0..8)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(0, result.replace_from);
         Ok(())
     }
@@ -1106,7 +1166,8 @@ mod edit_hint_eval_tests {
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
-        assert_eq!(vec![None, Some(1)], result.events.into_iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![None, Some(1)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
+        assert_eq!(vec![Some(10..12), Some(12..16)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
         assert_eq!(1, result.replace_from);
 
         Ok(())

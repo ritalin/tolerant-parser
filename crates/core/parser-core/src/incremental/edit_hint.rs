@@ -114,23 +114,25 @@ impl EditHint {
         let following_len = self.followings.iter().flatten().count();
 
         let (skip_scanner, events) = match find_anchor_index(&self.precedings, &self.followings, &scanners) {
-            EvalState::ForwardScan{ head_anchor: index, tail_anchor: tail_index } => {
+            EvalState::ForwardScan{ head_anchor: index, tail_anchor: tail_index, tail_window_size } => {
+                let tail_window_size = if self.statements.is_empty() && (following_len != tail_window_size) { following_len } else { tail_window_size };
                 let scanner_start = preceding_len - index;
-                let scanner_end = scanners.len() - (following_len - tail_index.unwrap_or_default());
+                // let scanner_end = scanners.len() - (following_len - tail_index.unwrap_or_default());
+                let scanner_end = scanners.len() - tail_index.map(|i| tail_window_size - i).unwrap_or_default();
                 
                 let statements = eval_hint_internal(
                     self.precedings[0..=index].iter().flatten().rev()
                         .chain(self.statements.iter())
                         .chain(self.followings.iter().flatten().take(tail_index.unwrap_or(following_len)))
                         .skip(1),
-                    scanners.into_iter().skip(scanner_start).take(scanner_end - scanner_start).rev()
+                    scanners.into_iter().skip(scanner_start).take(scanner_end - scanner_start)
                 );
 
                 (scanner_start, statements)
             }
-            EvalState::ReverseScan{ head_anchor: index, tail_anchor: tail_index, need_skip } if need_skip => {
+            EvalState::ReverseScan{ head_anchor: index, tail_anchor: tail_index, need_skip , tail_window_size: window_size} if need_skip => {
                 let scanner_start = tail_index.map(|i| preceding_len - i).unwrap_or_default();
-                let scanner_end = scanners.len() - (following_len - index);
+                let scanner_end = scanners.len() - (window_size - index);
                 
                 let mut statements = eval_hint_internal(
                     self.precedings.iter().flatten().rev()
@@ -171,8 +173,8 @@ impl EditHint {
 
 #[derive(PartialEq)]
 enum EvalState {
-    ForwardScan{ head_anchor: usize, tail_anchor: Option<usize> },
-    ReverseScan{ head_anchor: usize, tail_anchor: Option<usize>, need_skip: bool },
+    ForwardScan{ head_anchor: usize, tail_anchor: Option<usize>, tail_window_size: usize },
+    ReverseScan{ head_anchor: usize, tail_anchor: Option<usize>, tail_window_size: usize, need_skip: bool },
 }
 
 fn extend_statement_scanners(scanners: Vec<StatementScanner>, byte_range: &std::ops::Range<usize>) -> Vec<StatementScanner> {
@@ -196,14 +198,14 @@ fn find_anchor_index(precedings: &[Option<SyntaxNode>], followings: &[Option<Syn
     let following_anchor = find_following_anchor_index(followings, scanners);
 
     match (preceding_anchor, following_anchor) {
-        (Some((head_anchor, _)), Some((tail_anchor, need_skip))) if need_skip => {
-            EvalState::ForwardScan { head_anchor, tail_anchor: Some(tail_anchor) }
+        (Some((head_anchor, _)), Some((tail_anchor, need_skip, window_size))) if need_skip => {
+            EvalState::ForwardScan { head_anchor, tail_anchor: Some(tail_anchor), tail_window_size: window_size }
         }
-        (Some((head_anchor, _)), Some((tail_anchor, _))) => {
-            EvalState::ReverseScan{ head_anchor: tail_anchor, tail_anchor: Some(head_anchor), need_skip: false }
+        (Some((head_anchor, _)), Some((tail_anchor, _, window_size))) => {
+            EvalState::ReverseScan{ head_anchor: tail_anchor, tail_anchor: Some(head_anchor), need_skip: false, tail_window_size: window_size }
         }
-        (None, Some((head_anchor, need_skip))) => {
-            EvalState::ReverseScan{ head_anchor: head_anchor, tail_anchor: None, need_skip }
+        (None, Some((head_anchor, need_skip, window_size))) => {
+            EvalState::ReverseScan{ head_anchor: head_anchor, tail_anchor: None, need_skip, tail_window_size: window_size }
         }
         (Some(_), None) => {
             unreachable!("followings must contain at least EOF and match as anchor")
@@ -231,7 +233,7 @@ fn find_preceding_anchor_index(siblings: &[Option<SyntaxNode>], scanners: &[Stat
     None
 }
 
-fn find_following_anchor_index(followings: &[Option<SyntaxNode>], scanners: &[StatementScanner]) -> Option<(usize, bool)> {
+fn find_following_anchor_index(followings: &[Option<SyntaxNode>], scanners: &[StatementScanner]) -> Option<(usize, bool, usize)> {
     let siblings = followings.iter().flatten().collect::<Vec<_>>();
 
     if (siblings.len() == FOLLOWING_SIZE) && scanners.len() >= FOLLOWING_SIZE {
@@ -240,7 +242,7 @@ fn find_following_anchor_index(followings: &[Option<SyntaxNode>], scanners: &[St
             let scanners_window = &scanners[..];
 
             if let Some(index) = match_full(followings_window, scanners_window, i) {
-                return Some((index, true));
+                return Some((index, true, followings_window.len()));
             }
         }
     }
@@ -250,10 +252,10 @@ fn find_following_anchor_index(followings: &[Option<SyntaxNode>], scanners: &[St
     let scanners_window = &scanners[..];
 
     if let Some(index) = match_tail(followings_window, scanners_window) {
-        return Some((index, true));
+        return Some((index, true, followings_window_end));
     }
     
-    Some((siblings.len() - 1, false))
+    Some((siblings.len() - 1, false, siblings.len()))
 }
 
 fn match_full(followings: &[&SyntaxNode], scanners: &[StatementScanner], slide: usize) -> Option<usize> {
@@ -376,6 +378,14 @@ impl SlotEvent {
             SlotEvent::Replacing { node, .. } => Some(node.into_raw().index()),
             SlotEvent::Deleting { node } => Some(node.into_raw().index()),
             SlotEvent::Inserting { .. } => None,
+        }
+    }
+
+    pub fn scanner(&self) -> Option<&StatementScanner> {
+        match self {
+            SlotEvent::Replacing { scanner, .. } => Some(&scanner),
+            SlotEvent::Deleting { .. } => None,
+            SlotEvent::Inserting { scanner } => Some(&scanner),
         }
     }
 }
