@@ -218,10 +218,9 @@ impl SyntaxTreeBuilder {
             return Err(NodeBuildError::EmptyTree);
         };
         let metadata = HashMap::from_iter(self.all_metadata_map.into_iter()
-            .map(|(_, (_, metadata, key))| {
-                (key, metadata)}
-            ));
-
+            .map(|(_, (_, metadata, key))| (key, metadata)))
+        ;
+        
         Ok((node.clone(), metadata))
     }
 }
@@ -358,7 +357,6 @@ fn create_node(
     active_index: ActiveIndex,
     metadata_map: &mut HashMap<NodeId, (ActiveIndex, NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenNode)
 {
-    let id = next_node_id();
     let (child_ids, mut child_nodes) = pop_node_from_stack(element_stack, pop_count);
     
     remap_alternative_symbol(&mut child_nodes, metadata_map, &child_ids, kind, engine);
@@ -372,6 +370,7 @@ fn create_node(
         edit_state: state, node_type: NodeType::Node, patch,
         char_offset, char_len,
     };
+    let id = next_node_id();
     metadata_map.insert(id, (active_index, metadata, key));
     
     (id, node)

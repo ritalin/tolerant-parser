@@ -1131,4 +1131,35 @@ mod parser_tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_parse_incorrect_identifier_removing_word() -> Result<(), anyhow::Error> {
+        let source = "/* こめ";
+        let new_source = "/* こ";
+
+        let engine = sqlite_engine::create()?;
+        let parser = Parser::new(engine.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 4,
+            old_char_len: 1,
+            new_char_len: 0,
+        };
+        let config = ParserConfig{
+            mode: ParseMode::ByStatement,
+            penalty: RecoveryPenalty::default(),
+        };
+
+        let batches = parser.incremental(&tree, scope).parse_with_config(new_source, config)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_incorrect_identifier_removing_word.json"))?;
+
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
+
+        test_support::verify(new_tree.root(), &expect_node);
+
+        Ok(())
+    }
 }

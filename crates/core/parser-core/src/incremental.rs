@@ -198,6 +198,7 @@ impl EditScope {
 
 fn convert_from_utf16_to_byte_offset(char_len: usize, source: &str) -> Option<usize> {
     let mut current_char_offset = 0;
+    let mut last_byte_offset = 0;
 
     for (byte_offset, ch) in source.char_indices() {
         if current_char_offset == char_len { return Some(byte_offset); }
@@ -205,9 +206,10 @@ fn convert_from_utf16_to_byte_offset(char_len: usize, source: &str) -> Option<us
         current_char_offset += ch.len_utf16();
         // if over current_char_offset, middle of surrogate pair
         if current_char_offset > char_len { return Some(byte_offset); }
+        last_byte_offset = byte_offset;
     }
 
-    Some(current_char_offset)
+    Some(last_byte_offset)
 }
 
 fn convert_from_utf16_to_byte_range(char_range: std::ops::Range<usize>, source: &str) -> std::ops::Range<usize> {
