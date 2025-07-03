@@ -163,22 +163,177 @@ pub mod exports {
         unsafe impl _rt::WasmResource for Parser{
           #[inline]
           unsafe fn drop(_handle: u32) {
-            #[cfg(not(target_arch = "wasm32"))]
-            unreachable!();
-
+            
             #[cfg(target_arch = "wasm32")]
-            {
-              #[link(wasm_import_module = "[export]ritalin:parser/parsers@0.0.1")]
-              unsafe extern "C" {
-                #[link_name = "[resource-drop]parser"]
-                fn drop(_: u32);
-              }
-
-              unsafe { drop(_handle) };
+            #[link(wasm_import_module = "[export]ritalin:parser/parsers@0.0.1")]
+            unsafe extern "C" {
+              #[link_name = "[resource-drop]parser"]
+              fn drop(_: i32, );
             }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            unsafe extern "C" fn drop(_: i32, ) { unreachable!() }
+            
+            unsafe { drop(_handle as i32); }
           }
         }
         
+
+        #[derive(Debug)]
+        #[repr(transparent)]
+        pub struct IncrementalParser{
+          handle: _rt::Resource<IncrementalParser>,
+        }
+
+        type _IncrementalParserRep<T> = Option<T>;
+
+        impl IncrementalParser{
+          /// Creates a new resource from the specified representation.
+          ///
+          /// This function will create a new resource handle by moving `val` onto
+          /// the heap and then passing that heap pointer to the component model to
+          /// create a handle. The owned handle is then returned as `IncrementalParser`.
+          pub fn new<T: GuestIncrementalParser>(val: T) -> Self {
+            Self::type_guard::<T>();
+            let val: _IncrementalParserRep<T> = Some(val);
+            let ptr: *mut _IncrementalParserRep<T> =
+            _rt::Box::into_raw(_rt::Box::new(val));
+            unsafe {
+              Self::from_handle(T::_resource_new(ptr.cast()))
+            }
+          }
+
+          /// Gets access to the underlying `T` which represents this resource.
+          pub fn get<T: GuestIncrementalParser>(&self) -> &T {
+            let ptr = unsafe { &*self.as_ptr::<T>() };
+            ptr.as_ref().unwrap()
+          }
+
+          /// Gets mutable access to the underlying `T` which represents this
+          /// resource.
+          pub fn get_mut<T: GuestIncrementalParser>(&mut self) -> &mut T {
+            let ptr = unsafe { &mut *self.as_ptr::<T>() };
+            ptr.as_mut().unwrap()
+          }
+
+          /// Consumes this resource and returns the underlying `T`.
+          pub fn into_inner<T: GuestIncrementalParser>(self) -> T {
+            let ptr = unsafe { &mut *self.as_ptr::<T>() };
+            ptr.take().unwrap()
+          }
+
+          #[doc(hidden)]
+          pub unsafe fn from_handle(handle: u32) -> Self {
+            Self {
+              handle: unsafe { _rt::Resource::from_handle(handle) },
+            }
+          }
+
+          #[doc(hidden)]
+          pub fn take_handle(&self) -> u32 {
+            _rt::Resource::take_handle(&self.handle)
+          }
+
+          #[doc(hidden)]
+          pub fn handle(&self) -> u32 {
+            _rt::Resource::handle(&self.handle)
+          }
+
+          // It's theoretically possible to implement the `GuestIncrementalParser` trait twice
+          // so guard against using it with two different types here.
+          #[doc(hidden)]
+          fn type_guard<T: 'static>() {
+            use core::any::TypeId;
+            static mut LAST_TYPE: Option<TypeId> = None;
+            unsafe {
+              assert!(!cfg!(target_feature = "atomics"));
+              let id = TypeId::of::<T>();
+              match LAST_TYPE {
+                Some(ty) => assert!(ty == id, "cannot use two types with this resource type"),
+                None => LAST_TYPE = Some(id),
+              }
+            }
+          }
+
+          #[doc(hidden)]
+          pub unsafe fn dtor<T: 'static>(handle: *mut u8) {
+            Self::type_guard::<T>();
+            let _ = unsafe { _rt::Box::from_raw(handle as *mut _IncrementalParserRep<T>) };
+          }
+
+          fn as_ptr<T: GuestIncrementalParser>(&self) -> *mut _IncrementalParserRep<T> {
+            IncrementalParser::type_guard::<T>();
+            T::_resource_rep(self.handle()).cast()
+          }
+        }
+
+        /// A borrowed version of [`IncrementalParser`] which represents a borrowed value
+        /// with the lifetime `'a`.
+        #[derive(Debug)]
+        #[repr(transparent)]
+        pub struct IncrementalParserBorrow<'a> {
+          rep: *mut u8,
+          _marker: core::marker::PhantomData<&'a IncrementalParser>,
+        }
+
+        impl<'a> IncrementalParserBorrow<'a>{
+          #[doc(hidden)]
+          pub unsafe fn lift(rep: usize) -> Self {
+            Self {
+              rep: rep as *mut u8,
+              _marker: core::marker::PhantomData,
+            }
+          }
+
+          /// Gets access to the underlying `T` in this resource.
+          pub fn get<T: GuestIncrementalParser>(&self) -> &T {
+            let ptr = unsafe { &mut *self.as_ptr::<T>() };
+            ptr.as_ref().unwrap()
+          }
+
+          // NB: mutable access is not allowed due to the component model allowing
+          // multiple borrows of the same resource.
+
+          fn as_ptr<T: 'static>(&self) -> *mut _IncrementalParserRep<T> {
+            IncrementalParser::type_guard::<T>();
+            self.rep.cast()
+          }
+        }
+        
+
+        unsafe impl _rt::WasmResource for IncrementalParser{
+          #[inline]
+          unsafe fn drop(_handle: u32) {
+            
+            #[cfg(target_arch = "wasm32")]
+            #[link(wasm_import_module = "[export]ritalin:parser/parsers@0.0.1")]
+            unsafe extern "C" {
+              #[link_name = "[resource-drop]incremental-parser"]
+              fn drop(_: i32, );
+            }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            unsafe extern "C" fn drop(_: i32, ) { unreachable!() }
+            
+            unsafe { drop(_handle as i32); }
+          }
+        }
+        
+        #[repr(C)]
+        #[derive(Clone, Copy)]
+        pub struct EditScope {
+          /// editing start offset (UTF-16 code unit base)
+          pub start_offset: u32,
+          /// before editing length (UTF-16 code units)
+          pub old_len: u32,
+          /// after editing length (UTF-16 code units)
+          pub new_len: u32,
+        }
+        impl ::core::fmt::Debug for EditScope {
+          fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("EditScope").field("start-offset", &self.start_offset).field("old-len", &self.old_len).field("new-len", &self.new_len).finish()
+          }
+        }
         #[doc(hidden)]
         #[allow(non_snake_case, unused_unsafe)]
         pub unsafe fn _export_create_cabi<T: Guest>() -> i32 { unsafe {#[cfg(target_arch="wasm32")]
@@ -197,96 +352,175 @@ pub mod exports {
       };
       (result1).take_handle() as i32
     } }
-    pub trait Guest {
-      type Parser: GuestParser;
-      /// create new parser instance
-      #[allow(async_fn_in_trait)]
-      fn create() -> Parser;
-    }
-    pub trait GuestParser: 'static {
-
-      #[doc(hidden)]
-      unsafe fn _resource_new(val: *mut u8) -> u32
-      where Self: Sized
-      {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-          let _ = val;
-          unreachable!();
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        {
-          #[link(wasm_import_module = "[export]ritalin:parser/parsers@0.0.1")]
-          unsafe extern "C" {
-            #[link_name = "[resource-new]parser"]
-            fn new(_: *mut u8) -> u32;
-          }
-          unsafe { new(val) }
-        }
-      }
-
-      #[doc(hidden)]
-      fn _resource_rep(handle: u32) -> *mut u8
-      where Self: Sized
-      {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-          let _ = handle;
-          unreachable!();
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        {
-          #[link(wasm_import_module = "[export]ritalin:parser/parsers@0.0.1")]
-          unsafe extern "C" {
-            #[link_name = "[resource-rep]parser"]
-            fn rep(_: u32) -> *mut u8;
-          }
-          unsafe {
-            rep(handle)
-          }
-        }
-      }
-
-      
-      /// execute to parse souce content
-      #[allow(async_fn_in_trait)]
-      fn parse(&self,source: _rt::String,) -> SyntaxTree;
-    }
     #[doc(hidden)]
-    #[macro_export]
-    macro_rules! __export_ritalin_parser_parsers_0_0_1_cabi{
-      ($ty:ident with_types_in $($path_to_types:tt)*) => (const _: () = {
+    #[allow(non_snake_case, unused_unsafe)]
+    pub unsafe fn _export_method_parser_incremental_cabi<T: GuestParser>(arg0: *mut u8,arg1: i32,arg2: *mut u8,arg3: usize,) -> i32 { unsafe {#[cfg(target_arch="wasm32")]
+    _rt::run_ctors_once();let result1 = {
+      let len0 = arg3;
+      T::incremental(ParserBorrow::lift(arg0 as u32 as usize).get(), super::super::super::super::__with_name1::SyntaxTree::from_handle(arg1 as u32), _rt::Vec::from_raw_parts(arg2.cast(), len0, len0))
+    };
+    (result1).take_handle() as i32
+  } }
+  #[doc(hidden)]
+  #[allow(non_snake_case, unused_unsafe)]
+  pub unsafe fn _export_method_incremental_parser_parse_cabi<T: GuestIncrementalParser>(arg0: *mut u8,arg1: *mut u8,arg2: usize,) -> i32 { unsafe {#[cfg(target_arch="wasm32")]
+  _rt::run_ctors_once();let result1 = {
+    let len0 = arg2;
+    let bytes0 = _rt::Vec::from_raw_parts(arg1.cast(), len0, len0);
+    T::parse(IncrementalParserBorrow::lift(arg0 as u32 as usize).get(), _rt::string_lift(bytes0))
+  };
+  (result1).take_handle() as i32
+} }
+pub trait Guest {
+  type Parser: GuestParser;
+  type IncrementalParser: GuestIncrementalParser;
+  /// create new parser instance
+  #[allow(async_fn_in_trait)]
+  fn create() -> Parser;
+}
+pub trait GuestParser: 'static {
 
-        #[unsafe(export_name = "ritalin:parser/parsers@0.0.1#create")]
-        unsafe extern "C" fn export_create() -> i32 {
-          unsafe { $($path_to_types)*::_export_create_cabi::<$ty>() }
-        }
-        #[unsafe(export_name = "ritalin:parser/parsers@0.0.1#[method]parser.parse")]
-        unsafe extern "C" fn export_method_parser_parse(arg0: *mut u8,arg1: *mut u8,arg2: usize,) -> i32 {
-          unsafe { $($path_to_types)*::_export_method_parser_parse_cabi::<<$ty as $($path_to_types)*::Guest>::Parser>(arg0, arg1, arg2) }
-        }
-
-        const _: () = {
-          #[doc(hidden)]
-          #[unsafe(export_name = "ritalin:parser/parsers@0.0.1#[dtor]parser")]
-          #[allow(non_snake_case)]
-          unsafe extern "C" fn dtor(rep: *mut u8) {
-            unsafe {
-              $($path_to_types)*::Parser::dtor::<
-              <$ty as $($path_to_types)*::Guest>::Parser
-              >(rep)
-            }
-          }
-        };
-        
-      };);
+  #[doc(hidden)]
+  unsafe fn _resource_new(val: *mut u8) -> u32
+  where Self: Sized
+  {
+    
+    #[cfg(target_arch = "wasm32")]
+    #[link(wasm_import_module = "[export]ritalin:parser/parsers@0.0.1")]
+    unsafe extern "C" {
+      #[link_name = "[resource-new]parser"]
+      fn new(_: *mut u8, ) -> i32;
     }
-    #[doc(hidden)]
-    pub use __export_ritalin_parser_parsers_0_0_1_cabi;
 
+    #[cfg(not(target_arch = "wasm32"))]
+    unsafe extern "C" fn new(_: *mut u8, ) -> i32 { unreachable!() }
+    
+    unsafe { new(val) as u32 }
   }
+
+  #[doc(hidden)]
+  fn _resource_rep(handle: u32) -> *mut u8
+  where Self: Sized
+  {
+    
+    #[cfg(target_arch = "wasm32")]
+    #[link(wasm_import_module = "[export]ritalin:parser/parsers@0.0.1")]
+    unsafe extern "C" {
+      #[link_name = "[resource-rep]parser"]
+      fn rep(_: i32, ) -> *mut u8;
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    unsafe extern "C" fn rep(_: i32, ) -> *mut u8 { unreachable!() }
+    
+    unsafe { rep(handle as i32) }
+  }
+
+  
+  /// execute to parse souce content
+  #[allow(async_fn_in_trait)]
+  fn parse(&self,source: _rt::String,) -> SyntaxTree;
+  #[allow(async_fn_in_trait)]
+  fn incremental(&self,tree: SyntaxTree,scopes: _rt::Vec::<EditScope>,) -> IncrementalParser;
+}
+pub trait GuestIncrementalParser: 'static {
+
+  #[doc(hidden)]
+  unsafe fn _resource_new(val: *mut u8) -> u32
+  where Self: Sized
+  {
+    
+    #[cfg(target_arch = "wasm32")]
+    #[link(wasm_import_module = "[export]ritalin:parser/parsers@0.0.1")]
+    unsafe extern "C" {
+      #[link_name = "[resource-new]incremental-parser"]
+      fn new(_: *mut u8, ) -> i32;
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    unsafe extern "C" fn new(_: *mut u8, ) -> i32 { unreachable!() }
+    
+    unsafe { new(val) as u32 }
+  }
+
+  #[doc(hidden)]
+  fn _resource_rep(handle: u32) -> *mut u8
+  where Self: Sized
+  {
+    
+    #[cfg(target_arch = "wasm32")]
+    #[link(wasm_import_module = "[export]ritalin:parser/parsers@0.0.1")]
+    unsafe extern "C" {
+      #[link_name = "[resource-rep]incremental-parser"]
+      fn rep(_: i32, ) -> *mut u8;
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    unsafe extern "C" fn rep(_: i32, ) -> *mut u8 { unreachable!() }
+    
+    unsafe { rep(handle as i32) }
+  }
+
+  
+  /// execute to parse souce content
+  #[allow(async_fn_in_trait)]
+  fn parse(&self,source: _rt::String,) -> SyntaxTree;
+}
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_ritalin_parser_parsers_0_0_1_cabi{
+  ($ty:ident with_types_in $($path_to_types:tt)*) => (const _: () = {
+
+    #[unsafe(export_name = "ritalin:parser/parsers@0.0.1#create")]
+    unsafe extern "C" fn export_create() -> i32 {
+      unsafe { $($path_to_types)*::_export_create_cabi::<$ty>() }
+    }
+    #[unsafe(export_name = "ritalin:parser/parsers@0.0.1#[method]parser.parse")]
+    unsafe extern "C" fn export_method_parser_parse(arg0: *mut u8,arg1: *mut u8,arg2: usize,) -> i32 {
+      unsafe { $($path_to_types)*::_export_method_parser_parse_cabi::<<$ty as $($path_to_types)*::Guest>::Parser>(arg0, arg1, arg2) }
+    }
+    #[unsafe(export_name = "ritalin:parser/parsers@0.0.1#[method]parser.incremental")]
+    unsafe extern "C" fn export_method_parser_incremental(arg0: *mut u8,arg1: i32,arg2: *mut u8,arg3: usize,) -> i32 {
+      unsafe { $($path_to_types)*::_export_method_parser_incremental_cabi::<<$ty as $($path_to_types)*::Guest>::Parser>(arg0, arg1, arg2, arg3) }
+    }
+    #[unsafe(export_name = "ritalin:parser/parsers@0.0.1#[method]incremental-parser.parse")]
+    unsafe extern "C" fn export_method_incremental_parser_parse(arg0: *mut u8,arg1: *mut u8,arg2: usize,) -> i32 {
+      unsafe { $($path_to_types)*::_export_method_incremental_parser_parse_cabi::<<$ty as $($path_to_types)*::Guest>::IncrementalParser>(arg0, arg1, arg2) }
+    }
+
+    const _: () = {
+      #[doc(hidden)]
+      #[unsafe(export_name = "ritalin:parser/parsers@0.0.1#[dtor]parser")]
+      #[allow(non_snake_case)]
+      unsafe extern "C" fn dtor(rep: *mut u8) {
+        unsafe {
+          $($path_to_types)*::Parser::dtor::<
+          <$ty as $($path_to_types)*::Guest>::Parser
+          >(rep)
+        }
+      }
+    };
+    
+
+    const _: () = {
+      #[doc(hidden)]
+      #[unsafe(export_name = "ritalin:parser/parsers@0.0.1#[dtor]incremental-parser")]
+      #[allow(non_snake_case)]
+      unsafe extern "C" fn dtor(rep: *mut u8) {
+        unsafe {
+          $($path_to_types)*::IncrementalParser::dtor::<
+          <$ty as $($path_to_types)*::Guest>::IncrementalParser
+          >(rep)
+        }
+      }
+    };
+    
+  };);
+}
+#[doc(hidden)]
+pub use __export_ritalin_parser_parsers_0_0_1_cabi;
+
+}
 
 }
 }
@@ -436,8 +670,8 @@ macro_rules! __export_parser_world_impl {
     #[unsafe(link_section = "component-type:wit-bindgen:0.42.1:ritalin:parser@0.0.1:parser-world:imports and exports")]
     #[doc(hidden)]
     #[allow(clippy::octal_escapes)]
-    pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 2230] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xb3\x10\x01A\x02\x01\
+    pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 2508] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xc9\x12\x01A\x02\x01\
 A\x0d\x01B\x02\x01q\x01\x11node-build-failed\x01s\0\x04\0\x0bparse-error\x03\0\0\
 \x03\0\x1britalin:parser/errors@0.0.1\x05\0\x01B\x08\x01m\x04\x07keyword\x0bnon-\
 keyword\x07pattern\x0cnon-terminal\x04\0\x0csymbol-group\x03\0\0\x01r\x02\x04nam\
@@ -445,7 +679,7 @@ es\x05group\x01\x04\0\x0bsyntax-kind\x03\0\x02\x01m\x05\x04node\x09token-set\x0e
 leading-trivia\x0atoken-item\x0ftrailing-trivia\x04\0\x09node-type\x03\0\x04\x01\
 m\x04\x04none\x06delete\x05shift\x07invalid\x04\0\x0cpatch-action\x03\0\x06\x04\0\
 \x1aritalin:parser/types@0.0.1\x05\x01\x02\x03\0\x01\x0bsyntax-kind\x02\x03\0\x01\
-\x09node-type\x02\x03\0\x01\x0cpatch-action\x01BH\x02\x03\x02\x01\x02\x04\0\x0bs\
+\x09node-type\x02\x03\0\x01\x0cpatch-action\x01BJ\x02\x03\x02\x01\x02\x04\0\x0bs\
 yntax-kind\x03\0\0\x02\x03\x02\x01\x03\x04\0\x09node-type\x03\0\x02\x02\x03\x02\x01\
 \x04\x04\0\x0cpatch-action\x03\0\x04\x04\0\x0bsyntax-tree\x03\x01\x04\0\x0bsynta\
 x-node\x03\x01\x04\0\x10syntax-token-set\x03\x01\x04\0\x11syntax-token-item\x03\x01\
@@ -457,31 +691,36 @@ elf\x12\0\x0a\x04\0\x18[method]syntax-tree.root\x01\x13\x01h\x07\x01@\x01\x04sel
 f\x14\0\x0f\x04\0\x20[method]syntax-node.metadata-key\x01\x15\x01@\x01\x04self\x14\
 \0\x11\x04\0\x1c[method]syntax-node.metadata\x01\x16\x01k\x0a\x01@\x01\x04self\x14\
 \0\x17\x04\0\x1a[method]syntax-node.parent\x01\x18\x01p\x0d\x01@\x01\x04self\x14\
-\0\x19\x04\0\x1c[method]syntax-node.children\x01\x1a\x01i\x09\x01k\x1b\x01@\x02\x04\
-self\x14\x0bbyte-offsety\0\x1c\x04\0#[method]syntax-node.token-at-offset\x01\x1d\
-\x01k\x0d\x01@\x01\x04self\x14\0\x1e\x04\0\x20[method]syntax-node.prev-sibling\x01\
-\x1f\x04\0\x20[method]syntax-node.next-sibling\x01\x1f\x01h\x08\x01@\x01\x04self\
-\x20\0\x0f\x04\0%[method]syntax-token-set.metadata-key\x01!\x01@\x01\x04self\x20\
-\0\x11\x04\0![method]syntax-token-set.metadata\x01\"\x01@\x01\x04self\x20\0\x17\x04\
-\0\x1f[method]syntax-token-set.parent\x01#\x01@\x01\x04self\x20\0\x1e\x04\0%[met\
-hod]syntax-token-set.prev-sibling\x01$\x04\0%[method]syntax-token-set.next-sibli\
-ng\x01$\x01p\x1b\x01@\x01\x04self\x20\0%\x04\0'[method]syntax-token-set.leading-\
-trivia\x01&\x01@\x01\x04self\x20\0\x1b\x04\0\x1e[method]syntax-token-set.token\x01\
-'\x04\0([method]syntax-token-set.trailing-trivia\x01&\x01p\x01\x01@\x01\x04self\x20\
-\0(\x04\0*[method]syntax-token-set.lookup-candidates\x01)\x01h\x09\x01@\x01\x04s\
-elf*\0\x0f\x04\0&[method]syntax-token-item.metadata-key\x01+\x01@\x01\x04self*\0\
-\x11\x04\0\"[method]syntax-token-item.metadata\x01,\x01k\x0b\x01@\x01\x04self*\0\
--\x04\0\x20[method]syntax-token-item.parent\x01.\x01@\x01\x04self*\0\x1c\x04\0$[\
-method]syntax-token-item.prev-token\x01/\x04\0$[method]syntax-token-item.next-to\
-ken\x01/\x01@\x01\x04self*\0s\x04\0\x1f[method]syntax-token-item.value\x010\x04\0\
-\x1dritalin:parser/syntaxes@0.0.1\x05\x05\x02\x03\0\x02\x0bsyntax-tree\x02\x03\0\
-\0\x0bparse-error\x01B\x0c\x02\x03\x02\x01\x06\x04\0\x0bsyntax-tree\x03\0\0\x02\x03\
-\x02\x01\x07\x04\0\x0bparse-error\x03\0\x02\x04\0\x06parser\x03\x01\x01h\x04\x01\
-i\x01\x01@\x02\x04self\x05\x06sources\0\x06\x04\0\x14[method]parser.parse\x01\x07\
-\x01i\x04\x01@\0\0\x08\x04\0\x06create\x01\x09\x04\0\x1critalin:parser/parsers@0\
-.0.1\x05\x08\x04\0!ritalin:parser/parser-world@0.0.1\x04\0\x0b\x12\x01\0\x0cpars\
-er-world\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.2\
-30.0\x10wit-bindgen-rust\x060.42.1";
+\0\x19\x04\0\x1c[method]syntax-node.children\x01\x1a\x04\0$[method]syntax-node.d\
+escendant-nodes\x01\x1a\x01i\x09\x01k\x1b\x01@\x02\x04self\x14\x06offsety\0\x1c\x04\
+\0#[method]syntax-node.token-at-offset\x01\x1d\x01k\x0d\x01@\x01\x04self\x14\0\x1e\
+\x04\0\x20[method]syntax-node.prev-sibling\x01\x1f\x04\0\x20[method]syntax-node.\
+next-sibling\x01\x1f\x01h\x08\x01@\x01\x04self\x20\0\x0f\x04\0%[method]syntax-to\
+ken-set.metadata-key\x01!\x01@\x01\x04self\x20\0\x11\x04\0![method]syntax-token-\
+set.metadata\x01\"\x01@\x01\x04self\x20\0\x17\x04\0\x1f[method]syntax-token-set.\
+parent\x01#\x01p\x1b\x01@\x01\x04self\x20\0$\x04\0*[method]syntax-token-set.desc\
+endant-tokens\x01%\x01@\x01\x04self\x20\0\x1e\x04\0%[method]syntax-token-set.pre\
+v-sibling\x01&\x04\0%[method]syntax-token-set.next-sibling\x01&\x04\0'[method]sy\
+ntax-token-set.leading-trivia\x01%\x01@\x01\x04self\x20\0\x1b\x04\0\x1e[method]s\
+yntax-token-set.token\x01'\x04\0([method]syntax-token-set.trailing-trivia\x01%\x01\
+p\x01\x01@\x01\x04self\x20\0(\x04\0*[method]syntax-token-set.lookup-candidates\x01\
+)\x01h\x09\x01@\x01\x04self*\0\x0f\x04\0&[method]syntax-token-item.metadata-key\x01\
++\x01@\x01\x04self*\0\x11\x04\0\"[method]syntax-token-item.metadata\x01,\x01k\x0b\
+\x01@\x01\x04self*\0-\x04\0\x20[method]syntax-token-item.parent\x01.\x01@\x01\x04\
+self*\0\x1c\x04\0$[method]syntax-token-item.prev-token\x01/\x04\0$[method]syntax\
+-token-item.next-token\x01/\x01@\x01\x04self*\0s\x04\0\x1f[method]syntax-token-i\
+tem.value\x010\x04\0\x1dritalin:parser/syntaxes@0.0.1\x05\x05\x02\x03\0\x02\x0bs\
+yntax-tree\x02\x03\0\0\x0bparse-error\x01B\x16\x02\x03\x02\x01\x06\x04\0\x0bsynt\
+ax-tree\x03\0\0\x02\x03\x02\x01\x07\x04\0\x0bparse-error\x03\0\x02\x04\0\x06pars\
+er\x03\x01\x04\0\x12incremental-parser\x03\x01\x01r\x03\x0cstart-offsety\x07old-\
+leny\x07new-leny\x04\0\x0aedit-scope\x03\0\x06\x01h\x04\x01i\x01\x01@\x02\x04sel\
+f\x08\x06sources\0\x09\x04\0\x14[method]parser.parse\x01\x0a\x01p\x07\x01i\x05\x01\
+@\x03\x04self\x08\x04tree\x09\x06scopes\x0b\0\x0c\x04\0\x1a[method]parser.increm\
+ental\x01\x0d\x01h\x05\x01@\x02\x04self\x0e\x06sources\0\x09\x04\0\x20[method]in\
+cremental-parser.parse\x01\x0f\x01i\x04\x01@\0\0\x10\x04\0\x06create\x01\x11\x04\
+\0\x1critalin:parser/parsers@0.0.1\x05\x08\x04\0!ritalin:parser/parser-world@0.0\
+.1\x04\0\x0b\x12\x01\0\x0cparser-world\x03\0\0\0G\x09producers\x01\x0cprocessed-\
+by\x02\x0dwit-component\x070.234.0\x10wit-bindgen-rust\x060.42.1";
   };
   )
 }
@@ -498,7 +737,7 @@ A\x02\x01B\x02\x01q\x01\x11node-build-failed\x01s\0\x04\0\x0bparse-error\x03\0\0
 \x03\0\x1britalin:parser/errors@0.0.1\x05\0\x04\0Aritalin:parser/parser-world-wi\
 th-all-of-its-exports-removed@0.0.1\x04\0\x0b2\x01\0,parser-world-with-all-of-it\
 s-exports-removed\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-compone\
-nt\x070.230.0\x10wit-bindgen-rust\x060.42.1";
+nt\x070.234.0\x10wit-bindgen-rust\x060.42.1";
 
 #[inline(never)]
 #[doc(hidden)]

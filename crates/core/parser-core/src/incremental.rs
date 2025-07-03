@@ -1,97 +1,93 @@
 use std::{collections::HashMap, rc::Rc};
-use engine_core::{parser_engine::ParsingRuleSet};
-use scanner_core::{Scanner, ScannerAccess, StatementScannerView};
-use crate::{event_dispatcher::ParseEventDispatcher, incremental::support::{IncludeEnd, IncrementalParserStrategy}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{FragmentNodeMetadataKey, RowanLangageImpl, SyntaxElement, SyntaxFragment, SyntaxFragmentBatch, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig};
+use engine_core::parser_engine::ParsingRuleSet;
+use scanner_core::{Scanner, StatementScannerView};
+use crate::{event_dispatcher::ParseEventDispatcher, incremental::{edit_hint::SlotEvent, support::{IncludeEnd, IncrementalParserStrategy}}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{FragmentNodeMetadataKey, MetadataAccess, SyntaxElement, SyntaxFragment, SyntaxFragmentBatch, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig, PatchAction};
 
 pub mod support;
+pub mod edit_hint;
 
 pub struct Parser {
     scope: EditScope,
-    statements: Vec<rowan::api::SyntaxNode<RowanLangageImpl>>,
+    edit_hint: edit_hint::EditHint,
     following_statement: Option<SyntaxElement>,
-    replace_from: usize,
     engine: engine_core::Engine,
     metadata_table: Rc<MetadataTable>,
 }
 
 impl Parser {
     pub fn new(old_tree: &SyntaxTree, scope: EditScope, engine: engine_core::Engine) -> Self {
-        let statements = find_edit_statements(old_tree, &scope).collect::<Vec<_>>();
-        let replace_from = statements.first()
-            .map(|stmt| stmt.index())
-            .unwrap_or_else(|| {
-                old_tree.metadata_table().index_at_offset(scope.start_byte_offset)
-            })
-        ;
-        let eof_statement = old_tree.root().children().skip(replace_from + statements.len()).next();
+        let eof_statement = old_tree.root().children().last();
+        let edit_hint = edit_hint::EditHint::new(old_tree, scope.old_char_range());
 
         Self {
             scope,
-            statements,
+            edit_hint,
             following_statement: eof_statement,
-            replace_from,
             engine,
             metadata_table: old_tree.metadata_table(),
         }
     }
 
     pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<Vec<SyntaxFragmentBatch>, crate::parser::ParseError> {
-        // Determine first statement byte offset
-        let mut global_byte_offset = self.metadata_table.statement_metadata(Some(self.replace_from)).global_offset.of_byte;
-        
-        let scan_from = self.statements.first().map(|stmt| usize::from(stmt.text_range().start())).unwrap_or(self.scope.start_byte_offset);
-        let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone())?;
-        let emit_region = self.engine.parsing_rules.statement_emit_config();
+        let new_edit_byte_range = convert_from_utf16_to_byte_range(self.scope.new_char_range(), source);
 
-        let stmts = self.statements.iter().map(Some).chain(std::iter::repeat(None));
-        let new_scope_range = self.scope.new_range();
+        // Determin scanning byte offset
+        let scan_from = self.edit_hint.scan_from();
+        let scan_to = new_edit_byte_range.end;
+
+        let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone())?;
+
+        let emit_region = self.engine.parsing_rules.statement_emit_config();
+        let full_emit_region = self.engine.parsing_rules.full_emit_config();
+
         // enumerate scanners except for over the new byte offset scope.
-        // This includes `EOF` only statement.
-        let scanners = scanner.statement_scanners(emit_region.to_symbol)
-            .take_while(|scanner| scanner.index() < new_scope_range.end)
-        ;
+        let scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
+        let slots = self.edit_hint.eval_hint(scanners, new_edit_byte_range.clone());
+
+        // Determine first statement byte offset
+        let mut global_byte_offset = self.metadata_table.statement_metadata(Some(slots.replace_from)).global_offset.of_byte;
+
+        let old_scope_range = slots.replace_byte_range.unwrap_or_else(|| 0..source.len());
+        let new_scope_range = old_scope_range.start..scan_to;
         
         let mut fragments = vec![];
         let mut old_first_fragment_key = None;
 
-        for (stmt_scanner, stmt) in scanners.zip(stmts).filter(|(s, _)| s.as_view(std::ops::RangeFull).lookahead().is_some()) {
-            let (new_stmt, new_metadata_entry, new_node_key) = match stmt {
-                Some(stmt) => {
-                    let stmt_index = stmt.index();
-                    let old_stmt_range: std::ops::Range<usize> = stmt.text_range().into();
-                    let (lowest, highest) = self.scope.adjust_range(
-                        if self.scope.new_range().include_end().contains(&old_stmt_range.end) { self.scope.new_byte_len } else { self.scope.old_byte_len }, 
-                        &stmt
+        for event in &slots.events {
+            let (new_stmt, new_metadata_entry, new_node_key) = match event {
+                SlotEvent::Replacing {node: stmt, scanner: stmt_scanner } => {
+                    let old_stmt_range: std::ops::Range<usize> = stmt.metadata_key().byte_range();
+                    let stmt_edit_range = support::adjust_edit_range(
+                        if new_scope_range.clone().include_end().contains(&old_stmt_range.end) { &new_scope_range } else { &old_scope_range },
+                        &old_stmt_range
                     );
 
-                    let gardener = support::TreeGardener{ node: stmt.clone_subtree() };
+                    let gardener = support::TreeGardener::as_subtree(&stmt);
                     // Find common anscestor
-                    let common_anscestor = support::TreeGardener{ 
-                        node: gardener.common_anscestor(
-                            gardener.pick_token(lowest.into()), 
-                            gardener.pick_token(highest.into()),
-                            emit_region.to_symbol
-                        )
-                        .expect("A metadata definitely must exist")
+                    let common_anscestor = match stmt.metadata().patch {
+                        PatchAction::None => {
+                            // No error in  the previous parsing
+                            gardener.common_anscestor(
+                                gardener.pick_token(stmt_edit_range.start), 
+                                gardener.pick_token(stmt_edit_range.end),
+                                emit_region.to_symbol
+                            )
+                            .expect("A metadata definitely must exist")
+                        }
+                        _ => {
+                            // Parse whole statement
+                            gardener.clone()
+                        }
                     };
 
                     // text_range is local coordicate because of clone_subtree()
                     let mut range: std::ops::Range<usize> = common_anscestor.node.text_range().into();
                     (range.start, range.end) = (range.start + global_byte_offset, range.end + global_byte_offset);
-                    // Adgust by the edit distance
-                    let anscestor_range = std::ops::Range {
-                        start: range.start,
-                        end: match self.scope.old_range().contains(&range.start) { 
-                            true => range.end + old_stmt_range.start - stmt_scanner.index(),
-                            false => range.end + self.scope.new_byte_len - self.scope.old_byte_len
-                        },
-                    };
                     
-                    let strategy = common_anscestor.pick_terminate_kind(self.engine.parsing_rules);
+                    let strategy = common_anscestor.pick_terminate_kind(stmt_scanner.scanner_type(), self.engine.parsing_rules);
 
-                    // Memo: Because a last token is reduce, it scans one more token.
-                    let scanner_view = stmt_scanner.as_view(anscestor_range.start..(anscestor_range.end + 1));
-                    let old_metadata_map = &self.metadata_table.statement_metadata(Some(stmt_index));
+                    let scanner_view = stmt_scanner.as_view(range.start..);
+                    let old_metadata_map = common_anscestor.metadata_entry;
                     let metadata = old_metadata_map.map
                         .get(&&NodeMetadataKey::from_raw_node(&common_anscestor.node, self.engine.parsing_rules))
                         .expect("All node have metadata")
@@ -101,6 +97,7 @@ impl Parser {
                     let new_key = common_anscestor.new_node_key(&new_node, self.engine.parsing_rules);
                     
                     if old_first_fragment_key.is_none() {
+                        // If it's assigned, assigns the statement key as the first fragment key
                         old_first_fragment_key = Some(FragmentNodeMetadataKey{
                             key: NodeMetadataKey::from_raw_node(&common_anscestor.node, self.engine.parsing_rules),
                             is_eof: false,
@@ -117,7 +114,7 @@ impl Parser {
 
                     (new_stmt, metadata_entry, new_key)
                 }
-                None => {
+                SlotEvent::Inserting { scanner: stmt_scanner } => {
                     let scanner_view = stmt_scanner.as_view(std::ops::RangeFull);
                     let strategy = IncrementalParserStrategy::default_strategy(self.engine.parsing_rules);
 
@@ -125,6 +122,7 @@ impl Parser {
                     let new_key = NodeMetadataKey::from_green_node(&new_stmt, 0, self.engine.parsing_rules);
 
                     if old_first_fragment_key.is_none() {
+                        // If it's assgned, assigns the following statement ( = EOF only statement) as the first fragment key
                         old_first_fragment_key = self.following_statement.as_ref().map(|el| {
                             FragmentNodeMetadataKey{ key: el.metadata_key(), is_eof: true }
                         });
@@ -140,6 +138,11 @@ impl Parser {
 
                     (new_stmt.clone(), metadata_entry, new_key)
                 }
+                SlotEvent::Deleting{ .. } => {
+                    // no parse action
+                    // Note that it does not consume iterator
+                    continue;
+                }
             };
 
             global_byte_offset += usize::from(new_stmt.text_len()); 
@@ -147,10 +150,15 @@ impl Parser {
             fragments.push(SyntaxFragment::new(fragments.len(), new_stmt, new_metadata_entry, new_node_key))
         }
 
+        let replace_size = slots.events.into_iter()
+            .filter(|slot| matches!(slot, SlotEvent::Replacing{..} | SlotEvent::Deleting{..}))
+            .count()
+        ;
+
         let batch = SyntaxFragmentBatch{
             fragments,
-            replace_from: self.replace_from,
-            replace_size: self.statements.len(),
+            replace_from: slots.replace_from,
+            replace_size,
             old_first_fragment_key,
             engine: self.engine.parsing_rules,
         };
@@ -161,63 +169,58 @@ impl Parser {
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct EditScope {
-    pub start_byte_offset: usize,
-    pub old_byte_len: usize,
-    pub new_byte_len: usize,
+    /// editing start offset (UTF-16 char unit base)
+    pub start_char_offset: usize,
+    /// old editing length (UTF-16 char units)
+    pub old_char_len: usize,
+    /// new editing length (UTF-16 char units)
+    pub new_char_len: usize,
 }
 
 impl EditScope {
     pub fn adjust_offset(&self, offset: usize) -> EditScope {
-        let offset = usize::max(self.start_byte_offset, offset);
+        let offset = usize::max(self.start_char_offset, offset);
         Self {
-            start_byte_offset: offset,
-            old_byte_len: self.old_byte_len + offset - self.start_byte_offset,
-            new_byte_len: self.new_byte_len + offset - self.start_byte_offset,
+            start_char_offset: offset,
+            old_char_len: self.old_char_len + offset - self.start_char_offset,
+            new_char_len: self.new_char_len + offset - self.start_char_offset,
         }
     }
 
-    pub fn adjust_range(&self, len: usize, node: &rowan::SyntaxNode<RowanLangageImpl>) -> (u32, u32) {
-        let range = node.text_range();
-        let lowest_offset = 
-            u32::max(self.start_byte_offset as u32, range.start().into())
-        ;
-        let highest_offset = 
-            u32::min(
-                (self.start_byte_offset + len - 1) as u32, 
-                range.end().into()
-            )
-        ;
-        (lowest_offset, highest_offset)
+    pub fn old_char_range(&self) -> std::ops::Range<usize> {
+        std::ops::Range { start: self.start_char_offset, end: self.start_char_offset + self.old_char_len }
     }
 
-    pub fn old_range(&self) -> std::ops::Range<usize> {
-        std::ops::Range { start: self.start_byte_offset, end: self.start_byte_offset + self.old_byte_len }
-    }
-
-    pub fn new_range(&self) -> std::ops::Range<usize> {
-        std::ops::Range { start: self.start_byte_offset, end: self.start_byte_offset + self.new_byte_len }
+    pub fn new_char_range(&self) -> std::ops::Range<usize> {
+        std::ops::Range { start: self.start_char_offset, end: self.start_char_offset + self.new_char_len }
     }
 }
 
-pub fn find_edit_statements(old_tree: &SyntaxTree, scope: &EditScope) -> impl Iterator<Item = rowan::api::SyntaxNode<RowanLangageImpl>> {
-    use crate::syntax_tree::MetadataAccess;
+fn convert_from_utf16_to_byte_offset(char_len: usize, source: &str) -> Option<usize> {
+    let mut current_char_offset = 0;
+    let mut last_byte_offset = 0;
 
-    let (range_from, range_to) = (scope.start_byte_offset, scope.start_byte_offset + scope.old_byte_len);
+    for (byte_offset, ch) in source.char_indices() {
+        if current_char_offset == char_len { return Some(byte_offset); }
 
-    old_tree.root().children()
-    .filter_map(|node| match node {
-        crate::syntax_tree::SyntaxElementDef::Node(node) => {
-            Some((node.clone(), node.metadata_key()))
+        current_char_offset += ch.len_utf16();
+        // if over current_char_offset, middle of surrogate pair
+        if current_char_offset > char_len { return Some(byte_offset); }
+        last_byte_offset = byte_offset;
+    }
+
+    Some(last_byte_offset)
+}
+
+fn convert_from_utf16_to_byte_range(char_range: std::ops::Range<usize>, source: &str) -> std::ops::Range<usize> {
+    if let Some(from_offset) = convert_from_utf16_to_byte_offset(char_range.start, source) {
+        return match convert_from_utf16_to_byte_offset(char_range.len(), &source[from_offset..]) {
+            Some(to_len) => from_offset..(from_offset + to_len),
+            None => from_offset..source.len()
         }
-        crate::syntax_tree::SyntaxElementDef::TokenSet(_) => None
-    })
-    .skip_while(move |(_, key)| {
-        key.offset + key.len <= range_from
-    })
-    .take_while(move |(_, key)| {
-        key.offset < range_to
-    })
-    .map(|(node, _)| node.into_raw())
+    }
+
+    0..source.len()
 }
 
 fn parse_internal(

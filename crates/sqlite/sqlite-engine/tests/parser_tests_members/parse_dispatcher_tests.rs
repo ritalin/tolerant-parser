@@ -109,6 +109,12 @@ mod dispatcher_tests {
         let mut dispatcher = ParseEventDispatcher::new(22, ParseMode::ByStatement, engine);
 
         'next_state: {
+            let expected_event = ParseEvent::PatchEmit{ kind: syntax_kind::r#ecmd, edit_state: 22 };
+            assert_eq!(Ok(expected_event), dispatcher.next(Some(syntax_kind::r#EOF)));
+            assert_eq!(vec![74, 22], dispatcher.state_values());
+            break 'next_state;
+        }
+        'next_state: {
             let expected_event = ParseEvent::Shift{ kind: syntax_kind::r#EOF, current_state: 22, next_state: 74, edit_state: 22 };
             assert_eq!(Ok(expected_event), dispatcher.next(Some(syntax_kind::r#EOF)));
             assert_eq!(vec![74, 22], dispatcher.state_values());
@@ -427,7 +433,7 @@ mod dispatcher_support_tests {
         let engine = sqlite_engine::create()?.parsing_rules;
         let mut dispatcher = ParseEventDispatcher::new(0, ParseMode::ByStatement, engine);
         let penalty = RecoveryPenalty{ delete_slot: 0, shift_limit: 0, shift_decay: 0, next_shift_decay: 0, max_shift_packet_size: 0 };
-        let recovery_handler = RecoveryEventDispatcher::new(penalty, engine);
+        let recovery_handler = RecoveryEventDispatcher::new(penalty, &[], engine);
 
         prepare_dispatcher_state(&mut dispatcher, &[
             (syntax_kind::SELECT, 1),

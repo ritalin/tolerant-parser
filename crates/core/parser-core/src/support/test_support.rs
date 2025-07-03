@@ -31,6 +31,9 @@ pub struct ExpectNode {
     pub meta_key: ExpectMetadataKey,
     pub meta_obj: ExpectMetadataValue,
     pub value: Option<String>,
+    #[serde(default)]
+    pub ignore: bool,
+
 }
 
 #[derive(PartialEq, Debug, serde::Deserialize)]
@@ -80,7 +83,10 @@ pub fn verify(actual_node: SyntaxNode, expect_nodes: &[ExpectNode]) {
         let expect = &expect_nodes[i];
         assert_eq!(expect.path, path);
         assert_eq!(expect.meta_key, ExpectMetadataKey::from(node.metadata_key()), "Unmatch key for {:?}", &path);
-        assert_eq!(expect.meta_obj, ExpectMetadataValue::from(node.metadata()), "Unmatch metadata for {:?}", &path);
+
+        if ! expect.ignore {
+            assert_eq!(expect.meta_obj, ExpectMetadataValue::from(node.metadata()), "Unmatch metadata for {:?}", &path);
+        }
 
         match node {
             ActualNode::Node(node) => {

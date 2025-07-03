@@ -60,9 +60,16 @@ impl ParseStrategy for DefaultParserStrategy {
 pub(crate) fn parse_with_config_internal<S>(scanner: &mut S, dispatcher: &mut ParseEventDispatcher, tree_builder: &mut SyntaxTreeBuilder, config: &ParserConfig, engine: ParsingRuleSet, strategy: impl ParseStrategy) -> Result<Option<ParseEvent>, ParseError> 
 where S: scanner_core::ScannerAccess
 {
-    let terminate_symbol = engine.statement_emit_config().to_symbol;
+    let emit_symbol = engine.statement_emit_config();
 
-    let mut recovery_handler = RecoveryEventDispatcher::new(config.penalty.clone(), engine);
+    let mut recovery_handler = match config.mode {
+        ParseMode::ByStatement => {
+            RecoveryEventDispatcher::new(config.penalty.clone(), &[emit_symbol.from_symbol], engine)
+        }
+        ParseMode::Full => {
+            RecoveryEventDispatcher::new(config.penalty.clone(), &[], engine)
+        }
+    };
 
     loop { 
         let (event, lookahead) = match scanner.lookahead().cloned() {
@@ -85,7 +92,7 @@ where S: scanner_core::ScannerAccess
             Ok(ParseEvent::Reduce { .. } | ParseEvent::PatchReduce { .. }) => {
                 tree_builder.add_node(event?)?;
             }
-            Ok(ParseEvent::Emit { .. } | ParseEvent::InvalidEmit { .. }) => {
+            Ok(ParseEvent::Emit { .. } | ParseEvent::PatchEmit { .. } | ParseEvent::InvalidEmit { .. }) => {
                 tree_builder.emit_statement(event?)?;
 
                 if config.mode == ParseMode::ByStatement {
@@ -97,7 +104,8 @@ where S: scanner_core::ScannerAccess
             }
             Err(ParseEventError::RequestRecovery) => {
                 let state_stack = dispatcher.borrow_stack();
-                let lookaheads = scanner.prefetch_iter(terminate_symbol);
+                let lookaheads = scanner.prefetch_iter(emit_symbol.to_symbol);
+
                 match recovery_handler.handle(state_stack, lookaheads.clone()) {
                     Some(events) => {
                         // Recovery succeed
@@ -118,7 +126,8 @@ where S: scanner_core::ScannerAccess
                 tree_builder.add_invisible_token_set(event?, lookahead.as_ref())?;
             }
             Ok(ParseEvent::PatchShift { .. }) => {
-                tree_builder.add_patch_shift_token_set(event?)?;
+                let last_offset = lookahead.map(|token| token.lowest_offset()).unwrap_or_default();
+                tree_builder.add_patch_shift_token_set(event?, last_offset)?;
             }
             Err(err) => {
                 Err(err)?;
@@ -159,7 +168,13 @@ pub enum ParseMode {
     ByStatement,
 }
 
-#[derive(Clone)]
+impl Default for ParseMode {
+    fn default() -> Self {
+        ParseMode::ByStatement
+    }
+}
+
+#[derive(Default, Clone)]
 pub struct ParserConfig {
     pub mode: ParseMode,
     pub penalty: RecoveryPenalty,

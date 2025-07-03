@@ -66,7 +66,7 @@ impl SyntaxTreeBuilder {
         Ok(())
     }
 
-    pub fn add_patch_shift_token_set(&mut self, event: ParseEvent) -> Result<(), NodeBuildError> {
+    pub fn add_patch_shift_token_set(&mut self, event: ParseEvent, last_offset: usize) -> Result<(), NodeBuildError> {
         let ParseEvent::PatchShift { kind, edit_state, .. } = event else {
             return Err(NodeBuildError::TokenSetFailed);
         };
@@ -74,7 +74,7 @@ impl SyntaxTreeBuilder {
         let top_element = self.element_stack.iter().rev().flatten().next();
         let offset = match get_node_metadata_key(&self.all_metadata_map, top_element) {
             Some(key) => key.offset + key.len,
-            None => 0,
+            None => last_offset,
         };
         let lookahead = Token{
             leading_trivia: None,
@@ -138,27 +138,31 @@ impl SyntaxTreeBuilder {
             }
             ParseEvent::Shift { .. } | ParseEvent::Emit { .. } | 
             ParseEvent::Invalid { .. } | ParseEvent::InvalidEmit { .. } |
-            ParseEvent::PatchDrop { .. } | ParseEvent::PatchShift { .. } => {
+            ParseEvent::PatchDrop { .. } | ParseEvent::PatchShift { .. } | ParseEvent::PatchEmit { .. } => {
                 Err(NodeBuildError::NodeFailed)
             },
         }
     }
 
     pub fn emit_statement(&mut self, event: ParseEvent) -> Result<(), NodeBuildError> {
-        let (kind, edit_state, pop_count) = match event {
+        let (kind, edit_state, pop_count, patch_action) = match event {
             ParseEvent::Emit { kind, edit_state, .. } => {
                 let pop_count = self.element_stack.len() - self.water_mark;
-                (kind, edit_state, pop_count)
+                (kind, edit_state, pop_count, PatchAction::None)
+            }
+            ParseEvent::PatchEmit { kind, edit_state, .. } => {
+                let pop_count = self.element_stack.len() - self.water_mark;
+                (kind, edit_state, pop_count, PatchAction::Shift)
             }
             ParseEvent::InvalidEmit { kind, edit_state, pop_count } => {
-                (kind, edit_state, pop_count)
+                (kind, edit_state, pop_count, PatchAction::Invalid)
             }
             _ => {
                 return Err(NodeBuildError::NodeFailed);
             }
         };
             
-        let (id, node) = create_node(kind, edit_state, pop_count, PatchAction::None, self.engine, &mut self.element_stack, self.active_map_index, &mut self.all_metadata_map);
+        let (id, node) = create_node(kind, edit_state, pop_count, patch_action, self.engine, &mut self.element_stack, self.active_map_index, &mut self.all_metadata_map);
         self.element_stack.push(Some((id, StackEntry::Node(node))));
         self.water_mark = self.element_stack.len();
 
@@ -214,10 +218,9 @@ impl SyntaxTreeBuilder {
             return Err(NodeBuildError::EmptyTree);
         };
         let metadata = HashMap::from_iter(self.all_metadata_map.into_iter()
-            .map(|(_, (_, metadata, key))| {
-                (key, metadata)}
-            ));
-
+            .map(|(_, (_, metadata, key))| (key, metadata)))
+        ;
+        
         Ok((node.clone(), metadata))
     }
 }
@@ -330,7 +333,8 @@ fn create_token_item(
 }
 
 fn create_token_metadata_pair(event: &ScanEvent, state: usize, node_type: NodeType, patch: PatchAction, last_metadata: Option<&(ActiveIndex, NodeMetadata, NodeMetadataKey)>) -> (NodeMetadataKey, NodeMetadata) {
-    let char_len = event.value.as_ref().map(|s| s.chars().count()).unwrap_or(0);
+    // Eval as utf16 string
+    let char_len = event.value.as_ref().map(|s| s.encode_utf16().count()).unwrap_or(0);
 
     let char_offset = match last_metadata {
         Some((_, metadata, _)) => metadata.char_offset + metadata.char_len,
@@ -353,7 +357,6 @@ fn create_node(
     active_index: ActiveIndex,
     metadata_map: &mut HashMap<NodeId, (ActiveIndex, NodeMetadata, NodeMetadataKey)>) -> (NodeId, rowan::GreenNode)
 {
-    let id = next_node_id();
     let (child_ids, mut child_nodes) = pop_node_from_stack(element_stack, pop_count);
     
     remap_alternative_symbol(&mut child_nodes, metadata_map, &child_ids, kind, engine);
@@ -367,6 +370,7 @@ fn create_node(
         edit_state: state, node_type: NodeType::Node, patch,
         char_offset, char_len,
     };
+    let id = next_node_id();
     metadata_map.insert(id, (active_index, metadata, key));
     
     (id, node)
@@ -388,7 +392,10 @@ fn pop_node_from_stack(element_stack: &mut Vec<Option<(NodeId, StackEntry)>>, mu
             Some(Some((id, StackEntry::Invisible(element)))) => {
                 elements.push((id, NodeElement::Node(element) ));
             }
-            _ => {}
+            None => {
+                // no more element
+                break;
+            }
         }
         if pop_count == 0 { break }
     }

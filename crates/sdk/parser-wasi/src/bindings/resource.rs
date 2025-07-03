@@ -1,6 +1,8 @@
+use parser_core::syntax_tree::ApplyBatch;
 use parser_core::syntax_tree::LookupCandidate;
 use parser_core::syntax_tree::MetadataAccess;
 use parser_core::syntax_tree::NodeOperation;
+use parser_core::syntax_tree::SyntaxTree;
 use super::parser_world::exports::ritalin::parser::parsers;
 use super::syntax_tree_world::exports::ritalin::parser::syntaxes;
 use super::types_world::exports::ritalin::parser::types;
@@ -21,6 +23,40 @@ impl parsers::GuestParser for ParserImpl {
     fn parse(&self,source: String,) -> parsers::SyntaxTree {
         let tree = self.inner.parse(&source).expect("Failed to parse");
         SyntaxTreeImpl::from_raw(tree)
+    }
+    
+    fn incremental(&self,tree: parsers::SyntaxTree,scopes: Vec::<parsers::EditScope>,) -> parsers::IncrementalParser {
+        let old_tree = tree.into_inner::<SyntaxTreeImpl>().inner;
+
+        let scopes: Vec<parser_core::incremental::EditScope> = scopes.into_iter()
+            .map(Into::into)
+            .collect::<Vec<_>>()
+        ;
+
+        IncrementalParserImpl::from_raw(
+            self.inner.incremental(&old_tree, scopes.first().unwrap().clone()),
+            old_tree
+        )
+    }
+}
+
+pub struct IncrementalParserImpl {
+    inner: parser_core::incremental::Parser,
+    old_tree: SyntaxTree,
+}
+
+impl IncrementalParserImpl {
+    pub(crate) fn from_raw(inner: parser_core::incremental::Parser, old_tree: SyntaxTree) -> parsers::IncrementalParser {
+        parsers::IncrementalParser::new(Self { inner, old_tree })
+    }
+}
+
+impl parsers::GuestIncrementalParser for IncrementalParserImpl {
+    fn parse(&self,source: String,) -> parsers::SyntaxTree {
+        let batches = self.inner.parse_with_config(&source, parser_core::ParserConfig::default()).expect("Failed to parse");
+
+        let new_tree = self.old_tree.apply_batches(batches);
+        SyntaxTreeImpl::from_raw(new_tree)
     }
 }
 
@@ -69,8 +105,8 @@ impl syntaxes::GuestSyntaxNode for SyntaxNodeImpl {
         .collect()
     }
     
-    fn token_at_offset(&self,byte_offset: u32,) -> Option<syntaxes::SyntaxTokenItem> {
-        self.inner.token_at_offset(byte_offset as usize)
+    fn token_at_offset(&self,char_offset: u32,) -> Option<syntaxes::SyntaxTokenItem> {
+        self.inner.token_at_utf16_offset(char_offset as usize)
         .map(|item| SyntaxTokenItemImpl::from_raw(item))
     }
     
@@ -82,6 +118,12 @@ impl syntaxes::GuestSyntaxNode for SyntaxNodeImpl {
     fn next_sibling(&self,) -> Option<syntaxes::SyntaxElement> {
         self.inner.next_sibling() 
         .map(|el| el.into())
+    }
+    
+    fn descendant_nodes(&self,) -> Vec::<syntaxes::SyntaxElement> {
+        self.inner.descendant_nodes()
+        .map(|el| el.into())
+        .collect()
     }
 }
 
@@ -137,6 +179,12 @@ impl syntaxes::GuestSyntaxTokenSet for SyntaxTokenSetImpl {
     fn lookup_candidates(&self,) -> Vec::<syntaxes::SyntaxKind> {
         self.inner.lookup_candidates().into_iter()
         .map(Into::into)
+        .collect()
+    }
+    
+    fn descendant_tokens(&self,) -> Vec::<syntaxes::SyntaxTokenItem> {
+        self.inner.descendant_tokens()
+        .map(|node| SyntaxTokenItemImpl::from_raw(node))
         .collect()
     }
 }
@@ -254,6 +302,16 @@ impl From<parser_core::PatchAction> for types::PatchAction {
             parser_core::PatchAction::Delete => types::PatchAction::Delete,
             parser_core::PatchAction::Shift => types::PatchAction::Shift,
             parser_core::PatchAction::Invalid => types::PatchAction::Invalid,
+        }
+    }
+}
+
+impl From<parsers::EditScope> for parser_core::incremental::EditScope {
+    fn from(value: parsers::EditScope) -> Self {
+        Self {
+            start_char_offset: value.start_offset as usize,
+            old_char_len: value.old_len as usize,
+            new_char_len: value.new_len as usize,
         }
     }
 }

@@ -1,9 +1,9 @@
 use std::rc::Rc;
 use engine_core::parser_engine::ParsingRuleSet;
-use crate::{metadata::MetadataTable, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
+use crate::{metadata::{MetadataTable, StatementMetadataEntry}, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
 use super::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxElement, SyntaxNodeData, SyntaxTokenData, SyntaxTokenItem, SyntaxTokenSet};
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct SyntaxNode {
     data: SyntaxNodeData,
 }
@@ -51,28 +51,42 @@ impl SyntaxNode {
         SyntaxNodeChildren::new(self.data.clone())
     }
 
-    pub fn token_at_offset(&self, offset: usize) -> Option<SyntaxTokenItem> {
+    pub fn token_at_utf16_offset(&self, offset: usize) -> Option<SyntaxTokenItem> {
+        // Retrive byte offset as char offset
         let token = match self.data.raw.token_at_offset((offset as u32).into()) {
             rowan::TokenAtOffset::None => None,
             rowan::TokenAtOffset::Single(token) => Some(token),
             rowan::TokenAtOffset::Between(_, token) => Some(token),
         };
 
-        token.map(|raw| {
-            SyntaxTokenItem::from_raw(SyntaxTokenData::new(
+        token.and_then(|raw| {
+            let mut candidate = Some(SyntaxTokenItem::from_raw(SyntaxTokenData::new(
                 raw, 
                 self.data.metadata_table.clone(), 
                 self.data.parse_mode.clone(), 
                 self.data.engine
-            ))
+            )));
+
+            // Find a token matching the char offset
+            while let Some(token) = candidate.as_ref() {
+                let metadata = token.metadata();
+                if (metadata.char_offset..(metadata.char_offset + metadata.char_len)).contains(&offset) {
+                    return candidate;
+                }
+
+                candidate = token.next_sibling();
+            }
+
+            None
         })
     }
 
     pub fn descendant_nodes(&self) -> impl Iterator<Item = SyntaxElement> {
+        let index = self.data.statement_index();
+        
         self.data.raw.descendants()
-        .filter_map(|node| {
+        .filter_map(move |node| {
             let key = NodeMetadataKey::from_raw_node(&node, self.data.engine);
-            let index = self.data.statement_index_raw(&node);
             
             match self.data.metadata_with(index, &key).node_type {
                 NodeType::Node => {
@@ -84,9 +98,6 @@ impl SyntaxNode {
                 _ => None
             }
         })
-        // self.data.raw.descendants_with_tokens().count()
-
-
     }
 }
 
@@ -103,6 +114,11 @@ impl MetadataAccess for SyntaxNode {
 impl SyntaxNode {
     pub(crate) fn from_raw(data: SyntaxNodeData) -> Self {
         Self { data }
+    }
+
+    pub(crate) fn metadata_entry(&self) -> &StatementMetadataEntry {
+        let index = self.data.statement_index();
+        self.data.metadata_table.statement_metadata(index)
     }
 }
 

@@ -1,15 +1,31 @@
 package ritalin:parser@0.0.1;
 
 interface parsers {
-    /// create new parser instance
+    // create new parser instance
     create: func() -> parser;
 
     use syntaxes.{syntax-tree};
     use errors.{parse-error};
 
     resource parser {
-        /// execute to parse souce content
+        // execute to parse souce content
         parse: func(source: string) -> syntax-tree;
+
+        incremental: func(tree: syntax-tree, scopes: list<edit-scope>) -> incremental-parser;
+    }
+
+    resource incremental-parser {
+        // execute to parse souce content
+        parse: func(source: string) -> syntax-tree;
+    }
+
+    record edit-scope {
+        // editing start offset (UTF-16 code unit base)
+        start-offset: u32,
+        // before editing length (UTF-16 code units)
+        old-len: u32,
+        // after editing length (UTF-16 code units)
+        new-len: u32,
     }
 }
 
@@ -74,10 +90,12 @@ interface syntaxes {
         // parent node
         // it will return none if not root node
         parent: func() -> option<syntax-node>;
-        // all of the child nodes or the token-sets
+        // enumerate all of the child nodes or the token-sets
         children: func() -> list<syntax-element>;
-        // look up a item of the syntax token set
-        token-at-offset: func(byte-offset: u32) -> option<syntax-token-item>;
+        // enumerate all of the descendant nodes or the token-sets containing self node
+        descendant-nodes: func() -> list<syntax-element>;
+        // look up a item of the syntax token set (UTF-16 code unit base)
+        token-at-offset: func(offset: u32) -> option<syntax-token-item>;
         // get previous neighbor sibling node on the same parent
         prev-sibling: func() -> option<syntax-element>;
         // get next neighbor sibling node on the same parent
@@ -93,6 +111,8 @@ interface syntaxes {
         // parent node
         // it will return none if not root node
         parent: func() -> option<syntax-node>;
+        // enumerate all of the token items; leading trivia, main token, and trailing trivia
+        descendant-tokens: func() -> list<syntax-token-item>;
         // get previous neighbor sibling node on the same parent
         prev-sibling: func() -> option<syntax-element>;
         // get next neighbor sibling node on the same parent

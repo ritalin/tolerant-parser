@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 
 use engine_core::{parser_engine::{ParsingRuleSet, Transition}, SymbolGroup, SyntaxKind};
 use scanner_core::Token;
@@ -10,23 +10,25 @@ pub struct ShiftErrorRecovery {
     candidates: VecDeque<RecoveryReport>,
     wait_list: Vec<Packet>,
     penalty: RecoveryPenalty,
+    except_kind_ids: HashSet<u32>,
     engine: ParsingRuleSet,
 }
 
 impl ShiftErrorRecovery {
     #[cfg(feature = "test_support")]
     #[doc(hidden)]
-    pub fn new(state_histories: &[usize], penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
-        Self::new_with_stack(super::make_stack(state_histories), penalty, engine)
+    pub fn new(state_histories: &[usize], penalty: RecoveryPenalty, except_kinds: &HashSet<u32>, engine: ParsingRuleSet) -> Self {
+        Self::new_with_stack(super::make_stack(state_histories), penalty, except_kinds, engine)
     }
 
-    pub(crate) fn new_with_stack(state_stack: StateStack, penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
+    pub(crate) fn new_with_stack(state_stack: StateStack, penalty: RecoveryPenalty, except_kind_ids: &HashSet<u32>, engine: ParsingRuleSet) -> Self {
         let report = RecoveryReport::new_with_stack(state_stack);
 
         Self {
             candidates: VecDeque::with_capacity(0),
-            wait_list: next_candidates_internal(report, None, None, engine).collect(),
+            wait_list: next_candidates_internal(report, None, None, except_kind_ids, engine).collect(),
             penalty, 
+            except_kind_ids: except_kind_ids.clone(),
             engine,
         }
     }
@@ -40,7 +42,7 @@ impl ShiftErrorRecovery {
             // Fill candidates
             let mut wait_list = Vec::with_capacity(0);
             std::mem::swap(&mut self.wait_list, &mut wait_list);
-            (self.candidates, self.wait_list) = next_candidates(wait_list.into_iter(), lookahead, &self.penalty, self.engine);
+            (self.candidates, self.wait_list) = next_candidates(wait_list.into_iter(), lookahead, &self.except_kind_ids, &self.penalty, self.engine);
 
             if self.wait_list.is_empty() && self.candidates.is_empty() {
                 // No more candidate
@@ -63,7 +65,7 @@ const N_ACTION: usize = 3;
 // symbol group = keyword, non-keyword, regex-pattern
 const N_SYMBOL: usize = 3;
 
-fn next_candidates(prev_candidates: impl Iterator<Item = Packet>, lookahead: &Token, penalty: &RecoveryPenalty, engine: ParsingRuleSet) -> (VecDeque<RecoveryReport>, Vec<Packet>) {
+fn next_candidates(prev_candidates: impl Iterator<Item = Packet>, lookahead: &Token, except_kind_ids: &HashSet<u32>, penalty: &RecoveryPenalty, engine: ParsingRuleSet) -> (VecDeque<RecoveryReport>, Vec<Packet>) {
     let limit = penalty.max_shift_packet_size * N_ACTION * N_SYMBOL;
     let mut next_candidate = VecDeque::with_capacity(prev_candidates.size_hint().0);
     let mut next_wait_list = Vec::with_capacity(limit * 2);
@@ -89,14 +91,14 @@ fn next_candidates(prev_candidates: impl Iterator<Item = Packet>, lookahead: &To
 
             next_wait_list.extend(next_candidates_internal(
                 prev.report, prev_kind.as_ref(), 
-                Some(lookahead.main.kind), engine));
+                Some(lookahead.main.kind), except_kind_ids, engine));
         }
     }
 
     (next_candidate, next_wait_list)
 }
 
-fn next_candidates_internal(report: RecoveryReport, prev_kind: Option<&SyntaxKind>, lookahead_kind: Option<SyntaxKind>, engine: ParsingRuleSet) -> impl Iterator<Item = Packet> {
+fn next_candidates_internal(report: RecoveryReport, prev_kind: Option<&SyntaxKind>, lookahead_kind: Option<SyntaxKind>, except_kind_ids: &HashSet<u32>, engine: ParsingRuleSet) -> impl Iterator<Item = Packet> {
     let mut packets: [Option<Packet>; N_ACTION * (N_SYMBOL + 1)] = std::array::from_fn(|_| None);
 
     if let Some(last_state) = report.state_stack.peek_state().cloned() {
@@ -116,6 +118,12 @@ fn next_candidates_internal(report: RecoveryReport, prev_kind: Option<&SyntaxKin
                 }
                 _ => {}
             }
+
+            if except_kind_ids.contains(&symbol.id) { 
+                // Skip shift symbol
+                continue 
+            }
+
             let Some(col) = find_packet_group_column(symbol) else { continue };
 
             let kind = symbol.clone();
@@ -137,6 +145,10 @@ fn next_candidates_internal(report: RecoveryReport, prev_kind: Option<&SyntaxKin
                     packets[col] = Some(Packet{ kind_id: symbol.id, is_reduce: false, report: next_report });
                 }
                 Some(Transition::Reduce { pop_count, lhs }) if (*pop_count > 0) && packets[col + N_SYMBOL].is_none() => {
+                    if except_kind_ids.contains(lhs) { 
+                        // Skip reduce symbol
+                        continue 
+                    }
                     let mut next_report = report.next_report();
 
                     let Some(goto_state) = next_report.state_stack.pop_n_state(*pop_count) else { continue };
@@ -157,6 +169,10 @@ fn next_candidates_internal(report: RecoveryReport, prev_kind: Option<&SyntaxKin
                     packets[col + N_SYMBOL] = Some(Packet{ kind_id: symbol.id, is_reduce: true, report: next_report })
                 }
                 Some(Transition::Reduce { pop_count, lhs }) if packets[col + N_SYMBOL * 2].is_none() => {
+                    if except_kind_ids.contains(lhs) { 
+                        // Skip reduce symbol
+                        continue 
+                    }
                     let mut next_report = report.next_report();
 
                     let Some(goto_state) = next_report.state_stack.pop_n_state(*pop_count) else { continue };

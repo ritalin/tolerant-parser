@@ -25,11 +25,12 @@ impl Scanner {
         
     }
 
-    pub fn statement_scanners(&self, terminate_symbol: SyntaxKind) -> crate::iter::StatementScannerIterator {
+    pub fn statement_scanners(&self, emit_symbol: SyntaxKind, full_emit_symbol: SyntaxKind) -> crate::iter::StatementScannerIterator {
         crate::iter::StatementScannerIterator::new(
             self.lookaheads.clone(),
             self.dispatcher.clone(),
-            terminate_symbol
+            emit_symbol,
+            full_emit_symbol
         )
     }
 }

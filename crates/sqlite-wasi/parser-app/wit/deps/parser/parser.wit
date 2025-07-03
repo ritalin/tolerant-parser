@@ -1,0 +1,156 @@
+package ritalin:parser@0.0.1;
+
+interface parsers {
+    /// create new parser instance
+    create: func() -> parser;
+
+    use syntaxes.{syntax-tree};
+    use errors.{parse-error};
+
+    resource parser {
+        /// execute to parse souce content
+        parse: func(source: string) -> syntax-tree;
+    }
+}
+
+interface errors {
+    variant parse-error {
+        node-build-failed(string),
+    }
+}
+
+interface types {
+    // Terminal/Non-terminal symbol definition
+    record syntax-kind {
+        // symbol name
+        name: string,
+        // wether this is a keyword symbol
+        is-keyword: bool,
+        // whether this is a terminal symbol
+        is-terminal: bool,
+    }
+
+    // Syntax node type
+    enum node-type {
+        node,
+        // node for owning leading trivias, token and trailing trivias
+        token-set,
+        // leading trivia mainly has some comment
+        leading-trivia,
+        // main token
+        token-item,
+        // trailing trivia mainly has some white space
+        trailing-trivia,
+        // node for supplied by the error recovery process
+        error,
+        // if a error recovery process failed, this node is inserted insted
+        fatal-error,
+    }
+
+    // error recovery type selected by a error recovery
+    enum recovery {
+        // lookahead token is deleted
+        delete,
+        // Non-terminated symbol is inserted
+        shift,
+    }
+}
+
+interface syntaxes {
+    use types.{syntax-kind, node-type, recovery};
+
+    // A syntax tree returned the parser
+    resource syntax-tree {
+        // Root node
+        root: func() -> syntax-node;
+    }
+
+    // Syntax node is mainly Non-terminated symbol 
+    resource syntax-node {
+        // Node metadata key
+        metadata-key: func() -> metadata-key;
+        // Node metadata value
+        metadata: func() -> metadata;
+        // parent node
+        // it will return none if not root node
+        parent: func() -> option<syntax-node>;
+        // all of the child nodes or the token-sets
+        children: func() -> list<syntax-element>;
+    }
+
+    // Token set is grouping token items
+    resource syntax-token-set {
+        // Node metadata key
+        metadata-key: func() -> metadata-key;
+        // Node metadata value
+        metadata: func() -> metadata;
+        // parent node
+        // it will return none if not root node
+        parent: func() -> option<syntax-node>;
+        // Returns leading trivia tokens
+        leading-trivia: func() -> list<syntax-token-item>;
+        // Returns main token
+        token: func() -> syntax-token-item;
+        // returns trailing trivia tokens
+        trailing-trivia: func() -> list<syntax-token-item>;
+    }
+
+    resource syntax-token-item {
+        // Node metadata key
+        metadata-key: func() -> metadata-key;
+        // Node metadata value
+        metadata: func() -> metadata;
+        // parent node
+        // it will return none if not root node
+        parent: func() -> option<syntax-node>;
+        // Returns token value
+        value: func() -> string;
+    }
+
+    // Children of node consists of the node or the token set 
+    variant syntax-element {
+        node(syntax-node),
+        token-set(syntax-token-set),
+    }
+
+    record metadata-key {
+        // symbol kind of node
+        kind: syntax-kind,
+        // byte offset from begining of the document 
+        offset: u32,
+        // byte-length of node
+        // For the node and the token set, it's a summary of all descendant node 
+        len: u32,
+        // Wherther node is leaf (token item)
+        is-leaf: bool,
+    }
+
+    record metadata {
+        // type of node
+        node-type: node-type,
+        // Resume state at incremental parsing
+        edit-state: u64,
+        // Selected recovery method
+        recovery: option<recovery>,
+        // char offset from begining of the document 
+        char-offset: u32,
+        // char length of node
+        // For the node and the token set, it's a summary of all descendant node 
+        char-len: u32,
+    }
+}
+
+world types-world {
+    export types;
+}
+
+world syntax-tree-world {
+    import types;
+    export syntaxes;
+}
+
+world parser-world {
+    export types;
+    export syntaxes;
+    export parsers;
+}

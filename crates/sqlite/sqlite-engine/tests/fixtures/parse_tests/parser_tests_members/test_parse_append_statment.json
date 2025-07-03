@@ -6,8 +6,8 @@
 },
 {
     "path": ["input", "ecmd"],
-    "meta_key": { "byte_offset":0, "byte_len":13, "is_leaf":false },
-    "meta_obj": { "char_offset":0, "char_len":13, "node_type":"Node", "patch":"None", "edit_state":0 }
+    "meta_key": { "byte_offset":0, "byte_len":14, "is_leaf":false },
+    "meta_obj": { "char_offset":0, "char_len":14, "node_type":"Node", "patch":"None", "edit_state":0 }
 },
 {
     "path": ["input", "ecmd", "cmdx"],
@@ -79,8 +79,8 @@
 },
 {
     "path": ["input", "ecmd", "SEMI"],
-    "meta_key": { "byte_offset":12, "byte_len":1, "is_leaf":false },
-    "meta_obj": { "char_offset":12, "char_len":1, "node_type":"TokenSet", "patch":"None", "edit_state":23 }
+    "meta_key": { "byte_offset":12, "byte_len":2, "is_leaf":false },
+    "meta_obj": { "char_offset":12, "char_len":2, "node_type":"TokenSet", "patch":"None", "edit_state":23 }
 },
 {
     "path": ["input", "ecmd", "SEMI", "SEMI"],
@@ -88,47 +88,47 @@
     "meta_obj": { "char_offset":12, "char_len":1, "node_type":"TokenItem", "patch":"None", "edit_state":23 },
     "value": ";"
 },
+{
+    "path": ["input", "ecmd", "SEMI", "SPACE"],
+    "meta_key": { "byte_offset":13, "byte_len":1, "is_leaf":true },
+    "meta_obj": { "char_offset":13, "char_len":1, "node_type":"TrailingToken", "patch":"None", "edit_state":23 },
+    "value": " "
+},
 
 {
     "path": ["input", "ecmd"],
-    "meta_key": { "byte_offset":13, "byte_len":24, "is_leaf":false },
-    "meta_obj": { "char_offset":13, "char_len":24, "node_type":"Node", "patch":"None", "edit_state":0 }
+    "meta_key": { "byte_offset":14, "byte_len":23, "is_leaf":false },
+    "meta_obj": { "char_offset":14, "char_len":23, "node_type":"Node", "patch":"None", "edit_state":0 }
 },
 {
     "path": ["input", "ecmd", "cmdx"],
-    "meta_key": { "byte_offset":13, "byte_len":23, "is_leaf":false },
-    "meta_obj": { "char_offset":13, "char_len":23, "node_type":"Node", "patch":"None", "edit_state":0 }
+    "meta_key": { "byte_offset":14, "byte_len":22, "is_leaf":false },
+    "meta_obj": { "char_offset":14, "char_len":22, "node_type":"Node", "patch":"None", "edit_state":0 }
 },
 {
     "path": ["input", "ecmd", "cmdx", "cmd"],
-    "meta_key": { "byte_offset":13, "byte_len":23, "is_leaf":false },
-    "meta_obj": { "char_offset":13, "char_len":23, "node_type":"Node", "patch":"None", "edit_state":0 }
+    "meta_key": { "byte_offset":14, "byte_len":22, "is_leaf":false },
+    "meta_obj": { "char_offset":14, "char_len":22, "node_type":"Node", "patch":"None", "edit_state":0 }
 },
 {
     "path": ["input", "ecmd", "cmdx", "cmd", "select"],
-    "meta_key": { "byte_offset":13, "byte_len":23, "is_leaf":false },
-    "meta_obj": { "char_offset":13, "char_len":23, "node_type":"Node", "patch":"None", "edit_state":0 }
+    "meta_key": { "byte_offset":14, "byte_len":22, "is_leaf":false },
+    "meta_obj": { "char_offset":14, "char_len":22, "node_type":"Node", "patch":"None", "edit_state":0 }
 },
 {
     "path": ["input", "ecmd", "cmdx", "cmd", "select", "selectnowith"],
-    "meta_key": { "byte_offset":13, "byte_len":23, "is_leaf":false },
-    "meta_obj": { "char_offset":13, "char_len":23, "node_type":"Node", "patch":"None", "edit_state":0 }
+    "meta_key": { "byte_offset":14, "byte_len":22, "is_leaf":false },
+    "meta_obj": { "char_offset":14, "char_len":22, "node_type":"Node", "patch":"None", "edit_state":0 }
 },
 {
     "path": ["input", "ecmd", "cmdx", "cmd", "select", "selectnowith", "oneselect"],
-    "meta_key": { "byte_offset":13, "byte_len":23, "is_leaf":false },
-    "meta_obj": { "char_offset":13, "char_len":23, "node_type":"Node", "patch":"None", "edit_state":0 }
+    "meta_key": { "byte_offset":14, "byte_len":22, "is_leaf":false },
+    "meta_obj": { "char_offset":14, "char_len":22, "node_type":"Node", "patch":"None", "edit_state":0 }
 },
 {
     "path": ["input", "ecmd", "cmdx", "cmd", "select", "selectnowith", "oneselect", "SELECT"],
-    "meta_key": { "byte_offset":13, "byte_len":8, "is_leaf":false },
-    "meta_obj": { "char_offset":13, "char_len":8, "node_type":"TokenSet", "patch":"None", "edit_state":0 }
-},
-{
-    "path": ["input", "ecmd", "cmdx", "cmd", "select", "selectnowith", "oneselect", "SELECT", "SPACE"],
-    "meta_key": { "byte_offset":13, "byte_len":1, "is_leaf":true },
-    "meta_obj": { "char_offset":13, "char_len":1, "node_type":"LeadingToken", "patch":"None", "edit_state":0 },
-    "value": " "
+    "meta_key": { "byte_offset":14, "byte_len":7, "is_leaf":false },
+    "meta_obj": { "char_offset":14, "char_len":7, "node_type":"TokenSet", "patch":"None", "edit_state":0 }
 },
 {
     "path": ["input", "ecmd", "cmdx", "cmd", "select", "selectnowith", "oneselect", "SELECT", "SELECT"],

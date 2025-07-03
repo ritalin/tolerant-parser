@@ -1,0 +1,17 @@
+[package]
+name = "sqlite-engine-wasi"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+engine-core = { path = "../../core/engine-core" }
+engine-wasi = { path = "../../sdk/engine-wasi" }
+sqlite-engine = { path = "../../sqlite/sqlite-engine" }
+wit-bindgen = { workspace = true }
+
+[profile.release]
+opt-level = "z"
+lto = true

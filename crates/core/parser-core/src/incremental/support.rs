@@ -1,16 +1,34 @@
 use std::collections::{HashMap, HashSet};
 
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
-use rowan::NodeOrToken;
-use crate::{metadata::{GlobalOffset, StatementMetadataEntry}, syntax_tree::RowanLangageImpl, NodeMetadata, NodeMetadataKey};
+use rowan::{NodeOrToken, TextSize};
+use scanner_core::iter::StatementScannerType;
+use crate::{metadata::{GlobalOffset, StatementMetadataEntry}, syntax_tree::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxElement, SyntaxNode, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey};
 
-pub struct TreeGardener {
+#[derive(Clone)]
+pub struct TreeGardener<'a> {
     pub node: rowan::SyntaxNode<RowanLangageImpl>,
+    pub metadata_entry: &'a StatementMetadataEntry,
 }
 
-impl TreeGardener {
-    pub fn pick_token(&self, offset: rowan::TextSize) -> Option<FoundToken> {
-        match self.node.token_at_offset(offset) {
+impl<'a> TreeGardener<'a> {
+    pub fn new(stmt: &'a SyntaxNode) -> Self {
+        Self {
+            node: stmt.into_raw(),
+            metadata_entry: stmt.metadata_entry()
+        }
+    }
+
+    pub fn as_subtree(stmt: &'a SyntaxNode) -> Self {
+        Self {
+            node: stmt.into_raw().clone_subtree(),
+            metadata_entry: stmt.metadata_entry()
+        }
+    }
+
+    pub fn pick_token(&self, byte_offset: usize) -> Option<FoundToken> {
+        let local_byte_offset = byte_offset - self.metadata_entry.global_offset.of_byte;
+        match self.node.token_at_offset(TextSize::new(local_byte_offset as u32)) {
             rowan::TokenAtOffset::None => return None,
             rowan::TokenAtOffset::Single(token) | rowan::TokenAtOffset::Between(_, token) => {
                 Some(FoundToken{ token })
@@ -18,14 +36,14 @@ impl TreeGardener {
         }
     }
 
-    pub fn common_anscestor(&self, lhs: Option<FoundToken>, rhs: Option<FoundToken>, except_kind: SyntaxKind) -> Option<rowan::SyntaxNode<RowanLangageImpl>> {
-        let (Some(lhs), Some(rhs)) = (lhs, rhs) else { return None; };
-
+    pub fn common_anscestor(&self, lhs: Option<FoundToken>, rhs: Option<FoundToken>, except_kind: SyntaxKind) -> Option<TreeGardener> {
+        let (Some(lhs), Some(rhs)) = (lhs, rhs) else { return Some(self.clone()); };
+        
         // expand left hand token
         let left_neighbor = lhs.into_prev(&self.node, except_kind);
         // expand right hand token
         let right_beighbor = rhs.into_next(&self.node, except_kind);
-
+        
         // Find least common anscestor
         let left_anscestors = left_neighbor.token.parent_ancestors().collect::<Vec<_>>();
         let right_anscestors = right_beighbor.token.parent_ancestors().collect::<Vec<_>>();
@@ -39,20 +57,28 @@ impl TreeGardener {
             let needle = node.text_range();
             node.ancestors().take_while(|anscestor| anscestor.text_range() == needle).last()
         })
+        .map(|node| TreeGardener {
+            node,
+            metadata_entry: self.metadata_entry,
+        })
     }
 
-    pub fn pick_terminate_kind(&self, engine: ParsingRuleSet) -> IncrementalParserStrategy {
-        let token = self.node.last_token().unwrap();
-        
-        let kind = match token.next_token() {
-            Some(neighbor) => neighbor.parent().map(|x| engine.from_kind_id(x.kind())),
-            None => None
-        };
-
+    pub fn pick_terminate_kind(&self, scanner_type: StatementScannerType, engine: ParsingRuleSet) -> IncrementalParserStrategy {
         let full_emit_kind = engine.full_emit_config().to_symbol;
-        let terminate_kind = kind.unwrap_or(full_emit_kind);
 
-        IncrementalParserStrategy{ full_emit_kind, terminate_kind }
+        match scanner_type {
+            StatementScannerType::Statement => {
+                let next_kind = self.node.last_token().and_then(|x| x.next_token()).map(|x| x.kind());
+                let terminate_kind = match next_kind {
+                    Some(kind) => Some(engine.from_kind_id(kind)),
+                    None => Some(full_emit_kind),
+                };
+                IncrementalParserStrategy{ full_emit_kind, terminate_kind }
+            }
+            StatementScannerType::Eof => {
+                IncrementalParserStrategy{ full_emit_kind, terminate_kind: None }
+            }
+        }
     }
 
     pub fn replace_with_new_node(
@@ -61,6 +87,7 @@ impl TreeGardener {
         anscestor: &rowan::SyntaxNode<RowanLangageImpl>) -> rowan::GreenNode
     {
         let Some(parent) = anscestor.parent() else {
+            // Leqast common anscestor is the statement
             return new_node;
         };
         let index = anscestor.index();
@@ -110,7 +137,7 @@ impl FoundToken {
 
 pub struct IncrementalParserStrategy {
     full_emit_kind: SyntaxKind,
-    terminate_kind: SyntaxKind,
+    terminate_kind: Option<SyntaxKind>,
 }
 
 impl IncrementalParserStrategy {
@@ -119,17 +146,25 @@ impl IncrementalParserStrategy {
 
         Self {
             full_emit_kind: kind,
-            terminate_kind: kind,
+            terminate_kind: Some(kind),
         }
     }
 }
 
 impl crate::parser::ParseStrategy for IncrementalParserStrategy {
     fn is_terminated_kind(&self, kind: SyntaxKind, scanner: &impl scanner_core::ScannerAccess) -> bool {
-        if let Some(token) = scanner.lookahead() {
-            return token.main.kind == self.full_emit_kind;
+        match (self.terminate_kind, scanner.lookahead()) {
+            (Some(terminate_kind), Some(lookahead)) if terminate_kind != self.full_emit_kind => {
+                lookahead.main.kind == self.full_emit_kind
+            }
+            (Some(terminate_kind), _)  => {
+                terminate_kind == kind
+            }
+            (None, _) => {
+                // continue until accepting
+                false
+            }
         }
-        self.terminate_kind == kind
     }
 }
 
@@ -144,6 +179,13 @@ impl<T> IncludeEnd for std::ops::Range<T> {
     fn include_end(self) -> std::ops::RangeInclusive<Self::Item> {
         self.start..=self.end
     }
+}
+
+pub fn adjust_edit_range(base_range: &std::ops::Range<usize>, node_byte_range: &std::ops::Range<usize>) -> std::ops::Range<usize> {
+    let lowest_offset = usize::max(base_range.start, node_byte_range.start);
+    let highest_offset = usize::min(base_range.end, node_byte_range.end);
+    
+    lowest_offset..highest_offset
 }
 
 pub fn merge_metadata_map(
@@ -200,13 +242,18 @@ pub fn merge_metadata_map(
 
         // Phase2: regenerate anscestors metadata
         for node in old_anscestor.ancestors() {                
-            let mut key = NodeMetadataKey::from_raw_node(&node, engine);
-            let mut metadata = old_metadata.get(&key).expect("All of nodes need to have a metadata").clone();
+            // Generate old and new metadata key
+            let old_key = NodeMetadataKey::from_raw_node(&node, engine);
+            let new_key = NodeMetadataKey{ len: old_key.len + new_byte_len - old_byte_len, ..old_key.clone() };
 
-            key.len = key.len + new_byte_len - old_byte_len;
-            metadata.char_len = metadata.char_len + new_char_len - old_char_len;
-
-            new_metadata_map.insert(key, metadata);
+            new_metadata_map.entry(new_key).or_insert_with(|| {
+                // Update metadata from old entry
+                old_metadata.get(&old_key)
+                    .map(|metadata| {
+                        NodeMetadata { char_len: metadata.char_len + new_char_len - old_char_len, ..metadata.clone() }
+                    })
+                    .expect("All of nodes need to have a metadata")
+            });
         }
     }
 
@@ -236,5 +283,71 @@ fn measure_char_len_internal(node: NodeOrToken<&rowan::GreenNodeData, &rowan::Gr
                 *acc += token.text().chars().count();
             }
         };
+    }
+}
+
+pub fn find_first_token_set(stmt: Option<&SyntaxNode>) -> Option<SyntaxTokenSet> {
+    let Some(stmt) = stmt else {
+        return None;
+    };
+
+    let mut next_node = Some(stmt.clone());
+
+    while let Some(node) = next_node {
+        match node.nth_child(0) {
+            Some(SyntaxElement::Node(node)) => {
+                next_node = Some(node);
+            }
+            Some(SyntaxElement::TokenSet(token_set)) => {
+                return Some(token_set);
+            }
+            None => break
+        }
+    }
+
+    None
+}
+
+pub fn find_last_token_set(stmt: Option<&SyntaxNode>) -> Option<SyntaxTokenSet> {
+    let Some(stmt) = stmt else {
+        return None;
+    };
+
+    let mut next_node = Some(stmt.clone());
+
+    while let Some(node) = next_node {
+        match node.children().last() {
+            Some(SyntaxElement::Node(node)) => {
+                next_node = Some(node);
+            }
+            Some(SyntaxElement::TokenSet(token_set)) => {
+                return Some(token_set);
+            }
+            None => break
+        }
+    }
+
+    None
+}
+
+pub fn trim_trivia_char_range(node: &SyntaxNode) -> Option<std::ops::Range<usize>> {
+    let char_range = node.metadata().char_range();
+
+    let first_main_token = node.token_at_utf16_offset(char_range.start)
+        .and_then(|token| token.parent())
+        .map(|token_set| token_set.token())
+    ;
+    let last_main_token = find_first_token_set(Some(node))
+        .map(|token_set| token_set.token())
+    ;
+
+    match (first_main_token, last_main_token) {
+        (Some(lhs), Some(rhs)) => {
+            let start = lhs.metadata().char_range().start;
+            let end = rhs.metadata().char_range().end;
+
+            Some(start..end)
+        }
+        _ => None,
     }
 }

@@ -25,7 +25,7 @@ impl ParseEventDispatcher {
         }
 
         // peek event
-        let event = self.next_internal(lookahead_kind)?;
+        let mut event = self.next_internal(lookahead_kind)?;
         let emit_config = self.engine.statement_emit_config();
 
         if self.mode == ParseMode::ByStatement {
@@ -38,6 +38,15 @@ impl ParseEventDispatcher {
                 kind => {
                     let full_emit_config = self.engine.full_emit_config();
                     if kind == full_emit_config.to_symbol {
+                        if let Some(top_state) = self.state_stack.peek_state() {
+                            if *top_state != self.state_stack.initial_state() {
+                                // A previous statement has not emitted
+                                self.event_queue.push_back(event);
+                                // In advance, It dispatches emit event
+                                event = ParseEvent::PatchEmit { kind: emit_config.from_symbol, edit_state: initial_state };
+                            }
+                        }
+
                         // additional emit event
                         self.event_queue.push_back(ParseEvent::Emit { kind: emit_config.from_symbol, edit_state: initial_state });
                         // additional accept event
@@ -293,6 +302,11 @@ pub enum ParseEvent {
         /// edit state for incremental parsing
         edit_state: usize,
     },
+    PatchEmit{
+        kind: SyntaxKind, 
+        /// edit state for incremental parsing
+        edit_state: usize,
+    },
     Invalid{
         kind: SyntaxKind, 
         /// transition before state
@@ -319,6 +333,7 @@ impl ParseEvent {
             ParseEvent::PatchDrop { kind, .. } => *kind,
             ParseEvent::PatchShift { kind, .. } => *kind,
             ParseEvent::PatchReduce { kind, .. } => *kind,
+            ParseEvent::PatchEmit { kind, .. } => *kind,
             ParseEvent::Invalid { kind, .. } => *kind,
             ParseEvent::InvalidEmit { kind, .. } => *kind,
         }

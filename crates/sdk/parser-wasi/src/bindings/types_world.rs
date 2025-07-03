@@ -238,7 +238,7 @@ A\x02\x01B\x08\x01m\x04\x07keyword\x0bnon-keyword\x07pattern\x0cnon-terminal\x04
 -trivia\x04\0\x09node-type\x03\0\x04\x01m\x04\x04none\x06delete\x05shift\x07inva\
 lid\x04\0\x0cpatch-action\x03\0\x06\x04\0\x1aritalin:parser/types@0.0.1\x05\0\x04\
 \0\x20ritalin:parser/types-world@0.0.1\x04\0\x0b\x11\x01\0\x0btypes-world\x03\0\0\
-\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.230.0\x10wit-bind\
+\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.234.0\x10wit-bind\
 gen-rust\x060.42.1";
 
 #[inline(never)]

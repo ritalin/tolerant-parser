@@ -92,10 +92,15 @@ impl ScanEventDispatcher {
 
     pub fn invalid(&mut self) -> ScanEvent {
         let offset = self.index;
-        let value = self.source.get(offset..offset+1).map(String::from);
-        self.index += 1;
+        let (len, value) = self.source.char_indices()
+            .find_map(|(i, c)| if i == offset { Some(String::from(c)) } else { None } )
+            .map(|v| (v.as_str().len(), v))
+            .unzip()
+        ;
+        let len = len.unwrap_or_default();
+        self.index += len;
 
-        ScanEvent{ kind: self.engine.invalid(), offset, len: 1, value }
+        ScanEvent{ kind: self.engine.invalid(), offset, len, value }
     }
 
     pub fn has_more(&self) -> bool {

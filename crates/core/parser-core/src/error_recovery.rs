@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
 use scanner_core::iter::LookaheadIterator;
 use stitch_handler::StitchRecoveryHandler;
@@ -10,11 +12,12 @@ pub mod stitch_handler;
 pub struct RecoveryEventDispatcher {
     engine: ParsingRuleSet,
     penalty: RecoveryPenalty,
+    except_kind_ids: HashSet<u32>,
 }
 
 impl RecoveryEventDispatcher {
-    pub fn new(penalty: RecoveryPenalty, engine: ParsingRuleSet) -> Self {
-        Self { penalty, engine }
+    pub fn new(penalty: RecoveryPenalty, except_kinds: &[SyntaxKind], engine: ParsingRuleSet) -> Self {
+        Self { penalty, engine, except_kind_ids: HashSet::from_iter(except_kinds.iter().map(|kind| kind.id)) }
     }
 
     #[cfg(feature = "test_support")]
@@ -30,7 +33,7 @@ impl RecoveryEventDispatcher {
         };
 
         let mut delete_recovery = delete_recovery::DeleteErrorRecovery::new_with_stack(state_stack.clone(), self.penalty.clone(), self.engine);
-        let mut shift_recovery = shift_recovery::ShiftErrorRecovery::new_with_stack(state_stack.clone(), self.penalty.clone(), self.engine);
+        let mut shift_recovery = shift_recovery::ShiftErrorRecovery::new_with_stack(state_stack.clone(), self.penalty.clone(), &self.except_kind_ids, self.engine);
         let stitch_handler = StitchRecoveryHandler::new(self.engine);
 
         let mut report = None;
@@ -68,10 +71,16 @@ impl RecoveryEventDispatcher {
     }
 
     pub fn handle_as_invalid(&self, lookaheads: LookaheadIterator) -> Vec<RecoveryEvent> {
-        let len = lookaheads.len();
+        let full_emit_symbol = self.engine.full_emit_config().to_symbol;
+        let mut invalids = Vec::with_capacity(lookaheads.len());
 
-        lookaheads.enumerate()
-        .map(|(i, la)| RecoveryEvent::Invalid { kind: la.main.kind, need_emit: i + 1 == len }).collect()
+        let mut iter = lookaheads.filter(|la| la.main.kind != full_emit_symbol).peekable();
+
+        while let Some(la) = iter.next() {
+            invalids.push(RecoveryEvent::Invalid { kind: la.main.kind, need_emit: iter.peek().is_none() });
+        }
+
+        invalids
     }
 
     pub fn penalty(&self) -> RecoveryPenalty {

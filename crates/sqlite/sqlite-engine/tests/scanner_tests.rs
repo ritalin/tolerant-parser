@@ -47,6 +47,22 @@ fn test_peek_lookahead() -> Result<(), anyhow::Error> {
 }
 
 #[test]
+fn test_match_incorrect_identifier() -> Result<(), anyhow::Error> {
+    let source = "あ";
+    let engine = sqlite_engine::create()?.scanning_rules;
+    let scanner = Scanner::create(source, 0, engine)?;
+
+    let expect_token = Token {
+        leading_trivia: None,
+        main: ScanEvent { kind: syntax_kind::r#ILLEGAL, offset: 0, len: 3, value: Some("あ".into()) },
+        trailing_trivia: None,
+    };
+
+    assert_eq!(Some(&expect_token), scanner.lookahead());
+    Ok(())
+}
+
+#[test]
 fn test_shift_for_main_token_only() -> Result<(), anyhow::Error> {
     let source = "INSERT OR REPLACE  INTO";
     let engine = sqlite_engine::create()?;
