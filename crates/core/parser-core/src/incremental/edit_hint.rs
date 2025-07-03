@@ -59,7 +59,7 @@ impl EditHint {
         let left = 'precedings: {
             if let Some((stmt, char_range)) = iter.peek() {
                 break 'precedings match char_range.end <= range.start {
-                    true if (char_range.len() > 0) && (range.start > 0) => {
+                    true if stmt.next_sibling().is_some() => {
                         let node = stmt.clone();
                         iter.next();
                         Some(SyntaxElement::Node(node))
@@ -123,7 +123,6 @@ impl EditHint {
                         .chain(self.statements.iter())
                         .chain(self.followings.iter().flatten().take(tail_index.unwrap_or(following_len)))
                         .skip(1),
-                    // scanners[scanner_start..scanner_end].into_iter()
                     scanners.into_iter().skip(scanner_start).take(scanner_end - scanner_start).rev()
                 );
 
@@ -153,7 +152,6 @@ impl EditHint {
                         .chain(self.statements.iter())
                         .chain(self.followings[0..=index].iter().flatten())
                         .rev(),
-                    // scanners[scanner_start..scanner_end].into_iter().rev()
                     scanners.into_iter().skip(scanner_start).take(scanner_end - scanner_start).rev()
                 );
                 statements.reverse();
