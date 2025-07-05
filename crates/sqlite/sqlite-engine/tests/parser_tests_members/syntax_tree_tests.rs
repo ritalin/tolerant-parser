@@ -4,7 +4,7 @@
 
 mod operation_tests {
 
-    use parser_core::syntax_tree::NodeOperation;
+    use parser_core::{syntax_tree::NodeOperation, ParserConfig};
 
     use super::*;
 
@@ -13,7 +13,7 @@ mod operation_tests {
         let source = "SELECT 1 AS a, 42;";
     
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
+        let parser = Parser::new(engine, ParserConfig::default());
         let tree = parser.parse(source)?;
 
         let Some(token) = tree.root().token_at_utf16_offset(0) else { panic!("Token must exist") };
@@ -63,7 +63,7 @@ mod operation_tests {
         let source = "SELECT 1 AS a, 42;";
     
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
+        let parser = Parser::new(engine, ParserConfig::default());
         let tree = parser.parse(source)?;
 
         let Some(token) = tree.root().token_at_utf16_offset(13) else { panic!("Token must exist") };
@@ -90,7 +90,7 @@ mod operation_tests {
         let source = "SELECT /* ここ定数 */1 AS a, 42;";
     
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
+        let parser = Parser::new(engine, ParserConfig::default());
         let tree = parser.parse(source)?;
 
         let token = tree.root().token_at_utf16_offset(20);
@@ -107,7 +107,7 @@ mod operation_tests {
         let source = "SELECT '𩸽' AS a, 42;";
     
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
+        let parser = Parser::new(engine, ParserConfig::default());
         let tree = parser.parse(source)?;
 
         let token = tree.root().token_at_utf16_offset(11);

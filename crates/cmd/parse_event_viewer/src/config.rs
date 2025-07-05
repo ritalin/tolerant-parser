@@ -1,3 +1,4 @@
+use engine_core::scanner_engine::CaseSensitivity;
 use parser_core::ParseMode;
 
 
@@ -16,6 +17,8 @@ pub struct CmdConfig {
     pub quiet: bool,
     #[arg(long)]
     pub enable_full_parse: bool,
+    #[arg(long)]
+    pub ignore_case: bool,
 }
 
 
@@ -25,6 +28,7 @@ impl CmdConfig {
             mode: if self.enable_full_parse { ParseMode::Full } else { ParseMode::ByStatement },
             no_scan: self.no_scan,
             no_parse: self.no_parse,
+            case_sensitive: if self.ignore_case { CaseSensitivity::Insensitive } else { CaseSensitivity::Sensitive },
         }
     }
 }

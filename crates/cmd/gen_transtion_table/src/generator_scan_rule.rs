@@ -1,18 +1,24 @@
 use std::{collections::{BTreeMap, HashMap}, path::PathBuf};
 use std::io::{Write, BufWriter};
+use engine_core::scanner_engine::CaseSensitivity;
 use grammar_types_core::{scan_rule::{AltPattern, GrammarScanRule, RegexGrammarScanRule}, symbol::GrammarSymbol, SymbolType};
 use quote::quote;
 
 use crate::export_support::{tokens_to_string, with_indent};
 
-pub fn generate(rules: &GrammarScanRule, symbols: &[GrammarSymbol], symbol_lookup: &HashMap<String, u32>, output_dir: PathBuf) -> Result<(), anyhow::Error> {
+pub fn generate(
+    rules: &GrammarScanRule, 
+    symbols: &[GrammarSymbol], 
+    symbol_lookup: &HashMap<String, u32>, 
+    output_dir: PathBuf) -> Result<(), anyhow::Error> 
+{
     let output_file = crate::storage_support::make_output_file(output_dir, "scan_rule.rs")?;
     let mut writer = BufWriter::new(output_file);
 
     writeln!(writer, "mod scan_rule_map {{")?;
-    writeln!(writer, "{}", with_indent("use engine_core::scanner_engine::ScanPattern;", 1))?;
+    writeln!(writer, "{}", with_indent("use engine_core::scanner_engine::{ScanPattern, CaseSensitivity};", 1))?;
 
-    generate_lexme_scan_rule(&rules.lexme, collect_keywords(symbols), symbol_lookup, &mut writer)?;
+    generate_lexme_scan_rule(&rules.lexme, collect_keywords(symbols), symbol_lookup, &rules.ignore_case_override, &mut writer)?;
     generate_regex_scan_rule(&rules.regex, symbol_lookup, &mut writer)?;
     generate_alternative_token(&rules.alternatives, symbol_lookup, &mut writer)?;
 
@@ -34,13 +40,15 @@ fn generate_lexme_scan_rule(
     lexme: &HashMap<String, Vec<String>>, 
     keywords: impl Iterator<Item = GrammarSymbol>, 
     symbol_lookup: &HashMap<String, u32>,
+    _ignore_case_override: &HashMap<String, bool>,
     writer: &mut impl Write) -> Result<(), anyhow::Error> 
 {
     let mut scan_rules = BTreeMap::<char, Vec<String>>::new();
     
     // Prepare keyword prefix map
     for symbol in keywords {
-        let rule = tokens_to_string(export_rule_pattern(symbol.id, &symbol.name, symbol.name.len()), 3);
+        let case_sensitive = None;
+        let rule = tokens_to_string(export_rule_pattern(symbol.id, &symbol.name, symbol.name.len(), case_sensitive), 3);
         let (_, prefix) = symbol.name.char_indices().next().unwrap();
 
         scan_rules.entry(prefix.to_ascii_lowercase())
@@ -53,7 +61,8 @@ fn generate_lexme_scan_rule(
         let id = *symbol_lookup.get(name).unwrap();
 
         for pattern in patterns {
-            let rule = tokens_to_string(export_rule_pattern(id, &pattern, pattern.len()), 3);
+            let case_sensitive = None;
+            let rule = tokens_to_string(export_rule_pattern(id, &pattern, pattern.len(), case_sensitive), 3);
             let (_, prefix) = pattern.char_indices().next().unwrap();
 
             scan_rules.entry(prefix.to_ascii_lowercase())
@@ -97,7 +106,7 @@ fn generate_regex_scan_rule(
     for (name, patterns) in regex {
         let id = *symbol_lookup.get(name).unwrap();
         for pattern in patterns {
-            let rule = tokens_to_string(export_rule_pattern(id, &pattern.pattern, pattern.pattern.len()), 1);
+            let rule = tokens_to_string(export_rule_pattern(id, &pattern.pattern, pattern.pattern.len(), Some(CaseSensitivity::Sensitive)), 1);
             scan_rules.push(rule.clone());
 
             let support_index = with_indent(&export_rule_support(i, &pattern.pattern), 1);
@@ -161,8 +170,14 @@ fn generate_alternative_token(
     Ok(())
 }
 
-fn export_rule_pattern(id: u32, name: &str, len: usize) -> proc_macro2::TokenStream {
-    quote! { ScanPattern { id: #id, pattern: #name, len: #len }, }
+fn export_rule_pattern(id: u32, name: &str, len: usize, case_sensitive: Option<CaseSensitivity>) -> proc_macro2::TokenStream {
+    let case_sensitive = match case_sensitive {
+        Some(CaseSensitivity::Insensitive) => quote!(Some(CaseSensitivity::Insensitive)),
+        Some(CaseSensitivity::Sensitive) => quote!(Some(CaseSensitivity::Sensitive)),
+        None => quote!(None)
+    };
+
+    quote! { ScanPattern { id: #id, pattern: #name, len: #len, case_sensitive: #case_sensitive }, }
 }
 
 fn export_rule_support<V: std::fmt::Display>(i: V, pattern: &str) -> String {

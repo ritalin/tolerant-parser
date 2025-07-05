@@ -15,4 +15,6 @@ pub struct CmdConfig {
     pub quiet: bool,
     #[arg(long)]
     pub parallel: bool,
+    #[arg(long)]
+    pub ignore_case: bool,
 }

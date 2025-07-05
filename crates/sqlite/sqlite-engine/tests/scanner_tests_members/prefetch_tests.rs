@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use engine_core::scanner_engine::ScanEvent;
+use engine_core::scanner_engine::{ScanEvent, CaseSensitivity};
 use scanner_core::{iter::LookaheadIterator, Scanner, Token};
 use sqlite_engine::syntax_kind;
 
@@ -14,7 +14,7 @@ mod prefetch_token_tests {
     fn test_prefetch_all() -> Result<(), anyhow::Error> {
         let source = "SELECT 20 42 FROM foo x;SELECT 'xyz'; ";
         let engine = sqlite_engine::create()?;
-        let mut scanner = Scanner::create(source, 0, engine.scanning_rules)?;
+        let mut scanner = Scanner::create(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive)?;
 
         scanner.shift();
         scanner.shift();
@@ -91,7 +91,7 @@ mod prefetch_token_tests {
     fn test_prefetch_statement() -> Result<(), anyhow::Error> {
         let source = "SELECT 20 42 FROM foo x;SELECT 'xyz'; ";
         let engine = sqlite_engine::create()?;
-        let mut scanner = Scanner::create(source, 0, engine.scanning_rules)?;
+        let mut scanner = Scanner::create(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive)?;
 
         scanner.shift();
         scanner.shift();
@@ -144,7 +144,7 @@ mod prefetch_token_tests {
     fn test_prefetch_statement_twice() -> Result<(), anyhow::Error> {
         let source = "SELECT 20 42 FROM foo x;SELECT 'xyz'; ";
         let engine = sqlite_engine::create()?;
-        let mut scanner = Scanner::create(source, 0, engine.scanning_rules)?;
+        let mut scanner = Scanner::create(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive)?;
 
         scanner.shift();
         scanner.shift();
@@ -204,7 +204,7 @@ mod pregetch_stmt_tests {
     fn test_prefetch_overall_statement() -> Result<(), anyhow::Error> {
         let source = "SELECT * FROM foo;";
         let engine = sqlite_engine::create()?;
-        let scanner = Scanner::create(source, 0, engine.scanning_rules)?;
+        let scanner = Scanner::create(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive)?;
         let stmt_scanners = scanner.statement_scanners(syntax_kind::SEMI, syntax_kind::EOF).collect::<Vec<_>>();
         assert_eq!(2, stmt_scanners.len());
 
@@ -230,7 +230,7 @@ mod pregetch_stmt_tests {
     fn test_prefetch_inside_statement() -> Result<(), anyhow::Error> {
         let source = "SELECT * FROM foo;";
         let engine = sqlite_engine::create()?;
-        let scanner = Scanner::create(source, 0, engine.scanning_rules)?;
+        let scanner = Scanner::create(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive)?;
         let stmt_scanners = scanner.statement_scanners(syntax_kind::SEMI, syntax_kind::EOF).collect::<Vec<_>>();
         assert_eq!(2, stmt_scanners.len());
 
@@ -261,7 +261,7 @@ mod pregetch_stmt_tests {
     fn test_prefetch_cross_over_2_statements() -> Result<(), anyhow::Error> {
         let source = "SELECT * FROM foo;SELECT 42;";
         let engine = sqlite_engine::create()?;
-        let scanner = Scanner::create(source, 0, engine.scanning_rules)?;
+        let scanner = Scanner::create(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive)?;
         let stmt_scanners = scanner.statement_scanners(syntax_kind::SEMI, syntax_kind::EOF).collect::<Vec<_>>();
         assert_eq!(3, stmt_scanners.len());
 
@@ -304,7 +304,7 @@ mod pregetch_stmt_tests {
     fn test_prefetch_cross_over_3_statements() -> Result<(), anyhow::Error> {
         let source = "SELECT * FROM foo;SELECT 42;  SELECT 'foo' FROM x;";
         let engine = sqlite_engine::create()?;
-        let scanner = Scanner::create(source, 0, engine.scanning_rules)?;
+        let scanner = Scanner::create(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive)?;
         let stmt_scanners = scanner.statement_scanners(syntax_kind::SEMI, syntax_kind::EOF).collect::<Vec<_>>();
         assert_eq!(4, stmt_scanners.len());
 

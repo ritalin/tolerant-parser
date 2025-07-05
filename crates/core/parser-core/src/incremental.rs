@@ -35,7 +35,7 @@ impl Parser {
         let scan_from = self.edit_hint.scan_from();
         let scan_to = new_edit_byte_range.end;
 
-        let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone())?;
+        let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone(), config.case_sensitive.clone())?;
 
         let emit_region = self.engine.parsing_rules.statement_emit_config();
         let full_emit_region = self.engine.parsing_rules.full_emit_config();
