@@ -102,7 +102,7 @@ fn make_stack(state_histories: &[usize]) -> StateStack {
     stack
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RecoveryPenalty {
     /// Max delete-recovery challenging
     pub delete_slot: usize,

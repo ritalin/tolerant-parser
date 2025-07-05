@@ -174,7 +174,7 @@ pub struct ScanPattern {
     pub case_sensitive: Option<CaseSensitivity>,
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum CaseSensitivity {
     Sensitive,
     Insensitive,

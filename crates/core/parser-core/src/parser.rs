@@ -33,7 +33,7 @@ impl DefaultPasrser {
     }
 
     pub fn incremental(&self, old_tree: &SyntaxTree, scope: EditScope) -> crate::incremental::Parser {
-        crate::incremental::Parser::new(old_tree, scope, self.engine.clone())
+        crate::incremental::Parser::new(old_tree, scope, self.engine.clone(), self.config.clone())
     }
 }
 
@@ -160,7 +160,7 @@ pub enum ParseMode {
     ByStatement,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ParserConfig {
     pub mode: ParseMode,
     pub penalty: RecoveryPenalty,
