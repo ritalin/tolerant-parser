@@ -87,6 +87,9 @@
             }
         ]
     },
+    "combination_symbols": {
+        "IS": { "lhs": "ISNOT", "follow_symbols": ["NOT"] }
+    },
     "alternatives": {
         "ASTERISK": [
             {"parent": "selcollist", "child": "STAR"}

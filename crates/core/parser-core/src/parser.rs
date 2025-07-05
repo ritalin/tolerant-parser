@@ -1,33 +1,25 @@
-use engine_core::{parser_engine::ParsingRuleSet, Engine, SyntaxKind};
+use engine_core::{parser_engine::ParsingRuleSet, scanner_engine::CaseSensitivity, Engine, SyntaxKind};
 use scanner_core::{Scanner, ScannerAccess, ScannerError};
 
 use crate::{error_recovery::{RecoveryEventDispatcher, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher, ParseEventError}, incremental::EditScope, node_handler::{NodeBuildError, SyntaxTreeBuilder}, syntax_tree::SyntaxTree};
 pub(crate) use crate::error_recovery::RecoveryEvent;
 
 pub struct DefaultPasrser {
+    config: ParserConfig,
     engine: Engine,
 }
 
 impl DefaultPasrser {
-    pub fn new(engine: Engine) -> Self {
-        Self { engine }
+    pub fn new(engine: Engine, config: ParserConfig) -> Self {
+        Self { engine, config }
     }
 
     pub fn parse(&self, source: &str) -> Result<super::syntax_tree::SyntaxTree, ParseError> {
-        let config = ParserConfig {
-            mode: ParseMode::ByStatement,
-            penalty: RecoveryPenalty::default(),
-        };
-
-        self.parse_with_config(source, config)
-    }
-
-    pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<super::syntax_tree::SyntaxTree, ParseError> {
-        let mut scanner = Scanner::create(source, 0, self.engine.scanning_rules.clone())?;
-        let mut dispatcher = ParseEventDispatcher::new(0, config.mode.clone(), self.engine.parsing_rules);
-        let mut tree_builder = SyntaxTreeBuilder::new(self.engine.parsing_rules, config.mode.clone(), None);
+        let mut scanner = Scanner::create(source, 0, self.engine.scanning_rules.clone(), self.config.case_sensitive.clone())?;
+        let mut dispatcher = ParseEventDispatcher::new(0, self.config.mode.clone(), self.engine.parsing_rules);
+        let mut tree_builder = SyntaxTreeBuilder::new(self.engine.parsing_rules, self.config.mode.clone(), None);
  
-        match parse_with_config_internal(&mut scanner, &mut dispatcher, &mut tree_builder, &config, self.engine.parsing_rules, DefaultParserStrategy)? {
+        match parse_with_config_internal(&mut scanner, &mut dispatcher, &mut tree_builder, &self.config, self.engine.parsing_rules, DefaultParserStrategy)? {
             Some(ParseEvent::Accept { kind, last_state, edit_state  }) => {
                 Ok(tree_builder.build(ParseEvent::Accept { kind, last_state, edit_state  })?)
             }
@@ -41,7 +33,7 @@ impl DefaultPasrser {
     }
 
     pub fn incremental(&self, old_tree: &SyntaxTree, scope: EditScope) -> crate::incremental::Parser {
-        crate::incremental::Parser::new(old_tree, scope, self.engine.clone())
+        crate::incremental::Parser::new(old_tree, scope, self.engine.clone(), self.config.clone())
     }
 }
 
@@ -168,16 +160,21 @@ pub enum ParseMode {
     ByStatement,
 }
 
-impl Default for ParseMode {
-    fn default() -> Self {
-        ParseMode::ByStatement
-    }
-}
-
-#[derive(Default, Clone)]
+#[derive(Clone, Debug)]
 pub struct ParserConfig {
     pub mode: ParseMode,
     pub penalty: RecoveryPenalty,
+    pub case_sensitive: CaseSensitivity,
+}
+
+impl Default for ParserConfig {
+    fn default() -> Self {
+        Self {
+            mode: ParseMode::ByStatement, 
+            penalty: Default::default(), 
+            case_sensitive: CaseSensitivity::Sensitive 
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -3,6 +3,7 @@ use parser_core::syntax_tree::LookupCandidate;
 use parser_core::syntax_tree::MetadataAccess;
 use parser_core::syntax_tree::NodeOperation;
 use parser_core::syntax_tree::SyntaxTree;
+use parser_core::ParserConfig;
 use super::parser_world::exports::ritalin::parser::parsers;
 use super::syntax_tree_world::exports::ritalin::parser::syntaxes;
 use super::types_world::exports::ritalin::parser::types;
@@ -12,9 +13,9 @@ pub struct ParserImpl {
 }
 
 impl ParserImpl {
-    pub fn new(engine: engine_core::Engine) -> Self {
+    pub fn new(engine: engine_core::Engine, config: ParserConfig) -> Self {
         Self {
-            inner: parser_core::Parser::new(engine),
+            inner: parser_core::Parser::new(engine, config),
         }
     }
 }
@@ -53,7 +54,7 @@ impl IncrementalParserImpl {
 
 impl parsers::GuestIncrementalParser for IncrementalParserImpl {
     fn parse(&self,source: String,) -> parsers::SyntaxTree {
-        let batches = self.inner.parse_with_config(&source, parser_core::ParserConfig::default()).expect("Failed to parse");
+        let batches = self.inner.parse(&source).expect("Failed to parse");
 
         let new_tree = self.old_tree.apply_batches(batches);
         SyntaxTreeImpl::from_raw(new_tree)

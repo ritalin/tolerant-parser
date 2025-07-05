@@ -4,6 +4,8 @@ use std::collections::{BTreeMap, HashMap};
 pub struct GrammarScanRule {
     pub lexme: HashMap<String, Vec<String>>,
     pub regex: BTreeMap<String, Vec<RegexGrammarScanRule>>,
+    #[serde(default)]
+    pub ignore_case_override: HashMap<String, bool>,
     pub combination_symbols: HashMap<String, GrammarCombinationSymbol>,
     pub alternatives: HashMap<String, Vec<AltPattern>>,
 }

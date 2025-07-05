@@ -12,10 +12,11 @@ pub struct Parser {
     following_statement: Option<SyntaxElement>,
     engine: engine_core::Engine,
     metadata_table: Rc<MetadataTable>,
+    config: ParserConfig,
 }
 
 impl Parser {
-    pub fn new(old_tree: &SyntaxTree, scope: EditScope, engine: engine_core::Engine) -> Self {
+    pub fn new(old_tree: &SyntaxTree, scope: EditScope, engine: engine_core::Engine, config: ParserConfig) -> Self {
         let eof_statement = old_tree.root().children().last();
         let edit_hint = edit_hint::EditHint::new(old_tree, scope.old_char_range());
 
@@ -25,17 +26,18 @@ impl Parser {
             following_statement: eof_statement,
             engine,
             metadata_table: old_tree.metadata_table(),
+            config,
         }
     }
 
-    pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<Vec<SyntaxFragmentBatch>, crate::parser::ParseError> {
+    pub fn parse(&self, source: &str) -> Result<Vec<SyntaxFragmentBatch>, crate::parser::ParseError> {
         let new_edit_byte_range = convert_from_utf16_to_byte_range(self.scope.new_char_range(), source);
 
         // Determin scanning byte offset
         let scan_from = self.edit_hint.scan_from();
         let scan_to = new_edit_byte_range.end;
 
-        let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone())?;
+        let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone(), self.config.case_sensitive.clone())?;
 
         let emit_region = self.engine.parsing_rules.statement_emit_config();
         let full_emit_region = self.engine.parsing_rules.full_emit_config();
@@ -93,7 +95,7 @@ impl Parser {
                         .expect("All node have metadata")
                     ;
 
-                    let (new_node, new_matadata_map) = parse_internal(scanner_view, &config, metadata.edit_state, strategy, self.engine.parsing_rules)?;
+                    let (new_node, new_matadata_map) = parse_internal(scanner_view, &self.config, metadata.edit_state, strategy, self.engine.parsing_rules)?;
                     let new_key = common_anscestor.new_node_key(&new_node, self.engine.parsing_rules);
                     
                     if old_first_fragment_key.is_none() {
@@ -118,7 +120,7 @@ impl Parser {
                     let scanner_view = stmt_scanner.as_view(std::ops::RangeFull);
                     let strategy = IncrementalParserStrategy::default_strategy(self.engine.parsing_rules);
 
-                    let (new_stmt, new_matadata_map) = parse_internal(scanner_view, &config, 0, strategy, self.engine.parsing_rules)?;
+                    let (new_stmt, new_matadata_map) = parse_internal(scanner_view, &self.config, 0, strategy, self.engine.parsing_rules)?;
                     let new_key = NodeMetadataKey::from_green_node(&new_stmt, 0, self.engine.parsing_rules);
 
                     if old_first_fragment_key.is_none() {

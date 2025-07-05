@@ -1,11 +1,13 @@
-use parser_core::{Parser, support::test_support};
+use engine_core::scanner_engine::CaseSensitivity;
+use parser_core::{support::test_support, ParseMode, Parser, ParserConfig, RecoveryPenalty};
 
 #[test]
 fn test_const_select() -> Result<(), anyhow::Error> {
     let source = "SELECT 42;";
     
     let engine = sqlite_engine::create()?;
-    let parser = Parser::new(engine);
+    let cnfig = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive: CaseSensitivity::Insensitive };
+    let parser = Parser::new(engine, cnfig);
 
     let tree = parser.parse(source)?;
     let expect_node = serde_json::from_str::<Vec<test_support::ExpectNode>>(include_str!("../fixtures/parse_tests/full_parse_tests/test_const_select.json"))?;
@@ -19,7 +21,8 @@ fn test_star_select() -> Result<(), anyhow::Error> {
     let source = "SELECT * FROM foo;";
 
     let engine = sqlite_engine::create()?;
-    let parser = Parser::new(engine);
+    let cnfig = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive: CaseSensitivity::Insensitive };
+    let parser = Parser::new(engine, cnfig);
 
     let tree = parser.parse(source)?;
     let expect_node = serde_json::from_str::<Vec<test_support::ExpectNode>>(include_str!("../fixtures/parse_tests/full_parse_tests/test_star_select.json"))?;
@@ -36,7 +39,8 @@ fn test_meny_select_statements() -> Result<(), anyhow::Error> {
     "#;
 
     let engine = sqlite_engine::create()?;
-    let parser = Parser::new(engine);
+    let cnfig = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive: CaseSensitivity::Insensitive };
+    let parser = Parser::new(engine, cnfig);
 
     let tree = parser.parse(source)?;
     let expect_node = serde_json::from_str::<Vec<test_support::ExpectNode>>(include_str!("../fixtures/parse_tests/full_parse_tests/test_meny_select_statements.json"))?;
@@ -50,7 +54,8 @@ fn test_incomplete_statement() -> Result<(), anyhow::Error> {
     let source = "SELECT;";
 
     let engine = sqlite_engine::create()?;
-    let parser = Parser::new(engine);
+    let cnfig = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive: CaseSensitivity::Insensitive };
+    let parser = Parser::new(engine, cnfig);
 
     let tree = parser.parse(source)?;
     let expect_node = serde_json::from_str::<Vec<test_support::ExpectNode>>(include_str!("../fixtures/parse_tests/full_parse_tests/test_incomplete_statement.json"))?;
@@ -64,7 +69,8 @@ fn test_parse_with_surrogate_pair_literal() -> Result<(), anyhow::Error> {
     let source = "SELECT '𩸽' as s;";
 
     let engine = sqlite_engine::create()?;
-    let parser = Parser::new(engine);
+    let cnfig = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive: CaseSensitivity::Insensitive };
+    let parser = Parser::new(engine, cnfig);
 
     let tree = parser.parse(source)?;
     let expect_node = serde_json::from_str::<Vec<test_support::ExpectNode>>(include_str!("../fixtures/parse_tests/full_parse_tests/test_parse_with_surrogate_pair_literal.json"))?;
@@ -78,7 +84,7 @@ fn test_parse_with_incorrect_literal() -> Result<(), anyhow::Error> {
     let source = "SELECT '";
 
     let engine = sqlite_engine::create()?;
-    let parser = Parser::new(engine);
+    let parser = Parser::new(engine, ParserConfig::default());
 
     let tree = parser.parse(source)?;
     let expect_node = serde_json::from_str::<Vec<test_support::ExpectNode>>(include_str!("../fixtures/parse_tests/full_parse_tests/test_parse_with_incorrect_literal.json"))?;
@@ -92,7 +98,7 @@ fn test_parse_with_incorrect_literal_2() -> Result<(), anyhow::Error> {
     let source = "SELECT 'a";
 
     let engine = sqlite_engine::create()?;
-    let parser = Parser::new(engine);
+    let parser = Parser::new(engine, ParserConfig::default());
 
     let tree = parser.parse(source)?;
     let expect_node = serde_json::from_str::<Vec<test_support::ExpectNode>>(include_str!("../fixtures/parse_tests/full_parse_tests/test_parse_with_incorrect_literal_2.json"))?;

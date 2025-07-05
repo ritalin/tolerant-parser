@@ -1,6 +1,6 @@
 
-use engine_core::SyntaxKind;
-use parser_core::{incremental::EditScope, syntax_tree::SyntaxNode, Parser};
+use engine_core::{SyntaxKind, scanner_engine::CaseSensitivity};
+use parser_core::{incremental::EditScope, syntax_tree::SyntaxNode, Parser, ParserConfig, ParseMode, RecoveryPenalty};
 use sqlite_engine::syntax_kind;
 
 mod expand_region_tests {
@@ -41,7 +41,8 @@ mod expand_region_tests {
     fn test_extend_to_neighbor_for_fitting_node() -> Result<(), anyhow::Error> {
         let source = "SELECT 101 AS x FROM foo u;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive: CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let scope = EditScope{
@@ -58,7 +59,8 @@ mod expand_region_tests {
     fn test_extend_to_neighbor_for_overall_node() -> Result<(), anyhow::Error> {
         let source = "SELECT 42;SELECT 101 AS x FROM foo u;SELECT a.b FROM bar;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let scope = EditScope{
@@ -79,7 +81,8 @@ mod expand_region_tests {
     fn test_extend_to_neighbor_for_inside_node() -> Result<(), anyhow::Error> {
         let source = "SELECT 42;SELECT 101 AS x FROM foo u;SELECT a.xyz AS v FROM bar;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let scope = EditScope{
@@ -99,8 +102,10 @@ mod expand_region_tests {
     #[test]
     fn test_extend_to_neighbor_cross_over_2_nodes() -> Result<(), anyhow::Error> {
         let source = "SELECT 42;SELECT 101 AS x FROM foo u;SELECT a.xyz AS v FROM bar;";
+
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let scope = EditScope{
@@ -138,8 +143,10 @@ mod edit_hint_init_tests {
     #[test]
     fn test_init_hint_edit_for_update() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;SELECT 2;SELECT 3;SELECT 4;SELECT 5;";
+
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let scope = EditScope{
@@ -159,8 +166,10 @@ mod edit_hint_init_tests {
     #[test]
     fn test_init_hint_edit_for_update_without_statement() -> Result<(), anyhow::Error> {
         let source = "";
+
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let scope = EditScope{
@@ -180,8 +189,10 @@ mod edit_hint_init_tests {
     #[test]
     fn test_init_hint_edit_for_append() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;SELECT 2;";
+
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let scope = EditScope{
@@ -201,8 +212,10 @@ mod edit_hint_init_tests {
     #[test]
     fn test_init_hint_edit_for_prepend() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;SELECT 2;";
+
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let scope = EditScope{
@@ -222,8 +235,10 @@ mod edit_hint_init_tests {
     #[test]
     fn test_init_hint_edit_for_insert() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;SELECT 2;SELECT 3;";
+
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine);
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let scope = EditScope{
@@ -242,15 +257,18 @@ mod edit_hint_init_tests {
 }
 
 mod edit_hint_eval_tests {
-    use parser_core::incremental::edit_hint::EditHint;
+    use engine_core::scanner_engine::CaseSensitivity;
+    use parser_core::{incremental::edit_hint::EditHint, ParseMode, RecoveryPenalty};
     use scanner_core::Scanner;
     use super::*;
 
     #[test]
     fn test_eval_edit_hint_for_append_statement() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;";
+
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1;SELECT 2;";
@@ -263,7 +281,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -276,8 +294,10 @@ mod edit_hint_eval_tests {
     #[test]
     fn test_eval_edit_hint_for_append_statement_many() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;";
+
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1;SELECT 2;SELECT 3;";
@@ -290,7 +310,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -303,8 +323,10 @@ mod edit_hint_eval_tests {
     #[test]
     fn test_eval_edit_hint_for_append_token() -> Result<(), anyhow::Error> {
         let source = "SELECT 1";
+
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 16";
@@ -317,7 +339,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -330,8 +352,10 @@ mod edit_hint_eval_tests {
     #[test]
     fn test_eval_edit_hint_for_append_semicolon() -> Result<(), anyhow::Error> {
         let source = "SELECT 1";
+
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1;";
@@ -344,7 +368,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -357,8 +381,10 @@ mod edit_hint_eval_tests {
     #[test]
     fn test_eval_edit_hint_for_append_new_line() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;";
+
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1;\n";
@@ -371,7 +397,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -384,8 +410,10 @@ mod edit_hint_eval_tests {
     #[test]
     fn test_eval_edit_hint_for_append_new_line_without_semicolon() -> Result<(), anyhow::Error> {
         let source = "SELECT 1";
+
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1\n";
@@ -398,7 +426,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -411,8 +439,10 @@ mod edit_hint_eval_tests {
     #[test]
     fn test_eval_edit_hint_for_append_comment_without_semicolon() -> Result<(), anyhow::Error> {
         let source = "SELECT 1";
+
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1/* comment */";
@@ -425,7 +455,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -440,7 +470,8 @@ mod edit_hint_eval_tests {
         let source = "\n";
 
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "\n\n";
@@ -453,7 +484,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -469,7 +500,8 @@ mod edit_hint_eval_tests {
         let source = "\n\n";
 
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "\n";
@@ -482,7 +514,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -498,7 +530,8 @@ mod edit_hint_eval_tests {
         let source = "SELECT 1;\n-";
 
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1;\n--";
@@ -511,7 +544,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -527,7 +560,8 @@ mod edit_hint_eval_tests {
         let source = "SELECT 1;\nSELECT 2;\n\n";
 
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1;\nSELECT 2;\n-\n";
@@ -540,7 +574,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -555,7 +589,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_no_append() -> Result<(), anyhow::Error> {
         let source = "SELECT 1";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1";
@@ -568,7 +603,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -582,7 +617,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_prepend_statement() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 0;SELECT 1;";
@@ -595,7 +631,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -609,7 +645,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_prepend_statement_many() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT -1;SELECT 0;SELECT 1;";
@@ -622,7 +659,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -635,7 +672,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_prepend_trivia() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "\nSELECT 1;";
@@ -648,7 +686,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -662,7 +700,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_prepend_token() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "WITH v AS (SELECT 42) SELECT 1;";
@@ -675,7 +714,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -689,7 +728,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_prepend_token_with_new_statements() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 'a';SELECT 'b';WITH v AS (SELECT 42) SELECT 1;";
@@ -702,7 +742,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -716,7 +756,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_no_prepend() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1;";
@@ -729,7 +770,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -743,7 +784,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_insert_statement() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;SELECT 2;SELECT 3;SELECT 4;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1;SELECT 2;SELECT 'a';SELECT 'b';SELECT 3;SELECT 4;";
@@ -756,7 +798,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -770,7 +812,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_insert_by_appending_trivia() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;SELECT 2;SELECT 3;SELECT 4;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1;SELECT 2;\nSELECT 3;SELECT 4;";
@@ -783,7 +826,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -797,7 +840,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_insert_by_prepending_trivia() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;SELECT 2;SELECT 3;SELECT 4;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1;SELECT 2;/* (comment) */ SELECT 3;SELECT 4;";
@@ -810,7 +854,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -824,7 +868,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_insert_by_prepending_token() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;SELECT 2;SELECT 3;SELECT 4;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1;SELECT 2;WITH v AS (SELECT 42) SELECT 3;SELECT 4;";
@@ -837,7 +882,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -851,7 +896,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_no_insert() -> Result<(), anyhow::Error> {
         let source = "SELECT 4;SELECT 3;SELECT 2";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 4;SELECT 3;SELECT 2";
@@ -864,7 +910,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -878,7 +924,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_update_single() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;SELECT 2;SELECT 3;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1;SELECT 33;SELECT 3;";
@@ -891,7 +938,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -905,7 +952,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_update_many() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;SELECT 2;SELECT 3;SELECT 4;SELECT 5;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1;SELECT 42;SELECT 43;SELECT 44;SELECT 5;";
@@ -918,7 +966,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -932,7 +980,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_update_by_splitting() -> Result<(), anyhow::Error> {
         let source = "SELECT 42;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 4;SELECT 3;SELECT 2;";
@@ -945,7 +994,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -959,7 +1008,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_update_by_merging() -> Result<(), anyhow::Error> {
         let source = "SELECT 4;SELECT 3;SELECT 2;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 42;";
@@ -972,7 +1022,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -986,7 +1036,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_update_by_splitting_with_semicolon() -> Result<(), anyhow::Error> {
         let source = "SELECT 1 AS x;";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1 AS y; SELECT 2 AS x;";
@@ -999,7 +1050,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1013,7 +1064,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_update_by_removing_stateent() -> Result<(), anyhow::Error> {
         let source = "SELECT 4;\nSELECT 3;\nSELECT 2;\nSELECT 1;\n";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 4;\nSELECT 1;\n";
@@ -1026,7 +1078,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1040,7 +1092,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_update_by_removing_stateent_except_trivia() -> Result<(), anyhow::Error> {
         let source = "SELECT 4;\nSELECT 3;\nSELECT 2;\nSELECT 1;\n";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 4;\n\nSELECT 1;\n";
@@ -1053,7 +1106,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1067,7 +1120,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_update_by_removing_stateent_except_comment() -> Result<(), anyhow::Error> {
         let source = "SELECT 1;\n/* comment */SELECT 2;\nSELECT 3;\nSELECT 4;\n";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1;\n/* comment */";
@@ -1080,7 +1134,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1094,7 +1148,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_update_by_removing_all() -> Result<(), anyhow::Error> {
         let source = "SELECT 4;SELECT 3;SELECT 2";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "";
@@ -1107,7 +1162,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1121,7 +1176,8 @@ mod edit_hint_eval_tests {
     fn test_eval_edit_hint_for_update_by_removing() -> Result<(), anyhow::Error> {
         let source = "SELECT 4;SELECT 3;SELECT 2";
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "ELECT 4;SELECT 3;SELECT 2";
@@ -1134,7 +1190,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1149,7 +1205,8 @@ mod edit_hint_eval_tests {
         let source = "SELECT 1;\n--#1\n--#2";
 
         let engine = sqlite_engine::create()?;
-        let parser = Parser::new(engine.clone());
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
         let new_source = "SELECT 1;\n-\n--#2";
@@ -1162,7 +1219,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 

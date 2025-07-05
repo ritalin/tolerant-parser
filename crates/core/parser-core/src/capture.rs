@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use engine_core::{Engine, SyntaxKind};
+use engine_core::{scanner_engine::CaseSensitivity, Engine, SyntaxKind};
 use scanner_core::{Scanner, ScannerAccess, Token};
 
 use crate::{error_recovery::{RecoveryEventDispatcher, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher, ParseEventError}, parser::{ParseError, ParseMode}};
@@ -10,6 +10,7 @@ pub struct EventCaptureConfig {
     pub mode: ParseMode,
     pub no_scan: bool,
     pub no_parse: bool,
+    pub case_sensitive: CaseSensitivity,
 }
 
 #[derive(Clone)]
@@ -30,7 +31,7 @@ pub struct ParseEventCapture {
 
 impl ParseEventCapture {
     pub fn create(source: &str, config: EventCaptureConfig, engine: Engine) -> Result<Self, ParseError> {
-        let scanner = Scanner::create(source.into(), 0, engine.scanning_rules)?;
+        let scanner = Scanner::create(source.into(), 0, engine.scanning_rules, config.case_sensitive.clone())?;
         let event_queue = match scanner.lookahead() {
             Some(lookahead) if ! config.no_scan => VecDeque::from([Some(CaptureEvent::Scan(lookahead.clone()))]),
             _ => VecDeque::new(),

@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use engine_core::scanner_engine::{self, AcceptableRegexSet, ScanEvent};
+use engine_core::scanner_engine::{self, AcceptableRegexSet, CaseSensitivity, ScanEvent};
 use engine_core::SyntaxKind;
 use crate::Token;
 use crate::event_dispatch::ScanEventDispatcher;
@@ -12,15 +12,15 @@ pub struct Scanner {
 
 impl Scanner {
     /// Create new scanner instance
-    pub fn create(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet) -> Result<Self, crate::ScannerError> {
-        let mut dispatcher = ScanEventDispatcher::new(source, index, engine);
+    pub fn create(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet, case_sensitive: CaseSensitivity) -> Result<Self, crate::ScannerError> {
+        let mut dispatcher = ScanEventDispatcher::new(source, index, engine, case_sensitive);
         let lookahead = handle_scan_event(&mut dispatcher).ok_or(crate::ScannerError::CreateFailed)?;
 
         Ok(Self { dispatcher, lookaheads: VecDeque::from_iter([lookahead].into_iter()) })
     }
 
-    pub fn create_without_scan(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet) -> Result<Self, crate::ScannerError> {
-        let dispatcher = ScanEventDispatcher::new(source, index, engine);
+    pub fn create_without_scan(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet, case_sensitive: CaseSensitivity) -> Result<Self, crate::ScannerError> {
+        let dispatcher = ScanEventDispatcher::new(source, index, engine, case_sensitive);
         Ok(Self { dispatcher, lookaheads: VecDeque::new() })
         
     }

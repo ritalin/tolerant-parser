@@ -6,3 +6,6 @@ edition = "2024"
 [dependencies]
 engine-core = { path = "../engine-core" }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+anyhow = { workspace = true }

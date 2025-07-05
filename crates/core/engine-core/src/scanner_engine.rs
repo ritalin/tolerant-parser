@@ -28,7 +28,7 @@ impl ScanningRuleSetBuilder {
 }
 
 impl ScanningRuleSet {
-    pub fn scan_by_lexme(&self, source: &str, offset: usize) -> Option<ScanEvent> {
+    pub fn scan_by_lexme(&self, source: &str, offset: usize, case_sensitive: &CaseSensitivity) -> Option<ScanEvent> {
         let Some(prefix) = source.chars().nth(0) else {
             return None;
         };
@@ -40,7 +40,11 @@ impl ScanningRuleSet {
             if source.len() < pattern.pattern.len() { continue }
 
             if source.chars().zip(pattern.pattern.chars()).all(|(haystack, needle)| haystack.to_lowercase().eq(needle.to_lowercase())) {
-                let kind = (self.symbol_lookup)(pattern.id).clone();
+                let kind_id = match *pattern.case_sensitive.as_ref().unwrap_or(case_sensitive) == CaseSensitivity::Sensitive {
+                    true if &source[..pattern.len] != pattern.pattern => self.invalid_id,
+                    _ => pattern.id,
+                };
+                let kind = (self.symbol_lookup)(kind_id).clone();
                 let value = source.get(0..pattern.len).map(String::from);
                 return Some(ScanEvent{ kind, offset, len: pattern.len, value });
             }
@@ -167,6 +171,13 @@ pub struct ScanPattern {
     pub id: u32,
     pub pattern: &'static str,
     pub len: usize,
+    pub case_sensitive: Option<CaseSensitivity>,
+}
+
+#[derive(PartialEq, Clone, Debug)]
+pub enum CaseSensitivity {
+    Sensitive,
+    Insensitive,
 }
 
 pub struct RegexScanPattern {

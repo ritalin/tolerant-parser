@@ -1,6 +1,6 @@
 #![cfg(not(engine_ungenerated))]
 
-use engine_core::scanner_engine::ScanEvent;
+use engine_core::scanner_engine::{CaseSensitivity, ScanEvent};
 use scanner_core::{Scanner, ScannerAccess, Token};
 use sqlite_engine::syntax_kind;
 
@@ -13,7 +13,7 @@ mod scanner_tests_members {
 fn test_peek_lookahead() -> Result<(), anyhow::Error> {
     let source = "INSERT OR REPLACE  INTO";
     let engine = sqlite_engine::create()?;
-    let mut scanner = Scanner::create(source, 0, engine.scanning_rules)?;
+    let mut scanner = Scanner::create(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive)?;
 
     'peek: {
         let expect_token = Token {
@@ -50,7 +50,7 @@ fn test_peek_lookahead() -> Result<(), anyhow::Error> {
 fn test_match_incorrect_identifier() -> Result<(), anyhow::Error> {
     let source = "あ";
     let engine = sqlite_engine::create()?.scanning_rules;
-    let scanner = Scanner::create(source, 0, engine)?;
+    let scanner = Scanner::create(source, 0, engine, CaseSensitivity::Insensitive)?;
 
     let expect_token = Token {
         leading_trivia: None,
@@ -66,7 +66,7 @@ fn test_match_incorrect_identifier() -> Result<(), anyhow::Error> {
 fn test_shift_for_main_token_only() -> Result<(), anyhow::Error> {
     let source = "INSERT OR REPLACE  INTO";
     let engine = sqlite_engine::create()?;
-    let mut scanner = Scanner::create(source, 0, engine.scanning_rules)?;
+    let mut scanner = Scanner::create(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive)?;
 
     'scanning: {
         let expect_token = Token {
@@ -130,7 +130,7 @@ fn test_shift_for_main_token_only() -> Result<(), anyhow::Error> {
 fn test_shift_with_leading_trivia() -> Result<(), anyhow::Error> {
     let source = "/* いろはにqwertyほへと */ INSERT OR --あいう";
     let engine = sqlite_engine::create()?;
-    let mut scanner = Scanner::create(source, 0, engine.scanning_rules)?;
+    let mut scanner = Scanner::create(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive)?;
 
     'scanning: {
         let expect_token = Token {
@@ -180,7 +180,7 @@ fn test_shift_with_leading_trivia() -> Result<(), anyhow::Error> {
 fn test_has_invalid_token() -> Result<(), anyhow::Error> {
     let source = "SELECT 1 } FROM foo";
     let engine = sqlite_engine::create()?;
-    let mut scanner = Scanner::create(source, 0, engine.scanning_rules)?;
+    let mut scanner = Scanner::create(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive)?;
 
     'scanning: {
         let expect_token = Token {
@@ -256,7 +256,7 @@ fn test_has_invalid_token() -> Result<(), anyhow::Error> {
 fn test_scan_semicollonless() -> Result<(), anyhow::Error> {
     let source = "select 1 a";
     let engine = sqlite_engine::create()?;
-    let mut scanner = Scanner::create(source, 0, engine.scanning_rules)?;
+    let mut scanner = Scanner::create(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive)?;
 
     'scanning: {
         let expect_token = Token {
