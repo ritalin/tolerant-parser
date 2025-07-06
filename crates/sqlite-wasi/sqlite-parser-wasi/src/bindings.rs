@@ -1,5 +1,5 @@
-use engine_core::scanner_engine::CaseSensitivity;
-use parser_core::{ParseMode, RecoveryPenalty};
+use tolerant_parser_sdk::core::engine_core::scanner_engine::CaseSensitivity;
+use tolerant_parser_sdk::core::parser_core::{self, ParseMode, RecoveryPenalty};
 use parser_wasi::bindings::parsers::{ParserImpl, IncrementalParserImpl};
 
 pub struct ParserComponent;

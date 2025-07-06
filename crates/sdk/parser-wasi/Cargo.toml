@@ -4,6 +4,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-engine-core = { path = "../../core/engine-core" }
-parser-core = { path = "../../core/parser-core" }
+tolerant-parser-sdk = { path = "../../.." }
 wit-bindgen = { workspace = true }
