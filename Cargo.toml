@@ -16,7 +16,6 @@ exclude = [
     "crates/sdk/scan-type-wasi", "crates/sqlite-wasi/sqlite-engine-wasi", 
     "crates/sdk/engine-wasi", 
     "crates/sqlite-wasi/sqlite-parser-playground",
-    "crates/core/scanner-core", "crates/core/engine-core", "crates/core/parser-core", 
 ]
 resolver = "3"
 
@@ -29,12 +28,17 @@ clap = { version = "4.5.37", features = ["derive"] }
 wit-bindgen = "0.42"
 derive_builder = "0.20.2"
 regex = "1.11.1"
+cactus = "1.0.7"
+rowan = "0.16.1"
 
 [dependencies]
 serde = { workspace = true }
 thiserror = { workspace = true }
 derive_builder = { workspace = true }
 regex = { workspace = true }
+cactus = { workspace = true }
+rowan = { workspace = true }
+rayon = { version = "1.10.0", optional = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }

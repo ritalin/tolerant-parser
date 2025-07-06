@@ -1,5 +1,5 @@
 use tolerant_parser_sdk::core::parser_core::{event_dispatcher::ParseEvent, node_handler::{NodeBuildError, SyntaxTreeBuilder}};
-use tolerant_parser_sdk::core::parser_core::support::test_support::*;
+use tolerant_parser_sdk::support::test_support::*;
 use sqlite_engine::syntax_kind;
 
 mod build_tree_tests {

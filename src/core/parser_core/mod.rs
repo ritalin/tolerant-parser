@@ -20,8 +20,3 @@ pub mod incremental;
 pub mod paralell;
 
 pub type NodeId = (std::time::Instant, u64); 
-
-#[cfg(feature = "test_support")]
-pub mod support {
-    pub mod test_support;
-}
