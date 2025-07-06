@@ -60,19 +60,25 @@ header {
   height: 100%;
 }
 
-textarea {
+#editor, #result {
   flex: 1;
-  resize: none;
   padding: 10px;
+  box-sizing: border-box;
+  margin: 4px;
+  height: 100%;
+  overflow: auto;
+}
+
+#editor > .cm-editor {
+  flex: 1;
   font-size: 1em;
   border: none;
   outline: none;
   height: 100%;
   box-sizing: border-box;
-  margin: 4px;
 }
 
-textarea + textarea {
+#editor + textarea {
   border-left: 1px solid #ccc;
 }
 

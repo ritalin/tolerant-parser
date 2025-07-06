@@ -1,44 +1,75 @@
+import { EditorState } from '@codemirror/state';
 import * as parser from '../pkg/parser/parser'
+import { EditorView, placeholder } from '@codemirror/view';
+import { basicSetup } from 'codemirror';
+import { onAfterInput, trackAfterInput, type AfterInputMetadataSpec } from './codemirror-after-input';
 
 let p: parser.parsers.Parser;
-let monitor: TextInputMonitor | null = null;
 let tree: parser.syntaxes.SyntaxTree | null = null;
 
 export function initialize(element: HTMLDivElement) {
     p = parser.parsers.create();
 
-    const editor = element.querySelector<HTMLTextAreaElement>('#editor')!;
+    const editorOwner = element.querySelector<HTMLDivElement>('#editor')!;
     const result = element.querySelector<HTMLTextAreaElement>('#result')!;
-    const fullParseTime = element.querySelector<HTMLTextAreaElement>('#full-parse-time')!;
-    const incParseTime = element.querySelector<HTMLTextAreaElement>('#incremental-parse-time')!;
+    const fullParseTime = element.querySelector<HTMLElement>('#full-parse-time')!;
+    const incParseTime = element.querySelector<HTMLElement>('#incremental-parse-time')!;
 
-    monitor = new TextInputMonitor(editor, (offset, oldLen, newLen) => {
-        const startTime = performance.now();
+    const lightTheme = EditorView.theme({
+      "&": {
+        backgroundColor: "white",
+        color: "black",
+      },
+      ".cm-content": {
+        fontFamily: "monospace",
+        fontSize: "1em",
+      }
+    });
+    const editorState = EditorState.create({
+      extensions: [
+        basicSetup,
+        lightTheme,
+        placeholder("ここにSQLを入力"),
+        trackAfterInput(),
+        onAfterInput(handleEditorUpdate(result, fullParseTime, incParseTime))
+      ]
+    });
+    const editor = new EditorView({
+      state: editorState,
+      parent: editorOwner,
+    });
+    void editor;
+}
 
-        if (tree === null) {
-            console.log("[FULL]");
+function handleEditorUpdate(result: HTMLTextAreaElement, fullParseTime: HTMLElement, incParseTime: HTMLElement) {
+  return (_event: string, source: string, metadata: AfterInputMetadataSpec[]) => {
+    const startTime = performance.now();
 
-            tree = p.parse(editor.value);
-            fullParseTime.textContent = `${performance.now() - startTime}msec`
-        }
-        else {
-            console.log(`[INCL] startOffset: ${offset}, oldLen: ${oldLen}, newLen: ${newLen} }`);
+    if (tree === null) {
+        console.log("[FULL]");
 
-            tree = p.incremental(tree, [{
-                startOffset: offset,
-                oldLen: oldLen,
-                newLen: newLen
-            }])
-            .parse(editor.value);
-            incParseTime.textContent = `${performance.now() - startTime}msec`
-        }
+        tree = p.parse(source);
+        fullParseTime.textContent = `${performance.now() - startTime}msec`
+    }
+    else {
+        console.log("[INCL]");
+        const scopes: parser.parsers.EditScope[] = metadata.map(md => {
+          console.log(`startOffset : ${md.from}, oldLen: ${md.oldLen}, newLen: ${md.newLen}`);
+          return {
+            startOffset: md.from,
+            oldLen: md.oldLen,
+            newLen: md.newLen
+          }
+        })
 
-        if (tree !== null) {
-            visualizeTree(result, tree);
-        }
-    })
+        tree = p.incremental(tree, scopes).parse(source);
+        incParseTime.textContent = `${performance.now() - startTime}msec`
+    }
 
-    void monitor;
+    if (tree !== null) {
+        visualizeTree(result, tree);
+    }
+  }
 }
 
 function visualizeTree(result: HTMLTextAreaElement, tree: parser.syntaxes.SyntaxTree) {
@@ -80,116 +111,4 @@ function visualizeNode(buffer: string[], key: parser.syntaxes.MetadataKey, metad
     const nodeValue = value ? `"${value}"` : '';
 
     buffer.push(`${byteRange.padEnd(16)}${nodeType.padEnd(30)} | ${' '.repeat(depth * 2)}${key.kind.name} ${nodeValue}`);    
-}
-
-class TextInputMonitor {
-  private editor: HTMLTextAreaElement;
-  private onChange: (beforeStart: number, beforeLength: number, afterLength: number) => any;
-  private isComposing = false;
-  private isCtrlAsciiCommand = false;
-  private beforeInputStart: number | null = null;
-  private beforeInputEnd: number | null = null;
-  private lastEditLength: number = 0;
-
-  constructor(
-    editor: HTMLTextAreaElement,
-    onChange: (beforeStart: number, beforeLength: number, afterLength: number) => any
-  ) {
-    this.editor = editor;
-    this.onChange = onChange;
-
-    this.editor.addEventListener("keydown", this.onKeydown);
-    this.editor.addEventListener("compositionstart", this.onCompositionStart);
-    this.editor.addEventListener("compositionend", this.onCompositionEnd);
-    this.editor.addEventListener("beforeinput", this.onBeforeInput);
-    this.editor.addEventListener("input", this.onInput);
-  }
-
-  private onKeydown = (ev: KeyboardEvent) => {
-    if (this.isComposing) return;
-    if (! ev.ctrlKey) return;
-
-    this.isCtrlAsciiCommand = ['d', 'h','k', 'u', 'w'].includes(ev.key.toLowerCase());
-  };
-
-  private onCompositionStart = () => {
-    this.isComposing = true;
-  };
-
-  private onCompositionEnd = () => {
-    this.isComposing = false;
-  };
-
-  private onBeforeInput = () => {
-    if (this.isCtrlAsciiCommand) {
-      this.isCtrlAsciiCommand = false;
-      setTimeout(() => {
-        if (this.lastEditLength === this.editor.value.length) return;
-
-        this.doChange({
-          start: this.editor.selectionStart, 
-          beforeLength: Math.abs(this.lastEditLength - this.editor.value.length), 
-          afterLength: 0,
-        });
-      }, 0);
-      return;
-    }
-
-    this.beforeInputStart = this.editor.selectionStart;
-    this.beforeInputEnd = this.editor.selectionEnd;
-  };
-
-  private onInput = (ev: Event) => {
-    if (this.isComposing) return;
-
-    if (this.beforeInputStart !== null && this.beforeInputEnd !== null) {
-      let beforeSelection = {
-        start: this.beforeInputStart,
-        end: this.beforeInputEnd,
-      };
-      let afterSelection = {
-        start: this.editor.selectionStart,
-        end: this.editor.selectionEnd,
-      };
-
-      if ((ev as InputEvent).inputType  == 'historyUndo') {
-        // swap selection
-        [beforeSelection.start, afterSelection.start] = [afterSelection.start, beforeSelection.start]
-      }
-      
-      if (afterSelection.start < beforeSelection.start) {
-        // Swap beforeLength and afterLength when the selection is reversed 
-        this.doChange({
-          start: afterSelection.start, 
-          beforeLength: beforeSelection.start - afterSelection.start, 
-          afterLength: beforeSelection.end - beforeSelection.start,
-        });
-      }
-      else {
-        this.doChange({
-          start: beforeSelection.start, 
-          beforeLength: beforeSelection.end - beforeSelection.start, 
-          afterLength: afterSelection.start - beforeSelection.start
-        });
-      }
-    }
-  };
-
-  private doChange = ({start, beforeLength, afterLength}: {start: number, beforeLength: number, afterLength: number}) => {
-    try {
-      this.onChange(start, beforeLength, afterLength);
-    }
-    finally {
-      this.beforeInputStart = null;
-      this.beforeInputEnd = null;
-      this.lastEditLength = this.editor.value.length;
-    }
-  };
-
-  dispose() {
-    this.editor.removeEventListener("compositionstart", this.onCompositionStart);
-    this.editor.removeEventListener("compositionend", this.onCompositionEnd);
-    this.editor.removeEventListener("beforeinput", this.onBeforeInput);
-    this.editor.removeEventListener("input", this.onInput);
-  }
 }
