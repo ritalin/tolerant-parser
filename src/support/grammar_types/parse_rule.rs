@@ -9,11 +9,11 @@ pub struct GrammarParseRule {
 pub struct GrammarParseRuleMember {
     pub id: u32,
     pub sequences: Vec<Rhs>,
-    pub precedence: Option<crate::Precedence>,
+    pub precedence: Option<super::Precedence>,
 }
 
 #[derive(Clone, serde::Deserialize)]
-pub struct Rhs(pub crate::Term);
+pub struct Rhs(pub super::Term);
 
 pub trait SymbolRef {
     fn id(&self) -> u32;

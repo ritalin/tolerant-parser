@@ -1,5 +1,5 @@
 use std::{collections::HashSet, io::{BufWriter, Write}, path::PathBuf};
-use grammar_types_core::symbol::GrammarSymbol;
+use tolerant_parser_sdk::support::grammar_types::{SymbolType, symbol::GrammarSymbol};
 use quote::{format_ident, quote};
 
 use crate::export_support::{tokens_to_string, with_indent};
@@ -29,11 +29,11 @@ fn create_syntax_kind_token(symbols: &[GrammarSymbol], regex_symbols: &HashSet<&
         let id = symbol.id;
 
         let group = match symbol.symbol_type {
-            grammar_types_core::SymbolType::Terminal { is_keyword } if is_keyword => quote! { SymbolGroup::Keyword },
-            grammar_types_core::SymbolType::Terminal { .. } if regex_symbols.contains(&symbol.name) => quote! { SymbolGroup::Pattern },
-            grammar_types_core::SymbolType::Terminal { .. } => quote! { SymbolGroup::NonKeyword }, 
-            grammar_types_core::SymbolType::NonTerminal |
-            grammar_types_core::SymbolType::MultiTerminal { .. } => quote! { SymbolGroup::NonTerminal },
+            SymbolType::Terminal { is_keyword } if is_keyword => quote! { SymbolGroup::Keyword },
+            SymbolType::Terminal { .. } if regex_symbols.contains(&symbol.name) => quote! { SymbolGroup::Pattern },
+            SymbolType::Terminal { .. } => quote! { SymbolGroup::NonKeyword }, 
+            SymbolType::NonTerminal |
+            SymbolType::MultiTerminal { .. } => quote! { SymbolGroup::NonTerminal },
         };
     
         let q = quote! {

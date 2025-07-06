@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use grammar_types_core::{parse_rule::{GrammarParseRule, GrammarParseRuleMember, SymbolRef}, symbol::GrammarSymbol, Precedence};
+use tolerant_parser_sdk::support::grammar_types::{parse_rule::{GrammarParseRule, GrammarParseRuleMember, SymbolRef}, symbol::GrammarSymbol, Precedence};
 
 
 /// Parser and scanner engine generator

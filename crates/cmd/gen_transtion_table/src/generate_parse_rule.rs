@@ -1,5 +1,5 @@
 use std::{collections::HashMap, io::{BufWriter, Write}, path::PathBuf};
-use grammar_types_core::parse_rule::RuleId;
+use tolerant_parser_sdk::support::grammar_types::parse_rule::RuleId;
 use crate::{export_support::{tokens_to_string, with_indent}, translation_table::GrammarSymbolRef};
 use quote::quote;
 

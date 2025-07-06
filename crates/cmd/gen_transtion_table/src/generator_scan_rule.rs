@@ -1,7 +1,7 @@
 use std::{collections::{BTreeMap, HashMap}, path::PathBuf};
 use std::io::{Write, BufWriter};
 use tolerant_parser_sdk::core::engine_core::scanner_engine::CaseSensitivity;
-use grammar_types_core::{scan_rule::{AltPattern, GrammarScanRule, RegexGrammarScanRule}, symbol::GrammarSymbol, SymbolType};
+use tolerant_parser_sdk::support::grammar_types::{scan_rule::{AltPattern, GrammarScanRule, RegexGrammarScanRule}, symbol::GrammarSymbol, SymbolType};
 use quote::quote;
 
 use crate::export_support::{tokens_to_string, with_indent};

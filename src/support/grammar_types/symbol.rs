@@ -4,8 +4,8 @@ pub struct GrammarSymbol {
     pub id: u32,
     pub name: String,
     #[serde(alias = "type")]
-    pub symbol_type: crate::SymbolType,
-    pub precedence: Option<crate::Precedence>,
+    pub symbol_type: super::SymbolType,
+    pub precedence: Option<super::Precedence>,
 }
 
 impl PartialEq for GrammarSymbol {

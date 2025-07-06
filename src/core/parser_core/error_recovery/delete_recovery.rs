@@ -50,9 +50,8 @@ impl DeleteErrorRecovery {
                 state: *top_state, 
             });
 
-            match self.engine.next_lookahead_state(next_lookahad.main.kind.id, *top_state) {
-                Some(_) => return Some(report),
-                None => {}
+            if let Some(_) = self.engine.next_lookahead_state(next_lookahad.main.kind.id, *top_state) {
+                return Some(report);
             }
 
             if self.penalty.delete_slot == 0 {

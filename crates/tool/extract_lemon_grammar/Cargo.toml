@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+tolerant-parser-sdk = { path = "../../.." }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-grammar-types-core = { path = "../../core/grammar-types-core" }
 
 [build-dependencies]
 build_support = { path = "../build-support" }

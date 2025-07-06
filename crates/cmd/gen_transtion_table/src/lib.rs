@@ -7,7 +7,7 @@ mod export_support;
 mod storage_support;
 
 use std::{collections::{HashMap, HashSet}, path::{Path, PathBuf}};
-use grammar_types_core::{parse_rule::GrammarParseRule, scan_rule::GrammarScanRule, symbol::GrammarSymbol};
+use tolerant_parser_sdk::support::grammar_types::{parse_rule::GrammarParseRule, scan_rule::GrammarScanRule, symbol::GrammarSymbol};
 
 pub use configs::CmdConfig;
 
