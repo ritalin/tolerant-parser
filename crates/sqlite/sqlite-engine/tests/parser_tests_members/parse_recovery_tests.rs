@@ -1,9 +1,9 @@
 
 #[cfg(test)]
 mod delete_recovery_tests {
-    use engine_core::scanner_engine::ScanEvent;
-    use parser_core::error_recovery::{delete_recovery::DeleteErrorRecovery, stitch_handler::StitchRecoveryHandler, RecoveryEvent, RecoveryEventPayload, RecoveryPenalty, RecoveryReport};
-    use scanner_core::Token;
+    use tolerant_parser_sdk::core::engine_core::scanner_engine::ScanEvent;
+    use tolerant_parser_sdk::core::parser_core::error_recovery::{delete_recovery::DeleteErrorRecovery, stitch_handler::StitchRecoveryHandler, RecoveryEvent, RecoveryEventPayload, RecoveryPenalty, RecoveryReport};
+    use tolerant_parser_sdk::core::scanner_core::Token;
     use sqlite_engine::syntax_kind;
 
     #[test]
@@ -159,10 +159,9 @@ mod delete_recovery_tests {
 #[cfg(test)]
 mod shift_recovery_tests {
     use std::collections::HashSet;
-
-    use engine_core::scanner_engine::ScanEvent;
-    use parser_core::error_recovery::{shift_recovery::ShiftErrorRecovery, stitch_handler::StitchRecoveryHandler, RecoveryEvent, RecoveryEventPayload, RecoveryPenalty, RecoveryReport};
-    use scanner_core::Token;
+    use tolerant_parser_sdk::core::engine_core::{self, scanner_engine::ScanEvent};
+    use tolerant_parser_sdk::core::parser_core::error_recovery::{shift_recovery::ShiftErrorRecovery, stitch_handler::StitchRecoveryHandler, RecoveryEvent, RecoveryEventPayload, RecoveryPenalty, RecoveryReport};
+    use tolerant_parser_sdk::core::scanner_core::Token;
     use sqlite_engine::syntax_kind;
 
     #[test]
@@ -333,9 +332,9 @@ mod shift_recovery_tests {
 mod recovery_tests {
     use std::collections::VecDeque;
 
-    use engine_core::scanner_engine::ScanEvent;
-    use parser_core::error_recovery::{RecoveryEvent, RecoveryEventDispatcher, RecoveryEventPayload, RecoveryPenalty};
-    use scanner_core::{iter::LookaheadIterator, Token};
+    use tolerant_parser_sdk::core::engine_core::{self, scanner_engine::ScanEvent};
+    use tolerant_parser_sdk::core::parser_core::error_recovery::{RecoveryEvent, RecoveryEventDispatcher, RecoveryEventPayload, RecoveryPenalty};
+    use tolerant_parser_sdk::core::scanner_core::{iter::LookaheadIterator, Token};
     use sqlite_engine::syntax_kind;
 
     #[test]

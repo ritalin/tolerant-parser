@@ -1,11 +1,9 @@
-    use parser_core::{Parser, syntax_tree::MetadataAccess, NodeMetadataKey};
+    use tolerant_parser_sdk::core::parser_core::{Parser, syntax_tree::MetadataAccess, NodeMetadataKey};
     use sqlite_engine::syntax_kind;
 
 
 mod operation_tests {
-
-    use parser_core::{syntax_tree::NodeOperation, ParserConfig};
-
+    use tolerant_parser_sdk::core::parser_core::{syntax_tree::NodeOperation, ParserConfig};
     use super::*;
 
     #[test]

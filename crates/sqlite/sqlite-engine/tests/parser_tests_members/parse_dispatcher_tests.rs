@@ -1,10 +1,8 @@
-use parser_core::event_dispatcher::{ParseEventDispatcher, ParseEvent};
-use engine_core::Engine;
+use tolerant_parser_sdk::core::parser_core::{event_dispatcher::{ParseEventDispatcher, ParseEvent}, ParseMode};
+use tolerant_parser_sdk::core::engine_core::Engine;
 
 #[cfg(test)]
 mod default_scanner_engine_tests {
-    use parser_core::ParseMode;
-
     use super::*;
 
     #[test]
@@ -23,7 +21,7 @@ mod default_scanner_engine_tests {
 #[cfg(test)]
 #[cfg(not(engine_ungenerated))]
 mod dispatcher_tests {
-    use parser_core::{event_dispatcher::ParseEventError, ParseMode};
+    use tolerant_parser_sdk::core::parser_core::{event_dispatcher::ParseEventError, ParseMode};
     use sqlite_engine::syntax_kind;
     use super::*;
 
@@ -171,8 +169,7 @@ mod dispatcher_tests {
     }
 
     mod broken_table {
-        use engine_core::{parser_engine::{ParsingRuleSetBuilder, Transition}, EmitRegin};
-
+        use tolerant_parser_sdk::core::engine_core::{parser_engine::{ParsingRuleSetBuilder, Transition}, EmitRegin};
         use super::*;
 
         #[test]
@@ -211,10 +208,9 @@ mod dispatcher_tests {
 
 mod dispatcher_support_tests {
     use std::collections::VecDeque;
-
-    use engine_core::{scanner_engine::ScanEvent, SyntaxKind};
-    use parser_core::{error_recovery::{RecoveryEvent, RecoveryEventDispatcher, RecoveryEventPayload, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher}, ParseMode};
-    use scanner_core::{iter::LookaheadIterator, Token};
+    use tolerant_parser_sdk::core::engine_core::{scanner_engine::ScanEvent, SyntaxKind};
+    use tolerant_parser_sdk::core::parser_core::{error_recovery::{RecoveryEvent, RecoveryEventDispatcher, RecoveryEventPayload, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher}, ParseMode};
+    use tolerant_parser_sdk::core::scanner_core::{iter::LookaheadIterator, Token};
     use sqlite_engine::syntax_kind;
 
     fn prepare_dispatcher_state(dispatcher: &mut ParseEventDispatcher, requests: &[(SyntaxKind, usize)]) -> Result<(), anyhow::Error> {

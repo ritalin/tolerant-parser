@@ -1,6 +1,6 @@
 #![cfg(not(engine_ungenerated))]
 
-use parser_core::support::test_support;
+use tolerant_parser_sdk::core::parser_core::support::test_support;
 
 mod parser_tests_members {
     mod parse_dispatcher_tests;

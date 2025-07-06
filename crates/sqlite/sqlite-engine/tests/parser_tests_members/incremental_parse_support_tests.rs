@@ -1,10 +1,10 @@
 
-use engine_core::{SyntaxKind, scanner_engine::CaseSensitivity};
-use parser_core::{incremental::EditScope, syntax_tree::SyntaxNode, Parser, ParserConfig, ParseMode, RecoveryPenalty};
+use tolerant_parser_sdk::core::engine_core::{SyntaxKind, scanner_engine::CaseSensitivity};
+use tolerant_parser_sdk::core::parser_core::{incremental::EditScope, syntax_tree::SyntaxNode, Parser, ParserConfig, ParseMode, RecoveryPenalty};
 use sqlite_engine::syntax_kind;
 
 mod expand_region_tests {
-    use parser_core::syntax_tree::MetadataAccess;
+    use tolerant_parser_sdk::core::parser_core::{self, syntax_tree::MetadataAccess};
 
     use super::*;
 
@@ -137,7 +137,7 @@ mod expand_region_tests {
 }
 
 mod edit_hint_init_tests {
-    use parser_core::incremental::edit_hint::EditHint;
+    use tolerant_parser_sdk::core::parser_core::incremental::edit_hint::EditHint;
     use super::*;
 
     #[test]
@@ -257,9 +257,9 @@ mod edit_hint_init_tests {
 }
 
 mod edit_hint_eval_tests {
-    use engine_core::scanner_engine::CaseSensitivity;
-    use parser_core::{incremental::edit_hint::EditHint, ParseMode, RecoveryPenalty};
-    use scanner_core::Scanner;
+    use tolerant_parser_sdk::core::engine_core::scanner_engine::CaseSensitivity;
+    use tolerant_parser_sdk::core::parser_core::{incremental::edit_hint::EditHint, ParseMode, RecoveryPenalty};
+    use tolerant_parser_sdk::core::scanner_core::Scanner;
     use super::*;
 
     #[test]

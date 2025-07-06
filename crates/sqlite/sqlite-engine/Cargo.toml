@@ -8,7 +8,7 @@ tolerant-parser-sdk = { path = "../../.." }
 phf = { version = "0.11.3", features = ["macros"] }
 
 [dev-dependencies]
-parser-core = { path = "../../core/parser-core", features = ["test_support"] }
+tolerant-parser-sdk = { path = "../../..", features = ["test_support"] }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
