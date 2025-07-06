@@ -1,4 +1,4 @@
-use engine_core::parser_engine::ParsingRuleSet;
+use crate::core::engine_core::parser_engine::ParsingRuleSet;
 use scanner_core::Token;
 use crate::state_stack::StateStack;
 
