@@ -1,6 +1,6 @@
 use std::{collections::{BTreeMap, HashMap}, path::PathBuf};
 use std::io::{Write, BufWriter};
-use engine_core::scanner_engine::CaseSensitivity;
+use tolerant_parser_sdk::core::engine_core::scanner_engine::CaseSensitivity;
 use grammar_types_core::{scan_rule::{AltPattern, GrammarScanRule, RegexGrammarScanRule}, symbol::GrammarSymbol, SymbolType};
 use quote::quote;
 
@@ -16,7 +16,7 @@ pub fn generate(
     let mut writer = BufWriter::new(output_file);
 
     writeln!(writer, "mod scan_rule_map {{")?;
-    writeln!(writer, "{}", with_indent("use engine_core::scanner_engine::{ScanPattern, CaseSensitivity};", 1))?;
+    writeln!(writer, "{}", with_indent("use tolerant_parser_sdk::core::engine_core::scanner_engine::{ScanPattern, CaseSensitivity};", 1))?;
 
     generate_lexme_scan_rule(&rules.lexme, collect_keywords(symbols), symbol_lookup, &rules.ignore_case_override, &mut writer)?;
     generate_regex_scan_rule(&rules.regex, symbol_lookup, &mut writer)?;

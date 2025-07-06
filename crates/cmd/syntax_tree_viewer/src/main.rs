@@ -1,5 +1,5 @@
-use engine_core::scanner_engine::CaseSensitivity;
-use parser_core::{error_recovery::RecoveryPenalty, ParseMode};
+use tolerant_parser_sdk::core::engine_core::scanner_engine::CaseSensitivity;
+use tolerant_parser_sdk::core::parser_core::{self, error_recovery::RecoveryPenalty, ParseMode};
 use syntax_tree_viewer::{print_tree, print_parallel_statement, config};
 
 fn main() -> Result<(), anyhow::Error> {

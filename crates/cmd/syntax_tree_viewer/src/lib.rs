@@ -1,4 +1,4 @@
-use parser_core::{syntax_tree::{MetadataAccess, SyntaxNode, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey, PatchAction};
+use tolerant_parser_sdk::core::parser_core::{self, syntax_tree::{MetadataAccess, SyntaxNode, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey, PatchAction};
 
 pub mod config;
 

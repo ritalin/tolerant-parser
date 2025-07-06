@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 tolerant-parser-sdk = { path = "../../.." }
-parser-core = { path = "../../core/parser-core" }
 anyhow = { workspace = true }
 clap = { workspace = true }
 serde = { workspace = true }

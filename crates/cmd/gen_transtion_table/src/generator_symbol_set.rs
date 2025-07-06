@@ -20,8 +20,8 @@ pub fn generate(symbols: &[GrammarSymbol], regex_symbols: &HashSet<&String>, out
 
 fn create_syntax_kind_token(symbols: &[GrammarSymbol], regex_symbols: &HashSet<&String>, writer: &mut impl Write) -> Result<(), anyhow::Error> {
     writeln!(writer, "pub mod syntax_kind {{")?;
-    writeln!(writer, "{}", with_indent("use engine_core::SyntaxKind;", 1))?;
-    writeln!(writer, "{}", with_indent("use engine_core::SymbolGroup;", 1))?;
+    writeln!(writer, "{}", with_indent("use tolerant_parser_sdk::core::engine_core::SyntaxKind;", 1))?;
+    writeln!(writer, "{}", with_indent("use tolerant_parser_sdk::core::engine_core::SymbolGroup;", 1))?;
 
     for symbol in symbols {
         let ident = format_ident!("r#{}", symbol.name);
@@ -52,9 +52,9 @@ fn create_syntax_kind_map(symbols: &[GrammarSymbol], writer: &mut impl Write) ->
 
     writeln!(writer, "{}", with_indent("use super::syntax_kind::*;", 1))?;
     writeln!(writer, "{}", with_indent("#[cfg(engine_ungenerated)]", 1))?;
-    writeln!(writer, "{}", with_indent("pub static SYNTAX_KIND_MAP: phf::Map<u32, &'static engine_core::SyntaxKind> = phf::phf_map!{};", 1))?;
+    writeln!(writer, "{}", with_indent("pub static SYNTAX_KIND_MAP: phf::Map<u32, &'static tolerant_parser_sdk::core::engine_core::SyntaxKind> = phf::phf_map!{};", 1))?;
     writeln!(writer, "{}", with_indent("#[cfg(not(engine_ungenerated))]", 1))?;
-    writeln!(writer, "{}", with_indent("pub static SYNTAX_KIND_MAP: phf::Map<u32, &'static engine_core::SyntaxKind> = phf::phf_map!{", 1))?;
+    writeln!(writer, "{}", with_indent("pub static SYNTAX_KIND_MAP: phf::Map<u32, &'static tolerant_parser_sdk::core::engine_core::SyntaxKind> = phf::phf_map!{", 1))?;
 
     for symbol in symbols {
         let ident = format_ident!("r#{}", symbol.name);
