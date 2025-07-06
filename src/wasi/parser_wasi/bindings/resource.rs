@@ -1,5 +1,5 @@
-use tolerant_parser_sdk::core::parser_core::{self, ParserConfig, syntax_tree::{ApplyBatch, LookupCandidate, MetadataAccess, NodeOperation, SyntaxTree}};
-use tolerant_parser_sdk::core::engine_core;
+use crate::core::parser_core::{self, ParserConfig, syntax_tree::{ApplyBatch, LookupCandidate, MetadataAccess, NodeOperation, SyntaxTree}};
+use crate::core::engine_core;
 use super::parser_world::exports::ritalin::parser::parsers;
 use super::syntax_tree_world::exports::ritalin::parser::syntaxes;
 use super::types_world::exports::ritalin::parser::types;

@@ -7,6 +7,5 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-tolerant-parser-sdk = { path = "../../.." }
-parser-wasi = { path = "../../sdk/parser-wasi" }
+tolerant-parser-sdk = { path = "../../..", features = ["wasi"] }
 sqlite-engine = { path = "../../sqlite/sqlite-engine" }
