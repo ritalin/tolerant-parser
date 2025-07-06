@@ -4,11 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-engine-core = { path = "../../core/engine-core" }
+tolerant-parser-sdk = { path = "../../.." }
 phf = { version = "0.11.3", features = ["macros"] }
 
 [dev-dependencies]
-scanner-core = { path = "../../core/scanner-core" }
 parser-core = { path = "../../core/parser-core", features = ["test_support"] }
 anyhow = { workspace = true }
 serde = { workspace = true }

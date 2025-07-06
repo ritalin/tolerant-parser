@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 grammar-types-core = { path = "../../core/grammar-types-core" }
-engine-core = { path = "../../core/engine-core" }
+tolerant-parser-sdk = { path = "../../.." }
 anyhow = { workspace = true }
 clap = { workspace = true }
 serde = { workspace = true }
