@@ -138,7 +138,7 @@ impl Default for ScanningRuleSet {
 }
 
 pub mod default_syntax_kind {
-    use crate::SymbolGroup;
+    use crate::core::engine_core::SymbolGroup;
 
     pub static DEFAULT: crate::SyntaxKind = crate::SyntaxKind { id: 0, text: "EOF", group: SymbolGroup::NonKeyword };
 }

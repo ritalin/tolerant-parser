@@ -16,7 +16,7 @@ exclude = [
     "crates/sdk/scan-type-wasi", "crates/sqlite-wasi/sqlite-engine-wasi", 
     "crates/sdk/engine-wasi", 
     "crates/sqlite-wasi/sqlite-parser-playground",
-    "crates/core/scanner-core", "crates/core/engine-core",
+    "crates/core/scanner-core", "crates/core/engine-core", "crates/core/parser-core", 
 ]
 resolver = "3"
 
@@ -28,4 +28,17 @@ serde_json = "1.0.140"
 clap = { version = "4.5.37", features = ["derive"] }
 wit-bindgen = "0.42"
 derive_builder = "0.20.2"
+regex = "1.11.1"
 
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+derive_builder = { workspace = true }
+regex = { workspace = true }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+
+[features]
+test_support = []
+parallel-parse = ["rayon"]

@@ -73,7 +73,7 @@ impl Default for ParsingRuleSet {
             lookahead_translation: |_kind_id, _state| None,
             goto_translation: |_kind_id, _state| None,
             accept_transition: || None,
-            symbol_lookup: crate::scanner_engine::default_symbol_lookup,
+            symbol_lookup: crate::core::engine_core::scanner_engine::default_symbol_lookup,
             alternative_symbol_lookup: |_parent_kind_id, _child_kind_id| None,
             candidate_symbols: |_state| vec![],
             statement_emit_region: super::EmitRegin::default(),

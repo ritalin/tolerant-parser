@@ -1,4 +1,4 @@
-use engine_core::scanner_engine::{self, AcceptableRegexSet, CaseSensitivity, ScanEvent};
+use crate::core::engine_core::scanner_engine::{self, AcceptableRegexSet, CaseSensitivity, ScanEvent};
 
 #[derive(Clone)]
 pub struct ScanEventDispatcher {
@@ -115,8 +115,8 @@ impl ScanEventDispatcher {
 
 #[cfg(test)]
 mod scanner_core_tests {
-    use engine_core::{scanner_engine::{AcceptableRegexSet, CaseSensitivity, ScanEvent, ScanPattern, ScanningRuleSetBuilder}, SymbolGroup, SyntaxKind};
-    use crate::event_dispatch::ScanEventDispatcher;
+    use super::*;
+    use crate::core::engine_core::{scanner_engine::{AcceptableRegexSet, CaseSensitivity, ScanEvent, ScanPattern, ScanningRuleSetBuilder}, SymbolGroup, SyntaxKind};
 
     #[test]
     fn test_lexme_case_sensitive() -> Result<(), anyhow::Error> {

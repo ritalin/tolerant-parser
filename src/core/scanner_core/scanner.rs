@@ -1,9 +1,9 @@
 use std::collections::VecDeque;
 
-use engine_core::scanner_engine::{self, AcceptableRegexSet, CaseSensitivity, ScanEvent};
-use engine_core::SyntaxKind;
-use crate::Token;
-use crate::event_dispatch::ScanEventDispatcher;
+use crate::core::engine_core::scanner_engine::{self, AcceptableRegexSet, CaseSensitivity, ScanEvent};
+use crate::core::engine_core::SyntaxKind;
+use crate::core::scanner_core::{self, ScannerError, Token};
+use crate::core::scanner_core::event_dispatch::ScanEventDispatcher;
 
 pub struct Scanner {
     lookaheads: VecDeque<Token>,
@@ -12,21 +12,21 @@ pub struct Scanner {
 
 impl Scanner {
     /// Create new scanner instance
-    pub fn create(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet, case_sensitive: CaseSensitivity) -> Result<Self, crate::ScannerError> {
+    pub fn create(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet, case_sensitive: CaseSensitivity) -> Result<Self, ScannerError> {
         let mut dispatcher = ScanEventDispatcher::new(source, index, engine, case_sensitive);
-        let lookahead = handle_scan_event(&mut dispatcher).ok_or(crate::ScannerError::CreateFailed)?;
+        let lookahead = handle_scan_event(&mut dispatcher).ok_or(ScannerError::CreateFailed)?;
 
         Ok(Self { dispatcher, lookaheads: VecDeque::from_iter([lookahead].into_iter()) })
     }
 
-    pub fn create_without_scan(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet, case_sensitive: CaseSensitivity) -> Result<Self, crate::ScannerError> {
+    pub fn create_without_scan(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet, case_sensitive: CaseSensitivity) -> Result<Self, ScannerError> {
         let dispatcher = ScanEventDispatcher::new(source, index, engine, case_sensitive);
         Ok(Self { dispatcher, lookaheads: VecDeque::new() })
         
     }
 
-    pub fn statement_scanners(&self, emit_symbol: SyntaxKind, full_emit_symbol: SyntaxKind) -> crate::iter::StatementScannerIterator {
-        crate::iter::StatementScannerIterator::new(
+    pub fn statement_scanners(&self, emit_symbol: SyntaxKind, full_emit_symbol: SyntaxKind) -> scanner_core::iter::StatementScannerIterator {
+        scanner_core::iter::StatementScannerIterator::new(
             self.lookaheads.clone(),
             self.dispatcher.clone(),
             emit_symbol,
@@ -38,7 +38,7 @@ impl Scanner {
 pub trait ScannerAccess {
     fn lookahead(&self) -> Option<&Token>;
     fn shift(&mut self) -> Option<Token>;
-    fn prefetch_iter(&mut self, terminate_synbol: SyntaxKind) -> crate::iter::LookaheadIterator;
+    fn prefetch_iter(&mut self, terminate_synbol: SyntaxKind) -> scanner_core::iter::LookaheadIterator;
 }
 
 impl ScannerAccess for Scanner {
@@ -59,10 +59,10 @@ impl ScannerAccess for Scanner {
         lookahead
     }
     
-    fn prefetch_iter(&mut self, terminate_synbol: SyntaxKind) -> crate::iter::LookaheadIterator {
+    fn prefetch_iter(&mut self, terminate_synbol: SyntaxKind) -> scanner_core::iter::LookaheadIterator {
         // Find prefetch queue
         let len = prefetch_internal(terminate_synbol, &mut self.dispatcher, &mut self.lookaheads);
-        crate::iter::LookaheadIterator::new(&self.lookaheads, 0, len)
+        scanner_core::iter::LookaheadIterator::new(&self.lookaheads, 0, len)
     }
 }
 
@@ -148,7 +148,7 @@ impl<'a> ScannerAccess for StatementScannerView<'a> {
         token
     }
 
-    fn prefetch_iter(&mut self, _terminate_synbol: SyntaxKind) -> crate::iter::LookaheadIterator {
-        crate::iter::LookaheadIterator::new(self.lookaheads, self.index, self.end - self.index)
+    fn prefetch_iter(&mut self, _terminate_synbol: SyntaxKind) -> scanner_core::iter::LookaheadIterator {
+        scanner_core::iter::LookaheadIterator::new(self.lookaheads, self.index, self.end - self.index)
     }
 }

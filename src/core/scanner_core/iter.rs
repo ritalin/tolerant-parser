@@ -1,7 +1,9 @@
 use std::collections::VecDeque;
-use engine_core::SyntaxKind;
+use crate::core::engine_core::SyntaxKind;
 
-use crate::{event_dispatch::ScanEventDispatcher, Token};
+use crate::core::scanner_core::StatementScannerView;
+use crate::core::scanner_core::{event_dispatch::ScanEventDispatcher, Token};
+use crate::core::scanner_core::scanner;
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct LookaheadIterator<'a> {
@@ -54,7 +56,7 @@ pub struct StatementScanner {
 }
 
 impl StatementScanner {
-    pub fn as_view<'a, R: std::ops::RangeBounds<usize>>(&'a self, range: R) -> crate::scanner::StatementScannerView<'a> {
+    pub fn as_view<'a, R: std::ops::RangeBounds<usize>>(&'a self, range: R) -> StatementScannerView<'a> {
         let (start, end) = match (range.start_bound(), range.end_bound()) {
             (std::ops::Bound::Included(s), std::ops::Bound::Included(e)) => (*s, *e+1),
             (std::ops::Bound::Included(s), std::ops::Bound::Excluded(e)) => (*s, *e),
@@ -83,7 +85,7 @@ impl StatementScanner {
 
         let (from, len) = if from == usize::MAX { (0, 0) } else { (from, to - from + 1) };
 
-        crate::scanner::StatementScannerView::new(&self.lookaheads, from, if self.is_full_emit { len + 1 } else { len })
+        StatementScannerView::new(&self.lookaheads, from, if self.is_full_emit { len + 1 } else { len })
     }
 
     pub fn scan_range(&self) -> std::ops::Range<usize> {
@@ -134,7 +136,7 @@ impl Iterator for StatementScannerIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         let source_from = self.next_source_from;
-        let size = crate::scanner::prefetch_internal(self.emit_symbol, &mut self.dispatcher, &mut self.lookaheads);
+        let size = scanner::prefetch_internal(self.emit_symbol, &mut self.dispatcher, &mut self.lookaheads);
         if size == 0 {
             return None;
         }

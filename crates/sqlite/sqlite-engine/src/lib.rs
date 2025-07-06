@@ -2,7 +2,7 @@
 
 #[cfg(not(engine_ungenerated))]
 pub(crate) mod generated {
-    use engine_core::{parser_engine::Transition, scanner_engine::AcceptableRegexSet, SyntaxKind};
+    use crate::core::engine_core::{self, parser_engine::Transition, scanner_engine::AcceptableRegexSet, SyntaxKind};
     
     include!("_generated/symbol_set.rs");
     include!("_generated/scan_rule.rs");

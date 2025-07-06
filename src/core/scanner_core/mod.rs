@@ -4,7 +4,7 @@ mod scanner;
 pub use scanner::{Scanner, StatementScannerView, ScannerAccess};
 pub mod iter;
 
-use engine_core::scanner_engine::ScanEvent;
+use super::engine_core::scanner_engine::ScanEvent;
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct Token {
