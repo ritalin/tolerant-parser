@@ -1,5 +1,5 @@
-use scanner_core::{iter::{StatementScanner, StatementScannerType}, ScannerAccess};
-use crate::{incremental::support, syntax_tree::{MetadataAccess, NodeOperation, SyntaxElement, SyntaxNode, SyntaxTree}};
+use crate::core::scanner_core::{iter::{StatementScanner, StatementScannerType}, ScannerAccess};
+use crate::core::parser_core::{self, incremental::support, syntax_tree::{MetadataAccess, NodeOperation, SyntaxElement, SyntaxNode, SyntaxTree}};
 
 /// Contains information about the edit region and its surrounding statements.
 ///
@@ -39,15 +39,15 @@ impl EditHint {
     }
 
     pub fn new(old_tree: &SyntaxTree, range: std::ops::Range<usize>) -> Self {
-        use crate::syntax_tree::MetadataAccess;
+        use parser_core::syntax_tree::MetadataAccess;
 
         // Skip out of range statements
         let mut iter = old_tree.root().children()
             .filter_map(|node| match node {
-                crate::syntax_tree::SyntaxElementDef::Node(node) => {
+                parser_core::syntax_tree::SyntaxElementDef::Node(node) => {
                     Some((node.clone(), node.metadata().char_range()))
                 }
-                crate::syntax_tree::SyntaxElementDef::TokenSet(_) => None
+                parser_core::syntax_tree::SyntaxElementDef::TokenSet(_) => None
             })
             .skip_while(move |(_, char_range)| {
                 char_range.end < range.start

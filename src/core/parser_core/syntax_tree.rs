@@ -1,6 +1,7 @@
 use std::rc::Rc;
-use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
-use crate::{metadata::MetadataTable, NodeMetadata, NodeMetadataKey, ParseMode};
+use crate::core::engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
+use crate::core::parser_core::metadata::MetadataTable;
+use crate::core::parser_core::{NodeMetadata, NodeMetadataKey, ParseMode};
 
 mod tree;
 mod node;

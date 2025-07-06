@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
+use crate::core::engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
 use rowan::{NodeOrToken, TextSize};
-use scanner_core::iter::StatementScannerType;
-use crate::{metadata::{GlobalOffset, StatementMetadataEntry}, syntax_tree::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxElement, SyntaxNode, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey};
+use crate::core::scanner_core::{self, iter::StatementScannerType};
+use crate::core::parser_core::{self, metadata::{GlobalOffset, StatementMetadataEntry}, syntax_tree::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxElement, SyntaxNode, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey};
 
 #[derive(Clone)]
 pub struct TreeGardener<'a> {
@@ -151,7 +151,7 @@ impl IncrementalParserStrategy {
     }
 }
 
-impl crate::parser::ParseStrategy for IncrementalParserStrategy {
+impl parser_core::parser::ParseStrategy for IncrementalParserStrategy {
     fn is_terminated_kind(&self, kind: SyntaxKind, scanner: &impl scanner_core::ScannerAccess) -> bool {
         match (self.terminate_kind, scanner.lookahead()) {
             (Some(terminate_kind), Some(lookahead)) if terminate_kind != self.full_emit_kind => {

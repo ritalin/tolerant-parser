@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
-use crate::syntax_tree::RowanLangageImpl;
+use crate::core::engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
+use crate::core::parser_core::syntax_tree::RowanLangageImpl;
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct NodeMetadataKey {

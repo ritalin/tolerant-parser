@@ -1,6 +1,6 @@
 use std::rc::Rc;
-use engine_core::parser_engine::ParsingRuleSet;
-use crate::{metadata::{MetadataTable, StatementMetadataEntry}, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
+use crate::core::engine_core::parser_engine::ParsingRuleSet;
+use crate::core::parser_core::{metadata::{MetadataTable, StatementMetadataEntry}, NodeMetadata, NodeMetadataKey, NodeType, ParseMode};
 use super::{MetadataAccess, NodeOperation, RowanLangageImpl, SyntaxElement, SyntaxNodeData, SyntaxTokenData, SyntaxTokenItem, SyntaxTokenSet};
 
 #[derive(PartialEq, Eq, Clone, Debug)]

@@ -1,4 +1,4 @@
-use crate::{syntax_tree::{MetadataAccess, SyntaxNode, SyntaxTokenItem, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey, NodeType, PatchAction};
+use crate::core::parser_core::{self, syntax_tree::{MetadataAccess, SyntaxNode, SyntaxTokenItem, SyntaxTokenSet}, NodeMetadata, NodeMetadataKey, NodeType, PatchAction};
 
 #[derive(PartialEq, Debug)]
 pub enum ActualNode {
@@ -93,13 +93,13 @@ pub fn verify(actual_node: SyntaxNode, expect_nodes: &[ExpectNode]) {
                 stack.extend(
                     node.children()
                     .map(|x| match x {
-                        crate::syntax_tree::SyntaxElementDef::Node(item) => {
+                        parser_core::syntax_tree::SyntaxElementDef::Node(item) => {
                             let mut new_path = path.clone();
                             new_path.push(item.metadata_key().kind.text.to_string());
 
                             (new_path, ActualNode::Node(item))
                         }
-                        crate::syntax_tree::SyntaxElementDef::TokenSet(item) => {
+                        parser_core::syntax_tree::SyntaxElementDef::TokenSet(item) => {
                             let mut new_path = path.clone();
                             new_path.push(item.metadata_key().kind.text.to_string());
 

@@ -1,6 +1,6 @@
 use crate::core::engine_core::parser_engine::ParsingRuleSet;
-use scanner_core::Token;
-use crate::state_stack::StateStack;
+use crate::core::scanner_core::Token;
+use crate::core::parser_core::state_stack::StateStack;
 
 use super::{RecoveryEvent, RecoveryPenalty, RecoveryReport};
 

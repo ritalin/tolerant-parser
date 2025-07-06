@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
-use crate::{metadata::{GlobalOffset, MetadataTable, StatementMetadataEntry}, syntax_tree::{tree::SyntaxTree, MetadataAccess, RowanLangageImpl, SyntaxNode, SyntaxNodeData}, NodeMetadata, NodeMetadataKey, ParseMode};
+use crate::core::engine_core::{parser_engine::ParsingRuleSet, SyntaxKind};
+use crate::core::parser_core::{self, metadata::{GlobalOffset, MetadataTable, StatementMetadataEntry}, syntax_tree::{tree::SyntaxTree, MetadataAccess, RowanLangageImpl, SyntaxNode, SyntaxNodeData}, NodeMetadata, NodeMetadataKey, ParseMode};
 
 pub struct SyntaxFragment {
     index: usize,
@@ -256,8 +256,8 @@ fn new_root_metadata(kind: SyntaxKind, byte_offset: usize, char_offset: usize) -
     };
     let root_metadata = NodeMetadata{ 
         edit_state: 0, 
-        node_type: crate::NodeType::Node, 
-        patch: crate::PatchAction::None, 
+        node_type: parser_core::NodeType::Node, 
+        patch: parser_core::PatchAction::None, 
         char_offset: 0, 
         char_len: char_offset 
     };

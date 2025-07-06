@@ -1,6 +1,6 @@
 use std::rc::Rc;
-use engine_core::parser_engine::ParsingRuleSet;
-use crate::{metadata::MetadataTable, syntax_tree::{syntax_batch::ApplyBatch, SyntaxFragmentBatch}, ParseMode};
+use crate::core::engine_core::parser_engine::ParsingRuleSet;
+use crate::core::parser_core::{metadata::MetadataTable, syntax_tree::{syntax_batch::ApplyBatch, SyntaxFragmentBatch}, ParseMode};
 use super::{RowanLangageImpl, SyntaxNode};
 
 #[derive(PartialEq, Clone, Debug)]

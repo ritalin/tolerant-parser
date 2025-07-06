@@ -1,8 +1,8 @@
 use std::collections::{HashSet, VecDeque};
 
-use engine_core::{parser_engine::{ParsingRuleSet, Transition}, SymbolGroup, SyntaxKind};
-use scanner_core::Token;
-use crate::state_stack::StateStack;
+use crate::core::engine_core::{parser_engine::{ParsingRuleSet, Transition}, SymbolGroup, SyntaxKind};
+use crate::core::scanner_core::Token;
+use crate::core::parser_core::state_stack::StateStack;
 
 use super::{RecoveryEvent, RecoveryEventPayload, RecoveryPenalty, RecoveryReport};
 

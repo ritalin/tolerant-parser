@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
-use engine_core::parser_engine::ParsingRuleSet;
-use scanner_core::{Scanner, StatementScannerView};
-use crate::{event_dispatcher::ParseEventDispatcher, incremental::{edit_hint::SlotEvent, support::{IncludeEnd, IncrementalParserStrategy}}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{FragmentNodeMetadataKey, MetadataAccess, SyntaxElement, SyntaxFragment, SyntaxFragmentBatch, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig, PatchAction};
+use crate::core::engine_core::{self, parser_engine::ParsingRuleSet};
+use crate::core::scanner_core::{Scanner, StatementScannerView};
+use crate::core::parser_core::{self, event_dispatcher::ParseEventDispatcher, incremental::{edit_hint::SlotEvent, support::{IncludeEnd, IncrementalParserStrategy}}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{FragmentNodeMetadataKey, MetadataAccess, SyntaxElement, SyntaxFragment, SyntaxFragmentBatch, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig, PatchAction};
 
 pub mod support;
 pub mod edit_hint;
@@ -30,7 +30,7 @@ impl Parser {
         }
     }
 
-    pub fn parse(&self, source: &str) -> Result<Vec<SyntaxFragmentBatch>, crate::parser::ParseError> {
+    pub fn parse(&self, source: &str) -> Result<Vec<SyntaxFragmentBatch>, parser_core::parser::ParseError> {
         let new_edit_byte_range = convert_from_utf16_to_byte_range(self.scope.new_char_range(), source);
 
         // Determin scanning byte offset
@@ -229,8 +229,8 @@ fn parse_internal(
     mut scanner: StatementScannerView, 
     config: &ParserConfig,
     edit_state: usize,
-    parse_strategy: impl crate::parser::ParseStrategy,
-    engine: ParsingRuleSet) -> Result<(rowan::GreenNode, HashMap<NodeMetadataKey, NodeMetadata>), crate::parser::ParseError> 
+    parse_strategy: impl parser_core::parser::ParseStrategy,
+    engine: ParsingRuleSet) -> Result<(rowan::GreenNode, HashMap<NodeMetadataKey, NodeMetadata>), parser_core::parser::ParseError> 
 {
     let mut dispatcher = ParseEventDispatcher::new(edit_state, config.mode.clone(), engine);
     let mut tree_builder = SyntaxTreeBuilder::new(engine, config.mode.clone(), None);
@@ -239,7 +239,7 @@ fn parse_internal(
         Ok(_) => {
             Ok(tree_builder.build_branch()?)
         }
-        Err(ParseError::ByEvent(crate::event_dispatcher::ParseEventError::NoMoreState{..})) => {
+        Err(ParseError::ByEvent(parser_core::event_dispatcher::ParseEventError::NoMoreState{..})) => {
             // In incremental parsing mode, this mismatch may occur when the target node starts
             // from the middle of a production rule (i.e., not from the first symbol).
             // In such cases, a reduce may expect more items to pop than are available.

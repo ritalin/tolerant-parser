@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
-use engine_core::{parser_engine::{ParsingRuleSet, Transition}, SyntaxKind};
-use crate::{error_recovery::RecoveryEventPayload, parser::{ParseMode, RecoveryEvent}, state_stack::StateStack};
+use crate::core::{engine_core::{parser_engine::{ParsingRuleSet, Transition}, SyntaxKind}, parser_core::error_recovery::RecoveryEvent};
+use crate::core::parser_core::{error_recovery::RecoveryEventPayload, parser::{ParseMode}, state_stack::StateStack};
 
 pub struct ParseEventDispatcher {
     mode: ParseMode,

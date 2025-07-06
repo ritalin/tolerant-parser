@@ -1,6 +1,6 @@
 use std::collections::HashSet;
-use engine_core::parser_engine::{ParsingRuleSet, Transition};
-use scanner_core::Token;
+use crate::core::engine_core::parser_engine::{ParsingRuleSet, Transition};
+use crate::core::scanner_core::Token;
 use super::{RecoveryEvent, RecoveryReport, RecoveryEventPayload};
 
 pub struct StitchRecoveryHandler {

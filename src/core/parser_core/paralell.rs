@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use engine_core::{parser_engine::ParsingRuleSet, Engine};
-use scanner_core::{iter::StatementScanner, Scanner};
-use crate::{event_dispatcher::ParseEventDispatcher, metadata::StatementMetadataEntry, node_handler::SyntaxTreeBuilder, parser::{parse_with_config_internal, DefaultParserStrategy, ParseError}, syntax_tree::{SyntaxFragment, SyntaxFragmentBatch}, NodeMetadataKey, ParserConfig};
+use crate::core::engine_core::{parser_engine::ParsingRuleSet, Engine};
+use crate::core::scanner_core::{iter::StatementScanner, Scanner};
+use crate::core::parser_core::{event_dispatcher::ParseEventDispatcher, metadata::StatementMetadataEntry, node_handler::SyntaxTreeBuilder, parser::{parse_with_config_internal, DefaultParserStrategy, ParseError}, syntax_tree::{SyntaxFragment, SyntaxFragmentBatch}, NodeMetadataKey, ParserConfig};
 use rayon::prelude::*;
 
 pub struct Parser {

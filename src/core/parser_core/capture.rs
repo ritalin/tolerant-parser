@@ -1,9 +1,9 @@
 use std::collections::VecDeque;
 
-use engine_core::{scanner_engine::CaseSensitivity, Engine, SyntaxKind};
-use scanner_core::{Scanner, ScannerAccess, Token};
+use crate::core::engine_core::{scanner_engine::CaseSensitivity, Engine, SyntaxKind};
+use crate::core::scanner_core::{Scanner, ScannerAccess, Token};
 
-use crate::{error_recovery::{RecoveryEventDispatcher, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher, ParseEventError}, parser::{ParseError, ParseMode}};
+use crate::core::parser_core::{error_recovery::{RecoveryEventDispatcher, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher, ParseEventError}, parser::{ParseError, ParseMode}};
 
 #[derive(Clone)]
 pub struct EventCaptureConfig {

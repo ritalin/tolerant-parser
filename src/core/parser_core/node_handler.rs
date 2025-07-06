@@ -1,9 +1,8 @@
 use std::collections::HashMap;
-use engine_core::{parser_engine::ParsingRuleSet, scanner_engine::ScanEvent, SymbolGroup, SyntaxKind};
+use crate::core::engine_core::{parser_engine::ParsingRuleSet, scanner_engine::ScanEvent, SymbolGroup, SyntaxKind};
 use rowan::GreenNode;
-use scanner_core::Token;
-
-use crate::{event_dispatcher::ParseEvent, metadata::{GlobalOffset, MetadataTable, StatementMetadataEntry}, syntax_tree::SyntaxTree, NodeId, NodeMetadata, NodeMetadataKey, NodeType, ParseMode, PatchAction};
+use crate::core::scanner_core::Token;
+use crate::core::parser_core::{event_dispatcher::ParseEvent, metadata::{GlobalOffset, MetadataTable, StatementMetadataEntry}, syntax_tree::SyntaxTree, NodeId, NodeMetadata, NodeMetadataKey, NodeType, ParseMode, PatchAction};
 
 type ActiveIndex = usize;
 
