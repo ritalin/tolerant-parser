@@ -1,5 +1,5 @@
 use std::collections::{BTreeMap, HashMap, LinkedList};
-use grammar_types_core::{parse_rule::{GrammarParseRule, GrammarParseRuleMember, RuleId}, scan_rule::GrammarCombinationSymbol, symbol::GrammarSymbol, SymbolType, Term};
+use tolerant_parser_sdk::support::grammar_types::{self, parse_rule::{GrammarParseRule, GrammarParseRuleMember, RuleId}, scan_rule::GrammarCombinationSymbol, symbol::GrammarSymbol, SymbolType, Term};
 use crate::configs::ActionResolveConfig;
 
 pub struct ParseTableBuilder {
@@ -96,7 +96,7 @@ fn create_rhs_sequence(
 }
 
 fn create_symbols_internal(
-    sequences: &[grammar_types_core::parse_rule::Rhs],
+    sequences: &[grammar_types::parse_rule::Rhs],
     symbol_lookup: &HashMap<String, GrammarSymbolRef>,
     combination_symbols: &HashMap<String, GrammarCombinationSymbol>,
     id_gen: &mut IdGenerator,
@@ -107,7 +107,7 @@ fn create_symbols_internal(
         None => {
             rhs_symbols.push((id_gen.id(), current.clone()));
         }
-        Some(grammar_types_core::parse_rule::Rhs(token)) => {
+        Some(grammar_types::parse_rule::Rhs(token)) => {
             // Try to resolve Reduce/Reduce conflict replacing by conbination rule
             if let Some((new_rule, rest)) = try_reduce_combination(token, &sequences[1..], combination_symbols) {
                 current.push(lalry::Symbol::Nonterminal(new_rule.name));
@@ -157,14 +157,14 @@ fn create_symbols_internal(
 
 fn try_reduce_combination<'a>(
     term: &'a Term,
-    sequences: &'a [grammar_types_core::parse_rule::Rhs],
-    combination_symbols: &'a HashMap<String, GrammarCombinationSymbol>) -> Option<(GrammarSymbol, &'a [grammar_types_core::parse_rule::Rhs])> 
+    sequences: &'a [grammar_types::parse_rule::Rhs],
+    combination_symbols: &'a HashMap<String, GrammarCombinationSymbol>) -> Option<(GrammarSymbol, &'a [grammar_types::parse_rule::Rhs])> 
 {
     if let Term::Symbol { name } = term.clone() {
         if let Some(GrammarCombinationSymbol { lhs, follow_symbols }) = combination_symbols.get(&name) {
             let matched =
                 follow_symbols.iter().zip(sequences)
-                .all(|(follow, grammar_types_core::parse_rule::Rhs(rhs))| match rhs {
+                .all(|(follow, grammar_types::parse_rule::Rhs(rhs))| match rhs {
                     Term::Symbol { name } if name.eq(follow) => true,
                     _ => false,
                 })
@@ -270,7 +270,7 @@ impl IdGenerator {
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub struct GrammarSymbolRef(pub GrammarSymbol);
 
-impl grammar_types_core::parse_rule::SymbolRef for GrammarSymbolRef {
+impl grammar_types::parse_rule::SymbolRef for GrammarSymbolRef {
     fn id(&self) -> u32 {
         self.0.id
     }

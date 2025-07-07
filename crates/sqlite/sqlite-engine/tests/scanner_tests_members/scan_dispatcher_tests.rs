@@ -1,9 +1,9 @@
-use scanner_core::event_dispatch::ScanEventDispatcher;
-use engine_core::scanner_engine::{AcceptableRegexSet, ScanEvent, CaseSensitivity};
+use tolerant_parser_sdk::core::scanner_core::event_dispatch::ScanEventDispatcher;
+use tolerant_parser_sdk::core::engine_core::scanner_engine::{AcceptableRegexSet, ScanEvent, CaseSensitivity};
 
 #[cfg(test)]
 mod default_scanner_engine_tests {
-    use engine_core::{scanner_engine::{AcceptableRegexSet}, Engine};
+    use tolerant_parser_sdk::core::engine_core::{scanner_engine::{AcceptableRegexSet}, Engine};
     use super::*;
 
     #[test]
@@ -215,7 +215,7 @@ mod scan_by_regex_tests {
 #[cfg(test)]
 #[cfg(not(engine_ungenerated))]
 mod scan_greedy_tests {
-    use engine_core::scanner_engine::{AcceptableRegexSet, ScanEvent};
+    use tolerant_parser_sdk::core::engine_core::scanner_engine::{AcceptableRegexSet, ScanEvent};
     use sqlite_engine::syntax_kind;
     use super::*;
 

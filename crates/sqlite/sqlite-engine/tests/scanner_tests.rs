@@ -1,7 +1,7 @@
 #![cfg(not(engine_ungenerated))]
 
-use engine_core::scanner_engine::{CaseSensitivity, ScanEvent};
-use scanner_core::{Scanner, ScannerAccess, Token};
+use tolerant_parser_sdk::core::engine_core::scanner_engine::{CaseSensitivity, ScanEvent};
+use tolerant_parser_sdk::core::scanner_core::{Scanner, ScannerAccess, Token};
 use sqlite_engine::syntax_kind;
 
 mod scanner_tests_members {

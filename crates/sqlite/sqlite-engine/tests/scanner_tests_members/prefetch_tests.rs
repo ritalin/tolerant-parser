@@ -1,13 +1,10 @@
 use std::collections::VecDeque;
-
-use engine_core::scanner_engine::{ScanEvent, CaseSensitivity};
-use scanner_core::{iter::LookaheadIterator, Scanner, Token};
+use tolerant_parser_sdk::core::engine_core::scanner_engine::{ScanEvent, CaseSensitivity};
+use tolerant_parser_sdk::core::scanner_core::{iter::LookaheadIterator, Scanner, Token, ScannerAccess};
 use sqlite_engine::syntax_kind;
 
 
 mod prefetch_token_tests {
-    use scanner_core::ScannerAccess;
-
     use super::*;
 
     #[test]
@@ -196,8 +193,6 @@ mod prefetch_token_tests {
 }
 
 mod pregetch_stmt_tests {
-    use scanner_core::ScannerAccess;
-
     use super::*;
 
     #[test]

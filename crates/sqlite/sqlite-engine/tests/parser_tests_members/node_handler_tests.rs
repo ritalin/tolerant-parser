@@ -1,11 +1,11 @@
-use parser_core::{event_dispatcher::ParseEvent, node_handler::{NodeBuildError, SyntaxTreeBuilder}};
-use parser_core::support::test_support::*;
-    use sqlite_engine::syntax_kind;
+use tolerant_parser_sdk::core::parser_core::{event_dispatcher::ParseEvent, node_handler::{NodeBuildError, SyntaxTreeBuilder}};
+use tolerant_parser_sdk::support::test_support::*;
+use sqlite_engine::syntax_kind;
 
 mod build_tree_tests {
-    use engine_core::scanner_engine::ScanEvent;
-    use parser_core::{NodeType, ParseMode, PatchAction};
-    use scanner_core::Token;
+    use tolerant_parser_sdk::core::engine_core::scanner_engine::ScanEvent;
+    use tolerant_parser_sdk::core::parser_core::{NodeType, ParseMode, PatchAction};
+    use tolerant_parser_sdk::core::scanner_core::Token;
     use super::*;
 
     #[test]

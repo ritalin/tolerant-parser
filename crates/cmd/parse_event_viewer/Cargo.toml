@@ -4,9 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-engine-core = { path = "../../core/engine-core" }
-scanner-core = { path = "../../core/scanner-core" }
-parser-core = { path = "../../core/parser-core" }
+tolerant-parser-sdk = { path = "../../.." }
 anyhow = { workspace = true }
 clap = { workspace = true }
 serde = { workspace = true }

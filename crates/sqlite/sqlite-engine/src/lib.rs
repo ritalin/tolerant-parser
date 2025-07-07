@@ -1,8 +1,8 @@
-
+use tolerant_parser_sdk::core::engine_core;
 
 #[cfg(not(engine_ungenerated))]
 pub(crate) mod generated {
-    use engine_core::{parser_engine::Transition, scanner_engine::AcceptableRegexSet, SyntaxKind};
+    use tolerant_parser_sdk::core::engine_core::{self, parser_engine::Transition, scanner_engine::AcceptableRegexSet, SyntaxKind};
     
     include!("_generated/symbol_set.rs");
     include!("_generated/scan_rule.rs");
@@ -72,7 +72,7 @@ pub fn create() -> Result<engine_core::Engine, engine_core::EngineError> {
 }
 #[cfg(not(engine_ungenerated))]
 pub mod builder {
-    use engine_core::EmitRegin;
+    use tolerant_parser_sdk::core::engine_core::{self, EmitRegin};
 
     pub use super::generated::{
         get_lexme_pattern,

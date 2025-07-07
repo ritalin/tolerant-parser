@@ -1,5 +1,5 @@
 use std::{ffi::{CStr, CString}, mem::MaybeUninit};
-use grammar_types_core::{Precedence, SymbolType, Term};
+use tolerant_parser_sdk::support::grammar_types::{Precedence, SymbolType, Term};
 
 pub mod keyword_check;
 pub mod lemon_bindings;

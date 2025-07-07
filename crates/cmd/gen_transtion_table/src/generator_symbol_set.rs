@@ -1,5 +1,5 @@
 use std::{collections::HashSet, io::{BufWriter, Write}, path::PathBuf};
-use grammar_types_core::symbol::GrammarSymbol;
+use tolerant_parser_sdk::support::grammar_types::{SymbolType, symbol::GrammarSymbol};
 use quote::{format_ident, quote};
 
 use crate::export_support::{tokens_to_string, with_indent};
@@ -20,8 +20,8 @@ pub fn generate(symbols: &[GrammarSymbol], regex_symbols: &HashSet<&String>, out
 
 fn create_syntax_kind_token(symbols: &[GrammarSymbol], regex_symbols: &HashSet<&String>, writer: &mut impl Write) -> Result<(), anyhow::Error> {
     writeln!(writer, "pub mod syntax_kind {{")?;
-    writeln!(writer, "{}", with_indent("use engine_core::SyntaxKind;", 1))?;
-    writeln!(writer, "{}", with_indent("use engine_core::SymbolGroup;", 1))?;
+    writeln!(writer, "{}", with_indent("use tolerant_parser_sdk::core::engine_core::SyntaxKind;", 1))?;
+    writeln!(writer, "{}", with_indent("use tolerant_parser_sdk::core::engine_core::SymbolGroup;", 1))?;
 
     for symbol in symbols {
         let ident = format_ident!("r#{}", symbol.name);
@@ -29,11 +29,11 @@ fn create_syntax_kind_token(symbols: &[GrammarSymbol], regex_symbols: &HashSet<&
         let id = symbol.id;
 
         let group = match symbol.symbol_type {
-            grammar_types_core::SymbolType::Terminal { is_keyword } if is_keyword => quote! { SymbolGroup::Keyword },
-            grammar_types_core::SymbolType::Terminal { .. } if regex_symbols.contains(&symbol.name) => quote! { SymbolGroup::Pattern },
-            grammar_types_core::SymbolType::Terminal { .. } => quote! { SymbolGroup::NonKeyword }, 
-            grammar_types_core::SymbolType::NonTerminal |
-            grammar_types_core::SymbolType::MultiTerminal { .. } => quote! { SymbolGroup::NonTerminal },
+            SymbolType::Terminal { is_keyword } if is_keyword => quote! { SymbolGroup::Keyword },
+            SymbolType::Terminal { .. } if regex_symbols.contains(&symbol.name) => quote! { SymbolGroup::Pattern },
+            SymbolType::Terminal { .. } => quote! { SymbolGroup::NonKeyword }, 
+            SymbolType::NonTerminal |
+            SymbolType::MultiTerminal { .. } => quote! { SymbolGroup::NonTerminal },
         };
     
         let q = quote! {
@@ -52,9 +52,9 @@ fn create_syntax_kind_map(symbols: &[GrammarSymbol], writer: &mut impl Write) ->
 
     writeln!(writer, "{}", with_indent("use super::syntax_kind::*;", 1))?;
     writeln!(writer, "{}", with_indent("#[cfg(engine_ungenerated)]", 1))?;
-    writeln!(writer, "{}", with_indent("pub static SYNTAX_KIND_MAP: phf::Map<u32, &'static engine_core::SyntaxKind> = phf::phf_map!{};", 1))?;
+    writeln!(writer, "{}", with_indent("pub static SYNTAX_KIND_MAP: phf::Map<u32, &'static tolerant_parser_sdk::core::engine_core::SyntaxKind> = phf::phf_map!{};", 1))?;
     writeln!(writer, "{}", with_indent("#[cfg(not(engine_ungenerated))]", 1))?;
-    writeln!(writer, "{}", with_indent("pub static SYNTAX_KIND_MAP: phf::Map<u32, &'static engine_core::SyntaxKind> = phf::phf_map!{", 1))?;
+    writeln!(writer, "{}", with_indent("pub static SYNTAX_KIND_MAP: phf::Map<u32, &'static tolerant_parser_sdk::core::engine_core::SyntaxKind> = phf::phf_map!{", 1))?;
 
     for symbol in symbols {
         let ident = format_ident!("r#{}", symbol.name);

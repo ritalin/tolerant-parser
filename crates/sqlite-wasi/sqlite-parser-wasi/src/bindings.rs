@@ -1,6 +1,6 @@
-use engine_core::scanner_engine::CaseSensitivity;
-use parser_core::{ParseMode, RecoveryPenalty};
-use parser_wasi::bindings::parsers::{ParserImpl, IncrementalParserImpl};
+use tolerant_parser_sdk::core::engine_core::scanner_engine::CaseSensitivity;
+use tolerant_parser_sdk::core::parser_core::{self, ParseMode, RecoveryPenalty};
+use tolerant_parser_sdk::wasi::parser_wasi::{self, bindings::parsers::{ParserImpl, IncrementalParserImpl}};
 
 pub struct ParserComponent;
 
@@ -20,4 +20,4 @@ impl parser_wasi::bindings::parsers::Guest for ParserComponent {
     }
 }
 
-parser_wasi::export!(ParserComponent);
+tolerant_parser_sdk::export_parser!(ParserComponent);

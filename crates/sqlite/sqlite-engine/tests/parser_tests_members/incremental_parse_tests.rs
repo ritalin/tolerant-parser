@@ -1,10 +1,10 @@
-use parser_core::{incremental::EditScope, Parser};
+use tolerant_parser_sdk::core::parser_core::{incremental::EditScope, Parser};
 use sqlite_engine::syntax_kind;
-use engine_core::scanner_engine::CaseSensitivity;
-use parser_core::{ParserConfig, ParseMode, RecoveryPenalty};
+use tolerant_parser_sdk::core::engine_core::scanner_engine::CaseSensitivity;
+use tolerant_parser_sdk::core::parser_core::{ParserConfig, ParseMode, RecoveryPenalty};
 
 mod incremental_support_tests {
-    use parser_core::incremental::support;
+    use tolerant_parser_sdk::core::parser_core::incremental::support;
 
     use super::*;
 
@@ -162,10 +162,8 @@ mod incremental_support_tests {
 }
 
 mod parser_tests {
-    use parser_core::{syntax_tree::{ApplyBatch, NodeOperation, SyntaxTokenItem}, ParseMode, ParserConfig, RecoveryPenalty};
-
+    use tolerant_parser_sdk::core::parser_core::{syntax_tree::{ApplyBatch, NodeOperation, SyntaxTokenItem}, ParseMode, ParserConfig, RecoveryPenalty};
     use crate::test_support::{self, ExpectNode};
-
     use super::*;
 
     fn rebuild_source(token: Option<SyntaxTokenItem>) -> String {

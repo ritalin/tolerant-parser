@@ -1,5 +1,5 @@
 use std::{collections::HashMap, io::{BufWriter, Write}, path::PathBuf};
-use grammar_types_core::parse_rule::RuleId;
+use tolerant_parser_sdk::support::grammar_types::parse_rule::RuleId;
 use crate::{export_support::{tokens_to_string, with_indent}, translation_table::GrammarSymbolRef};
 use quote::quote;
 
@@ -26,7 +26,7 @@ fn generate_lookahead_state(
     writer: &mut impl Write) -> Result<(), anyhow::Error> 
 {
     writeln!(writer, "mod lookahead_transition {{")?;
-    writeln!(writer, "{}", with_indent("use engine_core::parser_engine::Transition;", indent))?;
+    writeln!(writer, "{}", with_indent("use tolerant_parser_sdk::core::engine_core::parser_engine::Transition;", indent))?;
     writeln!(writer, "{}", with_indent("#[cfg(engine_ungenerated)]", indent))?;
     writeln!(writer, "{}", with_indent("pub static TABLES: &[phf::Map<u32, Transition>] = &[];", indent))?;
     writeln!(writer, "{}", with_indent("#[cfg(not(engine_ungenerated))]", indent))?;

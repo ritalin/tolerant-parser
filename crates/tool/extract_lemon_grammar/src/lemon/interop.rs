@@ -1,6 +1,6 @@
 use std::ffi::CString;
 
-use grammar_types_core::SymbolType;
+use tolerant_parser_sdk::support::grammar_types::SymbolType;
 
 use super::lemon_bindings;
 

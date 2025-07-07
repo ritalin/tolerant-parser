@@ -4,8 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-engine-core = { path = "../../core/engine-core" }
-parser-core = { path = "../../core/parser-core", features = ["parallel-parse"] }
+tolerant-parser-sdk = { path = "../../..", features = ["parallel-parse"] }
 anyhow = { workspace = true }
 clap = { workspace = true }
 ansi_term = "0.12.1"

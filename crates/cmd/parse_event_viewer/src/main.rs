@@ -3,7 +3,8 @@ mod config;
 
 use ansi_term::Color;
 use config::CmdConfig;
-use parser_core::{capture::{CaptureEvent, ParseEventCapture}, event_dispatcher::ParseEvent};
+use tolerant_parser_sdk::core::{parser_core::{capture::{CaptureEvent, ParseEventCapture}, event_dispatcher::ParseEvent}};
+use tolerant_parser_sdk::core::scanner_core;
 
 fn main() -> Result<(), anyhow::Error> {
     let cmd_config = {

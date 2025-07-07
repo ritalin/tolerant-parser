@@ -1,5 +1,6 @@
-use engine_core::scanner_engine::CaseSensitivity;
-use parser_core::{support::test_support, ParseMode, Parser, ParserConfig, RecoveryPenalty};
+use tolerant_parser_sdk::core::engine_core::scanner_engine::CaseSensitivity;
+use tolerant_parser_sdk::core::parser_core::{ParseMode, Parser, ParserConfig, RecoveryPenalty};
+use tolerant_parser_sdk::support::test_support;
 
 #[test]
 fn test_const_select() -> Result<(), anyhow::Error> {
