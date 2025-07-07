@@ -13,7 +13,6 @@ members = [
 exclude = [
     "crates/sqlite-wasi/sqlite-engine-wasi", 
     "crates/sdk/engine-wasi", 
-    "crates/sqlite-wasi/sqlite-parser-playground",
 ]
 resolver = "3"
 
