@@ -1,5 +1,5 @@
 # tolerant-parser
 
-CST (Concrete syntax tree) paser for SQLite
+CST (Concrete syntax tree) paser
 
 TBD
