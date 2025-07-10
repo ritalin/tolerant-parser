@@ -1,0 +1,18 @@
+name: Build WASI target parser
+on:
+  push:
+    tags:
+      - 'v*'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-env
+
+      - name: Extract SQLite parsing rules
+        run: cargo run --package extract_lemon_grammar --verbose
+      - name: Generate parser state machine
+        run: cargo run --package gen_transtion_table --verbose -- -d build -o crates/sqlite/sqlite-engine/src/_generated
+      - name: Build as wasip2
+        run: cargo build --package sqlite-parser-wasi --target wasm32-wasip2 --release --verbose
