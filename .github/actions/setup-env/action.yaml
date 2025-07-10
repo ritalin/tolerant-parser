@@ -32,12 +32,13 @@ runs:
     - name: Show Zig version
       run: zig version
       shell: bash
-    - name: Setup Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        target: wasm32-wasip2
-        override: true
+    - name: Setup Rust and WASI target
+      run: |
+        # Because it uses from nektos/act.
+        export PATH="$HOME/.cargo/bin:$PATH"
+        rustup update
+        rustup target add wasm32-wasip2
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
     - name: Show rust version
       run: rustc --version
       shell: bash
