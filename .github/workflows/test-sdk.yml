@@ -1,5 +1,4 @@
-name: Rust
-
+name: Test Toleralt parser SDK
 on:
   push:
     branches: [ "develop" ]
@@ -10,13 +9,19 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  test:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-env
+
+      - name: Extract SQLite parsing rules
+        run: cargo run --package extract_lemon_grammar --verbose
+      - name: Intermission#1
+        run: |
+          ls -la ./build
+      - name: Generate parser state machine
+        run: cargo run --package gen_transtion_table --verbose -- -d build -o crates/sqlite/sqlite-engine/src/_generated
+      - name: Run tests
+        run: cargo test --package sqlite-engine --verbose
