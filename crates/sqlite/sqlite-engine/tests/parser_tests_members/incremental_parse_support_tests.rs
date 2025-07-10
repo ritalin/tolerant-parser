@@ -29,7 +29,8 @@ mod expand_region_tests {
         let scope = EditScope {
             start_char_offset: 11,
             old_char_len: 23,
-            new_char_len: 34,
+            new_char_len: 5,
+            text: "Hello".into()
         };
 
         let new_scope = extend_to_neighbors(scope.old_char_range(), None, syntax_kind::SEMI);
@@ -49,6 +50,7 @@ mod expand_region_tests {
             start_char_offset: 0,
             old_char_len: 27,
             new_char_len: 27,
+            text: source.to_string(),
         };
         let new_scope = extend_to_neighbors(scope.old_char_range(), Some(&tree.root()), syntax_kind::SEMI);
         assert_eq!(0..27, new_scope);
@@ -66,7 +68,8 @@ mod expand_region_tests {
         let scope = EditScope{
             start_char_offset: 7,
             old_char_len: 33,
-            new_char_len: 23,
+            new_char_len: 28,
+            text: "42;SELECT 101 FROM foo u;SEL".into(),
         };
         let new_scope = extend_to_neighbors(
             scope.old_char_range(), 
@@ -89,6 +92,7 @@ mod expand_region_tests {
             start_char_offset: 45, // DOT
             old_char_len: 4,
             new_char_len: 3,
+            text: ".ab".into(),
         };
         let new_scope = extend_to_neighbors(
             scope.old_char_range(),
@@ -112,6 +116,7 @@ mod expand_region_tests {
             start_char_offset: 32,
             old_char_len: 10,
             new_char_len: 13,
+            text: "ooooo u;SELEC".into(),
         };
 
         'left_hand: {
@@ -153,6 +158,7 @@ mod edit_hint_init_tests {
             start_char_offset: 9,
             old_char_len: 18,
             new_char_len: 18,
+            text: "SELECT 4;SELECT 5;".into(),
         };
 
         let hint = EditHint::new(&tree, scope.old_char_range());
@@ -175,7 +181,8 @@ mod edit_hint_init_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
-            new_char_len: 22,
+            new_char_len: 10,
+            text: "SELECT 42;".into(),
         };
 
         let hint = EditHint::new(&tree, scope.old_char_range());
@@ -198,7 +205,8 @@ mod edit_hint_init_tests {
         let scope = EditScope{
             start_char_offset: 18,
             old_char_len: 0,
-            new_char_len: 22,
+            new_char_len: 9,
+            text: "SELECT 3;".into(),
         };
 
         let hint = EditHint::new(&tree, scope.old_char_range());
@@ -222,6 +230,7 @@ mod edit_hint_init_tests {
             start_char_offset: 0,
             old_char_len: 0,
             new_char_len: 22,
+            text: "SELECT 0;".into(),
         };
 
         let hint = EditHint::new(&tree, scope.old_char_range());
@@ -244,7 +253,8 @@ mod edit_hint_init_tests {
         let scope = EditScope{
             start_char_offset: 18,
             old_char_len: 0,
-            new_char_len: 22,
+            new_char_len: 10,
+            text: "SELECT 42;".into(),
         };
 
         let hint = EditHint::new(&tree, scope.old_char_range());
@@ -276,6 +286,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 9,
             old_char_len: 0,
             new_char_len: 9,
+            text: "SELECT 2;".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -305,6 +316,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 9,
             old_char_len: 0,
             new_char_len: 18,
+            text: "SELECT 2;SELECT 3;".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -334,6 +346,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 8,
             old_char_len: 0,
             new_char_len: 1,
+            text: "6".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -363,6 +376,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 8,
             old_char_len: 0,
             new_char_len: 1,
+            text: ";".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -392,6 +406,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 9,
             old_char_len: 0,
             new_char_len: 1,
+            text: "\n".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -421,6 +436,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 8,
             old_char_len: 0,
             new_char_len: 1,
+            text: "\n".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -450,6 +466,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 8,
             old_char_len: 0,
             new_char_len: 13,
+            text: "/* comment */".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -479,6 +496,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 1,
             old_char_len: 0,
             new_char_len: 1,
+            text: "\n".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -509,6 +527,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 1,
             old_char_len: 1,
             new_char_len: 0,
+            text: "".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -539,6 +558,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 11,
             old_char_len: 0,
             new_char_len: 1,
+            text: "-".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -569,6 +589,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 20,
             old_char_len: 0,
             new_char_len: 1,
+            text: "-".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -598,6 +619,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 8,
             old_char_len: 0,
             new_char_len: 0,
+            text: "".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -626,6 +648,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 0,
             old_char_len: 0,
             new_char_len: 9,
+            text: "SELECT 0;".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -654,6 +677,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 0,
             old_char_len: 0,
             new_char_len: 19,
+            text: "SELECT -1;SELECT 0;".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -681,6 +705,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 0,
             old_char_len: 0,
             new_char_len: 1,
+            text: "\n".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -709,6 +734,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 0,
             old_char_len: 0,
             new_char_len: 22,
+            text: "WITH v AS (SELECT 42) ".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -737,6 +763,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 0,
             old_char_len: 0,
             new_char_len: 33,
+            text: "SELECT 'a';SELECT 'b';WITH v AS (SELECT 42) ".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -765,6 +792,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 0,
             old_char_len: 0,
             new_char_len: 0,
+            text: "".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -793,6 +821,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 18,
             old_char_len: 0,
             new_char_len: 22,
+            text: "SELECT 'a';SELECT 'b';".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -821,6 +850,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 18,
             old_char_len: 0,
             new_char_len: 1,
+            text: "\n".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -849,6 +879,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 18,
             old_char_len: 0,
             new_char_len: 16,
+            text: "/* (comment) */ ".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -877,6 +908,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 18,
             old_char_len: 0,
             new_char_len: 22,
+            text: "WITH v AS (SELECT 42) ".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -905,6 +937,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 9,
             old_char_len: 0,
             new_char_len: 0,
+            text: "".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -933,6 +966,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 16,
             old_char_len: 1,
             new_char_len: 2,
+            text: "33".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -961,6 +995,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 16,
             old_char_len: 18,
             new_char_len: 21,
+            text: "42;SELECT 43;SELEC".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -989,6 +1024,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 8,
             old_char_len: 0,
             new_char_len: 17,
+            text: ";SELECT 3;SELECT ".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -1017,6 +1053,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 8,
             old_char_len: 17,
             new_char_len: 0,
+            text: "".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -1045,6 +1082,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 9,
             old_char_len: 2,
             new_char_len: 17,
+            text: "AS y; SELECT 2 AS".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -1073,6 +1111,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 10,
             old_char_len: 20,
             new_char_len: 0,
+            text: "".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -1101,6 +1140,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 10,
             old_char_len: 19,
             new_char_len: 0,
+            text: "".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -1129,6 +1169,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 23,
             old_char_len: 30,
             new_char_len: 0,
+            text: "".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -1157,6 +1198,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 0,
             old_char_len: 26,
             new_char_len: 0,
+            text: "".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -1185,6 +1227,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 0,
             old_char_len: 1,
             new_char_len: 0,
+            text: "".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();
@@ -1214,6 +1257,7 @@ mod edit_hint_eval_tests {
             start_char_offset: 11,
             old_char_len: 3,
             new_char_len: 0,
+            text: "".into(),
         };
         let emit_region = engine.parsing_rules.statement_emit_config();
         let full_emit_region = engine.parsing_rules.full_emit_config();

@@ -177,6 +177,8 @@ pub struct EditScope {
     pub old_char_len: usize,
     /// new editing length (UTF-16 char units)
     pub new_char_len: usize,
+    /// new editing text
+    pub text: String,
 }
 
 impl EditScope {
@@ -186,6 +188,7 @@ impl EditScope {
             start_char_offset: offset,
             old_char_len: self.old_char_len + offset - self.start_char_offset,
             new_char_len: self.new_char_len + offset - self.start_char_offset,
+            text: self.text.clone(),
         }
     }
 
