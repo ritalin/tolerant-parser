@@ -40,4 +40,5 @@ runs:
         override: true
     - name: Show rust version
       run: rustc --version
+      shell: bash
 
