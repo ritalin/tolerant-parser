@@ -536,14 +536,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parser-app"
-version = "0.1.0"
-dependencies = [
- "sqlite-parser-wasi",
- "wit-bindgen",
-]
-
-[[package]]
 name = "phf"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
