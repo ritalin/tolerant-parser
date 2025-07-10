@@ -39,6 +39,7 @@ runs:
         rustup update
         rustup target add wasm32-wasip2
         echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      shell: bash
     - name: Show rust version
       run: rustc --version
       shell: bash
