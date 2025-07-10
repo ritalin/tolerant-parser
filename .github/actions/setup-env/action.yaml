@@ -1,0 +1,43 @@
+name: Setup Build Environment
+runs:
+  using: "composite"
+  steps:
+    - name: Clone sqlite/sqlite
+      run: |
+        TARGET_DIR=build/sqlite
+        REPO_URL=https://github.com/sqlite/sqlite
+        BRANCH=master
+
+        if [ -d "$TARGET_DIR/.git" ]; then
+          echo "Directory exists, pulling..."
+          git -C "$TARGET_DIR" fetch origin "$BRANCH" --depth=1
+          git -C "$TARGET_DIR" reset --hard FETCH_HEAD
+        else
+          git clone --depth=1 --branch "$BRANCH" "$REPO_URL" "$TARGET_DIR"
+        fi
+      shell: bash
+    - name: Setup zig
+      run: |
+        ZIG_VERSION=0.14.1
+        ZIG_DIR=$HOME/zig
+        ZIG_URL="https://ziglang.org/download/$ZIG_VERSION/zig-x86_64-linux-$ZIG_VERSION.tar.xz"
+
+        mkdir -p $ZIG_DIR
+        curl -L "$ZIG_URL" | tar -xJ --strip-components=1 -C "$ZIG_DIR"
+
+        echo "$ZIG_DIR" >> $GITHUB_PATH
+        echo "ZIG_CC=$ZIG_DIR/zig cc" >> $GITHUB_ENV
+        echo "ZIG_CXX=$ZIG_DIR/zig c++" >> $GITHUB_ENV
+      shell: bash
+    - name: Show Zig version
+      run: zig version
+      shell: bash
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: wasm32-wasip2
+        override: true
+    - name: Show rust version
+      run: rustc --version
+

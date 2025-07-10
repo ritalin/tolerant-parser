@@ -50,6 +50,18 @@ fn swap_folder(old_folder: &PathBuf, new_folder: &Path, backup_dir: &Path) -> Re
     
     match std::fs::rename(new_folder, old_folder) {
         Ok(_) => {}
+        Err(err) if err.raw_os_error() == Some(18) => {
+            // Cross device
+            fs_extra::dir::copy(
+                new_folder,
+                old_folder,
+                &fs_extra::dir::CopyOptions {
+                    copy_inside: true,
+                    ..Default::default()
+                },
+            )?;
+            std::fs::remove_dir_all(new_folder)?;
+        }
         Err(err) => {
             if std::fs::exists(backup_dir)? {
                 std::fs::rename(backup_dir, old_folder)?;
