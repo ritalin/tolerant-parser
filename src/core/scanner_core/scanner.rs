@@ -13,14 +13,14 @@ pub struct Scanner {
 impl Scanner {
     /// Create new scanner instance
     pub fn create(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet, case_sensitive: CaseSensitivity) -> Result<Self, ScannerError> {
-        let mut dispatcher = ScanEventDispatcher::new(source, index, engine, case_sensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, index, engine, case_sensitive, 0);
         let lookahead = handle_scan_event(&mut dispatcher).ok_or(ScannerError::CreateFailed)?;
 
         Ok(Self { dispatcher, lookaheads: VecDeque::from_iter([lookahead].into_iter()) })
     }
 
-    pub fn create_without_scan(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet, case_sensitive: CaseSensitivity) -> Result<Self, ScannerError> {
-        let dispatcher = ScanEventDispatcher::new(source, index, engine, case_sensitive);
+    pub fn create_without_scan(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet, option: ScannerOption) -> Result<Self, ScannerError> {
+        let dispatcher = ScanEventDispatcher::new(source, index, engine, option.case_sensitive, option.offset_with);
         Ok(Self { dispatcher, lookaheads: VecDeque::new() })
         
     }
@@ -33,6 +33,11 @@ impl Scanner {
             full_emit_symbol
         )
     }
+}
+
+pub struct ScannerOption {
+    pub case_sensitive: CaseSensitivity,
+    pub offset_with: usize,
 }
 
 pub trait ScannerAccess {

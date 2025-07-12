@@ -330,6 +330,13 @@ pub fn find_last_token_set(stmt: Option<&SyntaxNode>) -> Option<SyntaxTokenSet> 
     None
 }
 
+pub fn find_next_next_token_set(token_set: &SyntaxTokenSet, centinel: Option<&SyntaxTokenSet>) -> Option<SyntaxTokenSet> {
+    token_set.descendant_tokens().last()
+    .and_then(|token| token.next_sibling())
+    .and_then(|token| token.parent())
+    .filter(|token_set| Some(token_set) != centinel)
+}
+
 pub fn trim_trivia_char_range(node: &SyntaxNode) -> Option<std::ops::Range<usize>> {
     let char_range = node.metadata().char_range();
 

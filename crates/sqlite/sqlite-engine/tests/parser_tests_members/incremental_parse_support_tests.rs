@@ -266,10 +266,170 @@ mod edit_hint_init_tests {
     }
 }
 
+mod edit_hint_reconcile_tests {
+    use tolerant_parser_sdk::core::{engine_core::scanner_engine::ScanEvent, parser_core::incremental::edit_hint::EditHint, scanner_core::{iter::{CachedStatementScannerIterator, StatementScannerType}, Token}};
+
+    use super::*;
+
+    #[test]
+    fn test_append_statement() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;";
+
+        let engine = sqlite_engine::create()?;
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive:CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 9,
+            old_char_len: 0,
+            new_char_len: 9,
+            text: "SELECT 2;".into(),
+        };
+        let emit_region = engine.parsing_rules.statement_emit_config();
+        let full_emit_region = engine.parsing_rules.full_emit_config();
+
+        let hint = EditHint::new(&tree, scope.old_char_range());
+        let lookaheads = hint.reconcile_lookaheads(scope.new_char_range(), &scope.text, engine.scanning_rules, config.case_sensitive)?;
+
+        assert_eq!(7, lookaheads.len());
+
+        'lookahead: {
+            let expect_lookahead = Token{
+                leading_trivia: None,
+                main: ScanEvent{ kind: syntax_kind::SELECT, offset: 0, len: 6, value: Some("SELECT".into()) },
+                trailing_trivia: Some(vec![ScanEvent{ kind: syntax_kind::SPACE, offset: 6, len: 1, value: Some(" ".into()) }]),
+            };
+            assert_eq!(expect_lookahead.leading_trivia, lookaheads[0].leading_trivia);
+            assert_eq!(expect_lookahead.main, lookaheads[0].main);
+            assert_eq!(expect_lookahead.trailing_trivia, lookaheads[0].trailing_trivia);
+            break 'lookahead;
+        }
+        'lookahead: {
+            let expect_lookahead = Token{
+                leading_trivia: None,
+                main: ScanEvent{ kind: syntax_kind::INTEGER, offset: 7, len: 1, value: Some("1".into()) },
+                trailing_trivia: None,
+            };
+            assert_eq!(expect_lookahead.leading_trivia, lookaheads[1].leading_trivia);
+            assert_eq!(expect_lookahead.main, lookaheads[1].main);
+            assert_eq!(expect_lookahead.trailing_trivia, lookaheads[1].trailing_trivia);
+            break 'lookahead;
+        }
+        'lookahead: {
+            let expect_lookahead = Token{
+                leading_trivia: None,
+                main: ScanEvent{ kind: syntax_kind::SEMI, offset: 8, len: 1, value: Some(";".into()) },
+                trailing_trivia: None,
+            };
+            assert_eq!(expect_lookahead.leading_trivia, lookaheads[2].leading_trivia);
+            assert_eq!(expect_lookahead.main, lookaheads[2].main);
+            assert_eq!(expect_lookahead.trailing_trivia, lookaheads[2].trailing_trivia);
+            break 'lookahead;
+        }
+        'lookahead: {
+            let expect_lookahead = Token{
+                leading_trivia: None,
+                main: ScanEvent{ kind: syntax_kind::SELECT, offset: 9, len: 6, value: Some("SELECT".into()) },
+                trailing_trivia: Some(vec![ScanEvent{ kind: syntax_kind::SPACE, offset: 15, len: 1, value: Some(" ".into()) }]),
+            };
+            assert_eq!(expect_lookahead.leading_trivia, lookaheads[3].leading_trivia);
+            assert_eq!(expect_lookahead.main, lookaheads[3].main);
+            assert_eq!(expect_lookahead.trailing_trivia, lookaheads[3].trailing_trivia);
+            break 'lookahead;
+        }
+        'lookahead: {
+            let expect_lookahead = Token{
+                leading_trivia: None,
+                main: ScanEvent{ kind: syntax_kind::INTEGER, offset: 16, len: 1, value: Some("2".into()) },
+                trailing_trivia: None,
+            };
+            assert_eq!(expect_lookahead.leading_trivia, lookaheads[4].leading_trivia);
+            assert_eq!(expect_lookahead.main, lookaheads[4].main);
+            assert_eq!(expect_lookahead.trailing_trivia, lookaheads[4].trailing_trivia);
+            break 'lookahead;
+        }
+        'lookahead: {
+            let expect_lookahead = Token{
+                leading_trivia: None,
+                main: ScanEvent{ kind: syntax_kind::SEMI, offset: 17, len: 1, value: Some(";".into()) },
+                trailing_trivia: None,
+            };
+            assert_eq!(expect_lookahead.leading_trivia, lookaheads[5].leading_trivia);
+            assert_eq!(expect_lookahead.main, lookaheads[5].main);
+            assert_eq!(expect_lookahead.trailing_trivia, lookaheads[5].trailing_trivia);
+            break 'lookahead;
+        }
+        'lookahead: {
+            let expect_lookahead = Token{
+                leading_trivia: None,
+                main: ScanEvent{ kind: syntax_kind::EOF, offset: 18, len: 0, value: None },
+                trailing_trivia: None,
+            };
+            assert_eq!(expect_lookahead.leading_trivia, lookaheads[6].leading_trivia);
+            assert_eq!(expect_lookahead.main, lookaheads[6].main);
+            assert_eq!(expect_lookahead.trailing_trivia, lookaheads[6].trailing_trivia);
+            break 'lookahead;
+        }
+
+        let mut iter = CachedStatementScannerIterator::new(lookaheads, emit_region.to_symbol, full_emit_region.to_symbol);
+
+        'scanner: {
+            let scanner = iter.next();
+            assert_eq!(true, scanner.is_some());
+
+            let scanner = scanner.unwrap();
+            assert_eq!(StatementScannerType::Statement, scanner.scanner_type());
+            assert_eq!(0..9, scanner.scan_range());
+            break 'scanner;
+        }
+        'scanner: {
+            let scanner = iter.next();
+            assert_eq!(true, scanner.is_some());
+
+            let scanner = scanner.unwrap();
+            assert_eq!(StatementScannerType::Statement, scanner.scanner_type());
+            assert_eq!(9..18, scanner.scan_range());
+            break 'scanner;
+        }
+        'scanner: {
+            let scanner = iter.next();
+            assert_eq!(true, scanner.is_some());
+
+            let scanner = scanner.unwrap();
+            assert_eq!(StatementScannerType::Eof, scanner.scanner_type());
+            assert_eq!(18..18, scanner.scan_range());
+            break 'scanner;
+        }
+        'scanner: {
+            let scanner = iter.next();
+            assert_eq!(false, scanner.is_some());
+            break 'scanner;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_prepend_statement() -> Result<(), anyhow::Error> {
+        todo!()
+    }
+
+    #[test]
+    fn test_replace_statement() -> Result<(), anyhow::Error> {
+        todo!()
+    }
+
+    #[test]
+    fn test_replace_within_statement() -> Result<(), anyhow::Error> {
+        todo!()
+    }
+}
+
 mod edit_hint_eval_tests {
     use tolerant_parser_sdk::core::engine_core::scanner_engine::CaseSensitivity;
     use tolerant_parser_sdk::core::parser_core::{incremental::edit_hint::EditHint, ParseMode, RecoveryPenalty};
-    use tolerant_parser_sdk::core::scanner_core::Scanner;
+    use tolerant_parser_sdk::core::scanner_core::{Scanner, ScannerOption};
     use super::*;
 
     #[test]
@@ -292,7 +452,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -322,7 +482,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -352,7 +512,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -382,7 +542,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -412,7 +572,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -442,7 +602,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -472,7 +632,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -502,7 +662,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -533,7 +693,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -564,7 +724,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -595,7 +755,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -625,7 +785,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -654,7 +814,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -683,7 +843,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -711,7 +871,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -740,7 +900,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -769,7 +929,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -798,7 +958,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -827,7 +987,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -856,7 +1016,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -885,7 +1045,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -914,7 +1074,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -943,7 +1103,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -972,7 +1132,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1001,7 +1161,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1030,7 +1190,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1059,7 +1219,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1088,7 +1248,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1117,7 +1277,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1146,7 +1306,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1175,7 +1335,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1204,7 +1364,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1233,7 +1393,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 
@@ -1263,7 +1423,7 @@ mod edit_hint_eval_tests {
         let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, config.case_sensitive)?;
+        let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerOption{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
         let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
 

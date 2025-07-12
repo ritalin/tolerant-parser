@@ -11,7 +11,7 @@ pub use metadata::{NodeMetadataKey, NodeMetadata, NodeType, PatchAction, GlobalO
 
 mod parser;
 pub use parser::DefaultPasrser as Parser;
-pub use parser::{ParseMode, ParserConfig};
+pub use parser::{ParseError, ParseMode, ParserConfig};
 pub use error_recovery::RecoveryPenalty;
 
 pub mod incremental;

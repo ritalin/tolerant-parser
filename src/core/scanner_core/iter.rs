@@ -183,3 +183,52 @@ impl Iterator for StatementScannerIterator {
         }
     }
 }
+
+pub struct CachedStatementScannerIterator {
+    lookaheads: VecDeque<Token>,
+    emit_symbol: SyntaxKind,
+    full_emit_symbol: SyntaxKind,
+}
+
+impl CachedStatementScannerIterator {
+    pub fn new<I>(lookaheads: I, emit_symbol: SyntaxKind, full_emit_symbol: SyntaxKind) -> Self 
+    where I: IntoIterator<Item = Token>
+    {
+        Self {
+            lookaheads: VecDeque::from_iter(lookaheads.into_iter()),
+            emit_symbol,
+            full_emit_symbol,
+        }
+    }
+}
+
+impl Iterator for CachedStatementScannerIterator {
+    type Item = StatementScanner;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.lookaheads.is_empty() { return  None }
+
+        match self.lookaheads.iter().position(|la| la.main.kind == self.emit_symbol) {
+            Some(index) => {
+                let (Some(head), Some(tail)) = (self.lookaheads.get(0), self.lookaheads.get(index)) else { return None };
+
+                Some(StatementScanner {
+                    scanner_type: StatementScannerType::Statement,
+                    scan_range: (head.lowest_offset())..(tail.token_range().end),
+                    is_full_emit: tail.main.kind == self.full_emit_symbol,
+                    lookaheads: self.lookaheads.drain(0..=index).collect()
+                })
+            }
+            None => {
+                let Some(head) = self.lookaheads.get(0) else { return None };
+
+                Some(StatementScanner {
+                    scanner_type: StatementScannerType::Eof,
+                    scan_range: head.token_range(),
+                    is_full_emit: true,
+                    lookaheads: self.lookaheads.drain(..).collect(),
+                })
+            }
+        }
+    }
+}

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::core::engine_core::{parser_engine::ParsingRuleSet, Engine};
+use crate::core::scanner_core::ScannerOption;
 use crate::core::scanner_core::{iter::StatementScanner, Scanner};
 use crate::core::parser_core::{event_dispatcher::ParseEventDispatcher, metadata::StatementMetadataEntry, node_handler::SyntaxTreeBuilder, parser::{parse_with_config_internal, DefaultParserStrategy, ParseError}, syntax_tree::{SyntaxFragment, SyntaxFragmentBatch}, NodeMetadataKey, ParserConfig};
 use rayon::prelude::*;
@@ -15,7 +16,8 @@ impl Parser {
     }
 
     pub fn parse_with_config(&self, source: &str, config: ParserConfig) -> Result<SyntaxFragmentBatch, ParseError> {
-        let scanner = Scanner::create_without_scan(source, 0, self.engine.scanning_rules.clone(), config.case_sensitive.clone())?;
+        let option = ScannerOption{ case_sensitive: config.case_sensitive.clone(), offset_with: 0 };
+        let scanner = Scanner::create_without_scan(source, 0, self.engine.scanning_rules.clone(), option)?;
         
         let emit_symbol = self.engine.parsing_rules.statement_emit_config().to_symbol;
         let full_emit_symbol = self.engine.parsing_rules.full_emit_config().to_symbol;

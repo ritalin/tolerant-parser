@@ -1,5 +1,6 @@
-use crate::core::scanner_core::{iter::{StatementScanner, StatementScannerType}, ScannerAccess};
+use crate::core::{engine_core::scanner_engine::{CaseSensitivity, ScanningRuleSet}, scanner_core::{iter::{StatementScanner, StatementScannerType}, Scanner, ScannerAccess, ScannerOption}};
 use crate::core::parser_core::{self, incremental::support, syntax_tree::{MetadataAccess, NodeOperation, SyntaxElement, SyntaxNode, SyntaxTree}};
+use super::extract_lookahead;
 
 /// Contains information about the edit region and its surrounding statements.
 ///
@@ -168,6 +169,45 @@ impl EditHint {
             replace_from: replace_from(self, skip_scanner), 
             replace_byte_range: replace_from_range,
         }
+    }
+    
+    pub fn reconcile_lookaheads(&self, old_char_range: std::ops::Range<usize>, text: &str, engine: ScanningRuleSet, case_sensitive: CaseSensitivity) -> Result<Vec<crate::core::scanner_core::Token>, super::ParseError> {
+        let start_dirty_token_set = {
+            let stmt = self.statements.first().or_else(|| self.precedings.iter().flatten().next());
+            support::find_last_token_set(stmt)
+        };
+        let end_dirty_token_set = {
+            let stmt = self.statements.last().or_else(|| self.followings.iter().flatten().next());
+            support::find_first_token_set(stmt)
+        };
+
+        let (start_offset, buf) = extract_lookahead::concat_dirty_text(start_dirty_token_set.as_ref(), text, end_dirty_token_set.as_ref(), old_char_range);
+        let mut scanner = Scanner::create_without_scan(&buf, 0, engine.clone(), ScannerOption{ case_sensitive, offset_with: start_offset})?;
+        let full_emit_kind = engine.eof();
+        let dirty_lookaheads = scanner.prefetch_iter(full_emit_kind)
+            .filter(|x| x.main.kind != full_emit_kind)
+            .cloned()
+        ;
+
+        let head_clean_token_set = support::find_first_token_set(self.precedings.iter().flatten().last());
+        let head_clean_lookaheads = std::iter::successors(head_clean_token_set, |token_set| support::find_next_next_token_set(token_set, start_dirty_token_set.as_ref()))
+            .map(|token_set| extract_lookahead::into_lookahead(&token_set, &engine, 0))
+        ;
+
+        let sentinel_stmt = self.followings.iter().flatten().last().and_then(|stmt| stmt.next_sibling()).and_then(|el| el.to_node());
+        let centinel_token_set = support::find_first_token_set(sentinel_stmt.as_ref());
+        let tail_offset_delta = end_dirty_token_set.as_ref().map(|stmt| (start_offset + buf.len()) as isize - stmt.metadata_key().offset as isize).unwrap_or_default();
+        let tail_clean_lookaheads = std::iter::successors(end_dirty_token_set, |token_set| support::find_next_next_token_set(token_set, centinel_token_set.as_ref()))
+            .map(|token_set| extract_lookahead::into_lookahead(&token_set, &engine, tail_offset_delta))
+        ;
+
+        let mut lookaheads = vec![];
+
+        lookaheads.extend(head_clean_lookaheads);
+        lookaheads.extend(dirty_lookaheads);
+        lookaheads.extend(tail_clean_lookaheads);
+
+        Ok(lookaheads)
     }
 }
 
