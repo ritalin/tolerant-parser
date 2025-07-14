@@ -95,12 +95,20 @@ fn substring_as_utf16_range(token: SyntaxTokenItem, char_range: std::ops::Range<
     .collect()
 }
 
-pub fn pick_clean_token_sets(statements: &[SyntaxNode]) -> impl Iterator<Item = SyntaxTokenSet> {
+pub fn pick_clean_head_token_sets(statements: &[SyntaxNode], sentinel: Option<SyntaxTokenSet>) -> impl Iterator<Item = SyntaxTokenSet> {
+    let start_token_set = support::find_first_token_set(statements.first()).filter(|token_set| Some(token_set) != sentinel.as_ref());
+    let end_token_set = support::find_last_token_set(statements.last());
+
+    let sentinel = sentinel.or_else(|| support::find_next_token_set(end_token_set.as_ref(), None));
+    std::iter::successors(start_token_set, move |token_set| support::find_next_token_set(Some(token_set), sentinel.as_ref()))
+}
+
+pub fn pick_clean_tail_token_sets(statements: &[SyntaxNode]) -> impl Iterator<Item = SyntaxTokenSet> {
     let start_token_set = support::find_first_token_set(statements.first());
     let end_token_set = support::find_last_token_set(statements.last());
 
-    let centinel = support::find_next_token_set(end_token_set.as_ref(), None);
-    std::iter::successors(start_token_set, move |token_set| support::find_next_token_set(Some(token_set), centinel.as_ref()))
+    let sentinel = support::find_next_token_set(end_token_set.as_ref(), None);
+    std::iter::successors(start_token_set, move |token_set| support::find_next_token_set(Some(token_set), sentinel.as_ref()))
 }
 
 pub fn extract_clean_lookaheads<I: IntoIterator<Item = SyntaxTokenSet>>(token_sets: I, new_start_offset: Option<usize>, engine: &ScanningRuleSet, lookaheads: &mut VecDeque<Token>) {

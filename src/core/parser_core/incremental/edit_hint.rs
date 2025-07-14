@@ -176,20 +176,24 @@ impl EditHint {
     pub fn reconcile_lookaheads(&self, old_char_range: std::ops::Range<usize>, text: &str, engine: ScanningRuleSet, case_sensitive: CaseSensitivity) -> Result<VecDeque<crate::core::scanner_core::Token>, super::ParseError> {
         let mut lookaheads = VecDeque::with_capacity(32);
 
+        let precedings = self.precedings.iter().flatten().rev().cloned().collect::<Vec<_>>();
+        
         'head_clean_lookaheads: {
             // Resolve head clean lookaheads 
-            let precedings = self.precedings.iter().flatten().rev().cloned().collect::<Vec<_>>();
-            let token_sets = extract_lookahead::pick_clean_token_sets(&precedings);
+            let sentinel = if self.statements.is_empty() { support::find_first_token_set(precedings.last()) } else { None };
+            let token_sets = extract_lookahead::pick_clean_head_token_sets(&precedings, sentinel);
 
             extract_lookahead::extract_clean_lookaheads(token_sets, None, &engine, &mut lookaheads);
 
             break 'head_clean_lookaheads; 
         };
         'dirty_lookaheads: {
+            let start_replace_stmt = self.statements.first().or_else(|| precedings.last());
+            
             // resolve head clean part
             let mut head_dirty_tokenset = None;
             let mut head_token_sets = VecDeque::new();
-            let start_token_set = support::find_first_token_set(self.statements.first());
+            let start_token_set = support::find_first_token_set(start_replace_stmt);
             extract_lookahead::extract_head_clean_lookaheads_forwards(start_token_set, old_char_range.start, &mut head_token_sets, &mut head_dirty_tokenset);
             
             // resolve tail clean part
@@ -216,9 +220,9 @@ impl EditHint {
         'tail_clean_lookaheads: {
             // Resolve tail clean lookaheads
             let followings = self.followings.iter().flatten().cloned().collect::<Vec<_>>();
-            let start_tail_offset = lookaheads.back().map(|x| x.token_range().end).unwrap_or_default();
-            let token_sets = extract_lookahead::pick_clean_token_sets(&followings);
+            let token_sets = extract_lookahead::pick_clean_tail_token_sets(&followings);
 
+            let start_tail_offset = lookaheads.back().map(|x| x.token_range().end).unwrap_or_default();
             extract_lookahead::extract_clean_lookaheads(token_sets, Some(start_tail_offset), &engine, &mut lookaheads);
 
             break 'tail_clean_lookaheads;

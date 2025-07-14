@@ -208,7 +208,8 @@ impl Iterator for CachedStatementScannerIterator {
     fn next(&mut self) -> Option<Self::Item> {
         if self.lookaheads.is_empty() { return  None }
 
-        match self.lookaheads.iter().position(|la| la.main.kind == self.emit_symbol) {
+        let index = self.lookaheads.iter().position(|la| la.main.kind == self.emit_symbol);
+        match index {
             Some(index) => {
                 let (Some(head), Some(tail)) = (self.lookaheads.get(0), self.lookaheads.get(index)) else { return None };
 
@@ -218,6 +219,19 @@ impl Iterator for CachedStatementScannerIterator {
                     is_full_emit: tail.main.kind == self.full_emit_symbol,
                     lookaheads: self.lookaheads.drain(0..=index).collect()
                 })
+            }
+            None if self.lookaheads.len() > 1 => {
+                let (Some(head), Some(tail)) = (self.lookaheads.get(0), self.lookaheads.back().cloned()) else { return None };
+
+                let scanner = StatementScanner {
+                    scanner_type: StatementScannerType::Statement,
+                    scan_range: (head.lowest_offset())..(tail.token_range().end),
+                    is_full_emit: true,
+                    lookaheads: self.lookaheads.drain(..).collect(),
+                };
+                self.lookaheads.push_back(tail.clone()); // leave a EOF lookahead in the cache
+
+                Some(scanner)
             }
             None => {
                 let Some(head) = self.lookaheads.get(0) else { return None };
