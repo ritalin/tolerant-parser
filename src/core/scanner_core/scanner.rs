@@ -19,7 +19,7 @@ impl Scanner {
         Ok(Self { dispatcher, lookaheads: VecDeque::from_iter([lookahead].into_iter()) })
     }
 
-    pub fn create_without_scan(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet, option: ScannerOption) -> Result<Self, ScannerError> {
+    pub fn create_without_scan(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet, option: ScannerConfig) -> Result<Self, ScannerError> {
         let dispatcher = ScanEventDispatcher::new(source, index, engine, option.case_sensitive, option.offset_with);
         Ok(Self { dispatcher, lookaheads: VecDeque::new() })
         
@@ -35,7 +35,7 @@ impl Scanner {
     }
 }
 
-pub struct ScannerOption {
+pub struct ScannerConfig {
     pub case_sensitive: CaseSensitivity,
     pub offset_with: usize,
 }

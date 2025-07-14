@@ -330,9 +330,20 @@ pub fn find_last_token_set(stmt: Option<&SyntaxNode>) -> Option<SyntaxTokenSet> 
     None
 }
 
-pub fn find_next_next_token_set(token_set: &SyntaxTokenSet, centinel: Option<&SyntaxTokenSet>) -> Option<SyntaxTokenSet> {
+pub fn find_next_token_set(token_set: Option<&SyntaxTokenSet>, centinel: Option<&SyntaxTokenSet>) -> Option<SyntaxTokenSet> {
+    let Some(token_set) = token_set else { return None };
+
     token_set.descendant_tokens().last()
     .and_then(|token| token.next_sibling())
+    .and_then(|token| token.parent())
+    .filter(|token_set| Some(token_set) != centinel)
+}
+
+pub fn find_prev_token_set(token_set: Option<&SyntaxTokenSet>, centinel: Option<&SyntaxTokenSet>) -> Option<SyntaxTokenSet> {
+    let Some(token_set) = token_set else { return None };
+
+    token_set.descendant_tokens().next()
+    .and_then(|token| token.prev_sibling())
     .and_then(|token| token.parent())
     .filter(|token_set| Some(token_set) != centinel)
 }

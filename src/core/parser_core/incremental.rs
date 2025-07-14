@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 use crate::core::engine_core::{self, parser_engine::ParsingRuleSet};
-use crate::core::scanner_core::{Scanner, ScannerOption, StatementScannerView};
+use crate::core::scanner_core::{Scanner, ScannerConfig, StatementScannerView};
 use crate::core::parser_core::{self, event_dispatcher::ParseEventDispatcher, incremental::{edit_hint::SlotEvent, support::{IncludeEnd, IncrementalParserStrategy}}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{FragmentNodeMetadataKey, MetadataAccess, SyntaxElement, SyntaxFragment, SyntaxFragmentBatch, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig, PatchAction};
 
 pub mod support;
@@ -39,7 +39,7 @@ impl Parser {
         let scan_from = self.edit_hint.scan_from();
         let scan_to = new_edit_byte_range.end;
 
-        let option = ScannerOption{ case_sensitive: self.config.case_sensitive.clone(), offset_with: 0 };
+        let option = ScannerConfig{ case_sensitive: self.config.case_sensitive.clone(), offset_with: 0 };
         let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone(), option)?;
 
         let emit_region = self.engine.parsing_rules.statement_emit_config();
