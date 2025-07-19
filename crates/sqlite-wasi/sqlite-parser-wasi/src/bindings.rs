@@ -1,12 +1,11 @@
 use tolerant_parser_sdk::core::engine_core::scanner_engine::CaseSensitivity;
 use tolerant_parser_sdk::core::parser_core::{self, ParseMode, RecoveryPenalty};
-use tolerant_parser_sdk::wasi::parser_wasi::{self, bindings::parsers::{ParserImpl, IncrementalParserImpl}};
+use tolerant_parser_sdk::wasi::parser_wasi::{self, bindings::parsers::ParserImpl};
 
 pub struct ParserComponent;
 
 impl parser_wasi::bindings::parsers::Guest for ParserComponent {
     type Parser = ParserImpl;
-    type IncrementalParser = IncrementalParserImpl;
     
     fn create() -> parser_wasi::bindings::parsers::Parser {
         let engine = sqlite_engine::create().expect("Failed to nstanciate parser engine");

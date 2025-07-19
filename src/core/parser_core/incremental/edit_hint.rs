@@ -111,8 +111,7 @@ impl EditHint {
         Self { statements, precedings, followings }
     }
 
-    pub fn eval_hint(&self, scanners: impl Iterator<Item = StatementScanner>, new_edit_byte_range: std::ops::Range<usize>) -> EditHintSlots {
-        // let scanners = extend_statement_scanners(scanners, &new_edit_byte_range);
+    pub fn eval_hint(&self, scanners: impl Iterator<Item = StatementScanner>) -> EditHintSlots {
         let scanners = scanners.collect::<Vec<_>>();
         let preceding_len = self.precedings.iter().flatten().count();
         let following_len = self.followings.iter().flatten().count();
@@ -121,7 +120,6 @@ impl EditHint {
             EvalState::ForwardScan{ head_anchor: index, tail_anchor: tail_index, tail_window_size } => {
                 let tail_window_size = if self.statements.is_empty() && (following_len != tail_window_size) { following_len } else { tail_window_size };
                 let scanner_start = preceding_len - index;
-                // let scanner_end = scanners.len() - (following_len - tail_index.unwrap_or_default());
                 let scanner_end = scanners.len() - tail_index.map(|i| tail_window_size - i).unwrap_or_default();
                 
                 let statements = eval_hint_internal(
@@ -197,7 +195,6 @@ impl EditHint {
         };
         'dirty_lookaheads: {
             let start_replace_stmt = precedings.first().or_else(|| self.statements.first());
-            // let end_replace_stmt = self.statements.last().or_else(|| followings.first());
             let end_replace_stmt = followings.first();
             
             // resolve head clean part
@@ -260,6 +257,7 @@ enum EvalState {
     ReverseScan{ head_anchor: usize, tail_anchor: Option<usize>, tail_window_size: usize, need_skip: bool },
 }
 
+#[allow(unused)]
 fn extend_statement_scanners(scanners: impl Iterator<Item = StatementScanner>, byte_range: &std::ops::Range<usize>) -> Vec<StatementScanner> {
     let mut result = Vec::with_capacity(scanners.size_hint().0);
     let mut iter = scanners.into_iter();

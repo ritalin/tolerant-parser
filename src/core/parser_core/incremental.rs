@@ -1,7 +1,7 @@
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 use crate::core::engine_core::{self, parser_engine::ParsingRuleSet};
-use crate::core::scanner_core::{Scanner, ScannerConfig, StatementScannerView};
-use crate::core::parser_core::{self, event_dispatcher::ParseEventDispatcher, incremental::{edit_hint::SlotEvent, support::{IncludeEnd, IncrementalParserStrategy}}, metadata::MetadataTable, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{FragmentNodeMetadataKey, MetadataAccess, SyntaxElement, SyntaxFragment, SyntaxFragmentBatch, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig, PatchAction};
+use crate::core::scanner_core::StatementScannerView;
+use crate::core::parser_core::{self, event_dispatcher::ParseEventDispatcher, incremental::{edit_hint::SlotEvent, support::IncrementalParserStrategy}, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{FragmentNodeMetadataKey, MetadataAccess, SyntaxFragment, SyntaxFragmentBatch, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig, PatchAction};
 
 pub mod support;
 pub mod edit_hint;
@@ -9,27 +9,13 @@ pub mod edit_hint;
 mod extract_lookahead;
 
 pub struct Parser {
-    // scope: EditScope,
-    // edit_hint: edit_hint::EditHint,
-    // following_statement: Option<SyntaxElement>,
     engine: engine_core::Engine,
-    // metadata_table: Rc<MetadataTable>,
     config: ParserConfig,
 }
 
 impl Parser {
     pub fn new(engine: engine_core::Engine, config: ParserConfig) -> Self {
-        // let eof_statement = old_tree.root().children().last();
-        // let edit_hint = edit_hint::EditHint::new(old_tree, scope.old_char_range());
-
-        Self {
-            // scope,
-            // edit_hint,
-            // following_statement: eof_statement,
-            engine,
-            // metadata_table: old_tree.metadata_table(),
-            config,
-        }
+        Self { engine, config }
     }
 
     pub fn parse(&self, old_tree: &SyntaxTree, scope: EditScope) -> Result<Vec<SyntaxFragmentBatch>, parser_core::parser::ParseError> {
@@ -37,33 +23,18 @@ impl Parser {
         let metadata_table = old_tree.metadata_table();
         let eof_statement = old_tree.root().children().last();
 
-        // let new_edit_byte_range = convert_from_utf16_to_byte_range(self.scope.new_char_range(), source);
-        let new_edit_byte_range = std::ops::Range::<usize>::default();
-
-        // Determin scanning byte offset
-        // let scan_from = self.edit_hint.scan_from();
-        // let scan_to = new_edit_byte_range.end;
-
-        // let scan_config = ScannerConfig{ case_sensitive: self.config.case_sensitive.clone(), offset_with: 0 };
-        // let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone(), scan_config)?;
-
         let emit_region = self.engine.parsing_rules.statement_emit_config();
-        let full_emit_region = self.engine.parsing_rules.full_emit_config();
 
         let old_char_range = scope.old_char_range();
         let edit_hint = edit_hint::EditHint::new(old_tree, old_char_range.clone());
         // enumerate scanners except for over the new byte offset scope.
         let scanners = edit_hint.reconcile_lookaheads(old_char_range, &scope.text, self.engine.scanning_rules.clone(), self.engine.parsing_rules, self.config.case_sensitive.clone())?;
-        let slots = edit_hint.eval_hint(scanners, new_edit_byte_range.clone());
-
-        // let scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol);
-        // let slots = self.edit_hint.eval_hint(scanners, new_edit_byte_range.clone());
+        let slots = edit_hint.eval_hint(scanners);
 
         // Determine first statement byte offset
         let mut global_byte_offset = metadata_table.statement_metadata(Some(slots.replace_from)).global_offset.of_byte;
 
         let old_scope_range = slots.replace_byte_range.unwrap_or_else(|| prev_root.metadata_key().byte_range());
-        // let new_scope_range = old_scope_range.start..scan_to;
         
         let mut fragments = vec![];
         let mut old_first_fragment_key = None;
@@ -71,11 +42,7 @@ impl Parser {
         for event in &slots.events {
             let (new_stmt, new_metadata_entry, new_node_key) = match event {
                 SlotEvent::Replacing {node: stmt, scanner: stmt_scanner } => {
-                    let old_stmt_range: std::ops::Range<usize> = stmt.metadata_key().byte_range();
-                    // let stmt_edit_range = support::intersect_edit_range(
-                    //     if new_scope_range.clone().include_end().contains(&old_stmt_range.end) { &new_scope_range } else { &old_scope_range },
-                    //     &old_stmt_range
-                    // );
+                    let old_stmt_range = stmt.metadata_key().byte_range();
                     let stmt_edit_range = support::intersect_edit_range(&old_scope_range, &old_stmt_range);
 
                     let gardener = support::TreeGardener::as_subtree(&stmt);
@@ -215,6 +182,7 @@ impl EditScope {
     }
 }
 
+#[allow(unused)]
 fn convert_from_utf16_to_byte_offset(char_len: usize, source: &str) -> Option<usize> {
     let mut current_char_offset = 0;
     let mut last_byte_offset = 0;
@@ -231,6 +199,7 @@ fn convert_from_utf16_to_byte_offset(char_len: usize, source: &str) -> Option<us
     Some(last_byte_offset)
 }
 
+#[allow(unused)]
 fn convert_from_utf16_to_byte_range(char_range: std::ops::Range<usize>, source: &str) -> std::ops::Range<usize> {
     if let Some(from_offset) = convert_from_utf16_to_byte_offset(char_range.start, source) {
         return match convert_from_utf16_to_byte_offset(char_range.len(), &source[from_offset..]) {

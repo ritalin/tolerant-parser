@@ -168,6 +168,7 @@ impl parser_core::parser::ParseStrategy for IncrementalParserStrategy {
     }
 }
 
+#[allow(unused)]
 pub(crate)trait  IncludeEnd {
     type Item;
     fn include_end(self) -> std::ops::RangeInclusive<Self::Item>;

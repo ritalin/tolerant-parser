@@ -1262,21 +1262,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;SELECT 2;";
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 0,
             new_char_len: 9,
             text: "SELECT 2;".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![None], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(9..18)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1293,21 +1288,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;SELECT 2;SELECT 3;";
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 0,
             new_char_len: 18,
             text: "SELECT 2;SELECT 3;".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![None, None], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(9..18), Some(18..27), ], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1324,21 +1314,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 16";
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 0,
             new_char_len: 1,
             text: "6".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(0..9)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1355,21 +1340,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;";
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 0,
             new_char_len: 1,
             text: ";".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(0..9)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1386,21 +1366,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;\n";
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 0,
             new_char_len: 1,
             text: "\n".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(0..10)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1417,21 +1392,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1\n";
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 0,
             new_char_len: 1,
             text: "\n".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(0..9)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1448,21 +1418,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1/* comment */";
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 0,
             new_char_len: 13,
             text: "/* comment */".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules.clone(), ScannerConfig{ case_sensitive: config.case_sensitive.clone(), offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol);
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(1)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(8..21)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1479,21 +1444,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "\n\n";
         let scope = EditScope{
             start_char_offset: 1,
             old_char_len: 0,
             new_char_len: 1,
             text: "\n".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(0..2)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1511,21 +1471,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "\n";
         let scope = EditScope{
             start_char_offset: 1,
             old_char_len: 1,
             new_char_len: 0,
             text: "".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(0..1)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1543,21 +1498,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;\n--";
         let scope = EditScope{
             start_char_offset: 11,
             old_char_len: 0,
             new_char_len: 1,
             text: "-".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(1), Some(2)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![None, Some(10..12)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1575,21 +1525,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;\nSELECT 2;\n-\n";
         let scope = EditScope{
             start_char_offset: 20,
             old_char_len: 0,
             new_char_len: 1,
             text: "-".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(1), None], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(10..20), Some(20..22)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1606,21 +1551,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1";
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 0,
             new_char_len: 0,
             text: "".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(Vec::<Option<usize>>::new(), result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(Vec::<Option<std::ops::Range<usize>>>::new(), result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1636,21 +1576,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 0;SELECT 1;";
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
             new_char_len: 9,
             text: "SELECT 0;".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![None], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(0..9)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1666,21 +1601,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT -1;SELECT 0;SELECT 1;";
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
             new_char_len: 19,
             text: "SELECT -1;SELECT 0;".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![None, None], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(0..10), Some(10..19)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1695,21 +1625,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "\nSELECT 1;";
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
             new_char_len: 1,
             text: "\n".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(0..10)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1725,21 +1650,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "WITH v AS (SELECT 42) SELECT 1;";
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
             new_char_len: 22,
             text: "WITH v AS (SELECT 42) ".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(0..31)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1755,21 +1675,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 'a';SELECT 'b';WITH v AS (SELECT 42) SELECT 1;";
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
             new_char_len: 33,
             text: "SELECT 'a';SELECT 'b';WITH v AS (SELECT 42) ".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![None, None, Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(0..11), Some(11..22), Some(22..53)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1785,21 +1700,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;";
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
             new_char_len: 0,
             text: "".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(Vec::<Option<usize>>::new(), result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(Vec::<Option<std::ops::Range<usize>>>::new(), result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1815,21 +1725,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;SELECT 2;SELECT 'a';SELECT 'b';SELECT 3;SELECT 4;";
         let scope = EditScope{
             start_char_offset: 18,
             old_char_len: 0,
             new_char_len: 22,
             text: "SELECT 'a';SELECT 'b';".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![None, None], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(18..29), Some(29..40)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1845,21 +1750,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;SELECT 2;\nSELECT 3;SELECT 4;";
         let scope = EditScope{
             start_char_offset: 18,
             old_char_len: 0,
             new_char_len: 1,
             text: "\n".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(1)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(9..19)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1875,21 +1775,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;SELECT 2;/* (comment) */ SELECT 3;SELECT 4;";
         let scope = EditScope{
             start_char_offset: 18,
             old_char_len: 0,
             new_char_len: 16,
             text: "/* (comment) */ ".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(2)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(18..43)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1905,21 +1800,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;SELECT 2;WITH v AS (SELECT 42) SELECT 3;SELECT 4;";
         let scope = EditScope{
             start_char_offset: 18,
             old_char_len: 0,
             new_char_len: 22,
             text: "WITH v AS (SELECT 42) ".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(2)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(18..49)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1935,21 +1825,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 4;SELECT 3;SELECT 2";
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 0,
             new_char_len: 0,
             text: "".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(Vec::<Option<usize>>::new(), result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(Vec::<Option<std::ops::Range<usize>>>::new(), result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1965,21 +1850,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;";
         let scope = EditScope{
             start_char_offset: 3,
             old_char_len: 0,
             new_char_len: 1,
             text: "E".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(0..9)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -1995,21 +1875,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;SELECT 33;SELECT 3;";
         let scope = EditScope{
             start_char_offset: 16,
             old_char_len: 1,
             new_char_len: 2,
             text: "33".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(1)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(9..19)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -2025,21 +1900,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;SELECT 42;SELECT 43;SELECT 44;SELECT 5;";
         let scope = EditScope{
             start_char_offset: 16,
             old_char_len: 18,
             new_char_len: 21,
             text: "42;SELECT 43;SELECT 4".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(1), Some(2), Some(3)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(9..19), Some(19..29), Some(29..39)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -2055,21 +1925,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 4;SELECT 3;SELECT 2;";
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 0,
             new_char_len: 17,
             text: ";SELECT 3;SELECT ".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![None, None, Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(0..9), Some(9..18), Some(18..27)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -2085,21 +1950,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 42;";
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 17,
             new_char_len: 0,
             text: "".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(0), Some(1), Some(2)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![None, None, Some(0..10)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -2115,21 +1975,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1 AS y; SELECT 2 AS x;";
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 2,
             new_char_len: 17,
             text: "AS y; SELECT 2 AS".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![None, Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(0..15), Some(15..29)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -2145,21 +2000,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 4;\nSELECT 1;\n";
         let scope = EditScope{
             start_char_offset: 10,
             old_char_len: 20,
             new_char_len: 0,
             text: "".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(1), Some(2)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![None, None], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -2175,21 +2025,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 4;\n\nSELECT 1;\n";
         let scope = EditScope{
             start_char_offset: 10,
             old_char_len: 19,
             new_char_len: 0,
             text: "".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(0), Some(1), Some(2)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![None, None, Some(0..11)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -2205,21 +2050,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;\n/* comment */";
         let scope = EditScope{
             start_char_offset: 23,
             old_char_len: 30,
             new_char_len: 0,
             text: "".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(1), Some(2), Some(3), Some(4)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![None, None, None, Some(10..23)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -2235,21 +2075,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "";
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 26,
             new_char_len: 0,
             text: "".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(0), Some(1), Some(2)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![None, None, None], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -2265,21 +2100,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "ELECT 4;SELECT 3;SELECT 2";
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 1,
             new_char_len: 0,
             text: "".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![Some(0)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(0..8)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
@@ -2296,21 +2126,16 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        // let new_source = "SELECT 1;\n-\n--#2";
         let scope = EditScope{
             start_char_offset: 11,
             old_char_len: 3,
             new_char_len: 0,
             text: "".into(),
         };
-        // let emit_region = engine.parsing_rules.statement_emit_config();
-        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
-        // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;
-        // let stmt_scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
         let stmt_scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
-        let result = hint.eval_hint(stmt_scanners, scope.new_char_range());
+        let result = hint.eval_hint(stmt_scanners);
 
         assert_eq!(vec![None, Some(1)], result.events.iter().map(|slot| slot.index()).collect::<Vec<_>>());
         assert_eq!(vec![Some(10..12), Some(12..16)], result.events.iter().map(|slot| slot.scanner().map(|scanner| scanner.scan_range())).collect::<Vec<_>>());
