@@ -112,7 +112,8 @@ impl EditHint {
     }
 
     pub fn eval_hint(&self, scanners: impl Iterator<Item = StatementScanner>, new_edit_byte_range: std::ops::Range<usize>) -> EditHintSlots {
-        let scanners = extend_statement_scanners(scanners, &new_edit_byte_range);
+        // let scanners = extend_statement_scanners(scanners, &new_edit_byte_range);
+        let scanners = scanners.collect::<Vec<_>>();
         let preceding_len = self.precedings.iter().flatten().count();
         let following_len = self.followings.iter().flatten().count();
 
@@ -174,7 +175,8 @@ impl EditHint {
     }
     
     pub fn reconcile_lookaheads(
-        &self, old_char_range: std::ops::Range<usize>, text: &str, 
+        &self, 
+        old_char_range: std::ops::Range<usize>, text: &str, 
         scan_engine: ScanningRuleSet, parse_engine: ParsingRuleSet, 
         case_sensitive: CaseSensitivity) -> Result<impl Iterator<Item = StatementScanner>, super::ParseError> 
     {
@@ -195,7 +197,8 @@ impl EditHint {
         };
         'dirty_lookaheads: {
             let start_replace_stmt = precedings.first().or_else(|| self.statements.first());
-            let end_replace_stmt = self.statements.last().or_else(|| followings.first());
+            // let end_replace_stmt = self.statements.last().or_else(|| followings.first());
+            let end_replace_stmt = followings.first();
             
             // resolve head clean part
             let mut head_dirty_tokenset = None;
@@ -209,8 +212,11 @@ impl EditHint {
             let mut tail_token_sets = VecDeque::new();
             extract_lookahead::extract_tail_clean_lookaheads_backwards(end_token_set, old_char_range.end, &mut tail_token_sets, &mut tail_dirty_tokenset);
 
+            // include next tail tokenset
+            let next_tail_token_set = tail_token_sets.pop_front();
+
             // resolve dirty part
-            let (start_offset, buf) = extract_lookahead::concat_dirty_text(head_dirty_tokenset.as_ref(), tail_dirty_tokenset.as_ref(), text, old_char_range);
+            let (start_offset, buf) = extract_lookahead::concat_dirty_text(head_dirty_tokenset.as_ref(), tail_dirty_tokenset.as_ref(), next_tail_token_set.as_ref(), text, &old_char_range);
             let mut scanner = Scanner::create_without_scan(&buf, 0, scan_engine.clone(), ScannerConfig{ case_sensitive, offset_with: start_offset})?;
             let full_emit_kind = full_emit_region.to_symbol;
             let dirty_lookaheads = scanner.prefetch_iter(full_emit_kind)
@@ -237,7 +243,7 @@ impl EditHint {
                 break 'tail_clean_lookaheads;
             }
 
-            if let Some(token_sets) = extract_lookahead::pick_clean_tail_token_sets(&followings, self.statements.is_empty()) {
+            if let Some(token_sets) = extract_lookahead::pick_clean_tail_token_sets(&followings, true) {
                 let start_tail_offset = lookaheads.back().map(|x| x.token_range().end).unwrap_or_default();
                 extract_lookahead::extract_clean_lookaheads(token_sets, Some(start_tail_offset), &scan_engine, &mut lookaheads);
             }

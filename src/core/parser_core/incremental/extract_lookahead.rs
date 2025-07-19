@@ -49,8 +49,9 @@ pub fn extract_tail_clean_lookaheads_backwards(start_token_set: Option<SyntaxTok
 pub fn concat_dirty_text(
     head_token_set: Option<&SyntaxTokenSet>, 
     tail_token_set: Option<&SyntaxTokenSet>,
+    tail_next_token_set: Option<&SyntaxTokenSet>,
     text: &str, 
-    old_char_range: std::ops::Range<usize>) -> (usize, String) 
+    old_char_range: &std::ops::Range<usize>) -> (usize, String) 
 {
     let (start_byte_offset, insert_byte_offset, mut buf) = match (head_token_set.as_ref(), tail_token_set.as_ref()) {
         (Some(lhs), Some(rhs)) if lhs == rhs => {
@@ -82,6 +83,10 @@ pub fn concat_dirty_text(
             return (0, text.to_string());
         }
     };
+
+    if let Some(token_set) = tail_next_token_set {
+        update_dirty_text_internal(token_set.descendant_tokens(), &old_char_range, &mut buf);
+    }
 
     buf.insert_str(insert_byte_offset - start_byte_offset, text);
 

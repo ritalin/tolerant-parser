@@ -9,51 +9,61 @@ pub mod edit_hint;
 mod extract_lookahead;
 
 pub struct Parser {
-    scope: EditScope,
-    edit_hint: edit_hint::EditHint,
-    following_statement: Option<SyntaxElement>,
+    // scope: EditScope,
+    // edit_hint: edit_hint::EditHint,
+    // following_statement: Option<SyntaxElement>,
     engine: engine_core::Engine,
-    metadata_table: Rc<MetadataTable>,
+    // metadata_table: Rc<MetadataTable>,
     config: ParserConfig,
 }
 
 impl Parser {
-    pub fn new(old_tree: &SyntaxTree, scope: EditScope, engine: engine_core::Engine, config: ParserConfig) -> Self {
-        let eof_statement = old_tree.root().children().last();
-        let edit_hint = edit_hint::EditHint::new(old_tree, scope.old_char_range());
+    pub fn new(engine: engine_core::Engine, config: ParserConfig) -> Self {
+        // let eof_statement = old_tree.root().children().last();
+        // let edit_hint = edit_hint::EditHint::new(old_tree, scope.old_char_range());
 
         Self {
-            scope,
-            edit_hint,
-            following_statement: eof_statement,
+            // scope,
+            // edit_hint,
+            // following_statement: eof_statement,
             engine,
-            metadata_table: old_tree.metadata_table(),
+            // metadata_table: old_tree.metadata_table(),
             config,
         }
     }
 
-    pub fn parse(&self, source: &str) -> Result<Vec<SyntaxFragmentBatch>, parser_core::parser::ParseError> {
-        let new_edit_byte_range = convert_from_utf16_to_byte_range(self.scope.new_char_range(), source);
+    pub fn parse(&self, old_tree: &SyntaxTree, scope: EditScope) -> Result<Vec<SyntaxFragmentBatch>, parser_core::parser::ParseError> {
+        let prev_root = old_tree.root().clone();
+        let metadata_table = old_tree.metadata_table();
+        let eof_statement = old_tree.root().children().last();
+
+        // let new_edit_byte_range = convert_from_utf16_to_byte_range(self.scope.new_char_range(), source);
+        let new_edit_byte_range = std::ops::Range::<usize>::default();
 
         // Determin scanning byte offset
-        let scan_from = self.edit_hint.scan_from();
-        let scan_to = new_edit_byte_range.end;
+        // let scan_from = self.edit_hint.scan_from();
+        // let scan_to = new_edit_byte_range.end;
 
-        let option = ScannerConfig{ case_sensitive: self.config.case_sensitive.clone(), offset_with: 0 };
-        let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone(), option)?;
+        // let scan_config = ScannerConfig{ case_sensitive: self.config.case_sensitive.clone(), offset_with: 0 };
+        // let scanner = Scanner::create_without_scan(source, scan_from, self.engine.scanning_rules.clone(), scan_config)?;
 
         let emit_region = self.engine.parsing_rules.statement_emit_config();
         let full_emit_region = self.engine.parsing_rules.full_emit_config();
 
+        let old_char_range = scope.old_char_range();
+        let edit_hint = edit_hint::EditHint::new(old_tree, old_char_range.clone());
         // enumerate scanners except for over the new byte offset scope.
-        let scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol);
-        let slots = self.edit_hint.eval_hint(scanners, new_edit_byte_range.clone());
+        let scanners = edit_hint.reconcile_lookaheads(old_char_range, &scope.text, self.engine.scanning_rules.clone(), self.engine.parsing_rules, self.config.case_sensitive.clone())?;
+        let slots = edit_hint.eval_hint(scanners, new_edit_byte_range.clone());
+
+        // let scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol);
+        // let slots = self.edit_hint.eval_hint(scanners, new_edit_byte_range.clone());
 
         // Determine first statement byte offset
-        let mut global_byte_offset = self.metadata_table.statement_metadata(Some(slots.replace_from)).global_offset.of_byte;
+        let mut global_byte_offset = metadata_table.statement_metadata(Some(slots.replace_from)).global_offset.of_byte;
 
-        let old_scope_range = slots.replace_byte_range.unwrap_or_else(|| 0..source.len());
-        let new_scope_range = old_scope_range.start..scan_to;
+        let old_scope_range = slots.replace_byte_range.unwrap_or_else(|| prev_root.metadata_key().byte_range());
+        // let new_scope_range = old_scope_range.start..scan_to;
         
         let mut fragments = vec![];
         let mut old_first_fragment_key = None;
@@ -62,10 +72,11 @@ impl Parser {
             let (new_stmt, new_metadata_entry, new_node_key) = match event {
                 SlotEvent::Replacing {node: stmt, scanner: stmt_scanner } => {
                     let old_stmt_range: std::ops::Range<usize> = stmt.metadata_key().byte_range();
-                    let stmt_edit_range = support::adjust_edit_range(
-                        if new_scope_range.clone().include_end().contains(&old_stmt_range.end) { &new_scope_range } else { &old_scope_range },
-                        &old_stmt_range
-                    );
+                    // let stmt_edit_range = support::intersect_edit_range(
+                    //     if new_scope_range.clone().include_end().contains(&old_stmt_range.end) { &new_scope_range } else { &old_scope_range },
+                    //     &old_stmt_range
+                    // );
+                    let stmt_edit_range = support::intersect_edit_range(&old_scope_range, &old_stmt_range);
 
                     let gardener = support::TreeGardener::as_subtree(&stmt);
                     // Find common anscestor
@@ -128,7 +139,7 @@ impl Parser {
 
                     if old_first_fragment_key.is_none() {
                         // If it's assgned, assigns the following statement ( = EOF only statement) as the first fragment key
-                        old_first_fragment_key = self.following_statement.as_ref().map(|el| {
+                        old_first_fragment_key = eof_statement.as_ref().map(|el| {
                             FragmentNodeMetadataKey{ key: el.metadata_key(), is_eof: true }
                         });
                     }

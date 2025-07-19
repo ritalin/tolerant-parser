@@ -11,7 +11,7 @@ mod expand_region_tests {
     fn extend_to_neighbors(scope: std::ops::Range<usize>, root: Option<&SyntaxNode>, except_kind: SyntaxKind) -> std::ops::Range<usize> {
         let Some(root) = root else { return scope; };
 
-        let adjusted_range = parser_core::incremental::support::adjust_edit_range(&scope, &root.metadata_key().byte_range());
+        let adjusted_range = parser_core::incremental::support::intersect_edit_range(&scope, &root.metadata_key().byte_range());
 
         let gardener = parser_core::incremental::support::TreeGardener::as_subtree(root);
         let anscestor = gardener.common_anscestor(
@@ -1133,12 +1133,124 @@ mod edit_hint_reconcile_tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_replace_with_trivia() -> Result<(), anyhow::Error> {
+        let source = "/* 日本語コメント */SELECT 42 AS a;";
+
+        let engine = sqlite_engine::create()?;
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive: CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 23,
+            old_char_len: 2,
+            new_char_len: 14,
+            text: "/* ASを取り除いた */".into(),
+        };
+
+        let hint = EditHint::new(&tree, scope.old_char_range());
+        let mut scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
+
+        'scanner: {
+            let scanner = scanners.next();
+            assert_eq!(true, scanner.is_some());
+
+            let scanner = scanner.unwrap();
+            assert_eq!(StatementScannerType::Statement, scanner.scanner_type());
+            assert_eq!(0..66, scanner.scan_range());
+
+            let mut scanner_view = scanner.as_view(..);
+            'lookahead: {
+                let Some(lookahead) = scanner_view.shift() else { unreachable!() };
+                let expect_lookahead = Token{
+                    leading_trivia: Some(vec![ScanEvent{ kind: syntax_kind::COMMENT, offset: 0, len: 27, value: Some("/* 日本語コメント */".into()) }]),
+                    main: ScanEvent{ kind: syntax_kind::SELECT, offset: 27, len: 6, value: Some("SELECT".into()) },
+                    trailing_trivia: Some(vec![ScanEvent{ kind: syntax_kind::SPACE, offset: 33, len: 1, value: Some(" ".into()) }]),
+                };
+                assert_eq!(expect_lookahead.leading_trivia, lookahead.leading_trivia);
+                assert_eq!(expect_lookahead.main, lookahead.main);
+                assert_eq!(expect_lookahead.trailing_trivia, lookahead.trailing_trivia);
+                break 'lookahead;
+            }
+            'lookahead: {
+                let Some(lookahead) = scanner_view.shift() else { unreachable!() };
+                let expect_lookahead = Token{
+                    leading_trivia: None,
+                    main: ScanEvent{ kind: syntax_kind::INTEGER, offset: 34, len: 2, value: Some("42".into()) },
+                    trailing_trivia: Some(vec![ScanEvent{ kind: syntax_kind::SPACE, offset: 36, len: 1, value: Some(" ".into()) }]),
+                };
+                assert_eq!(expect_lookahead.leading_trivia, lookahead.leading_trivia);
+                assert_eq!(expect_lookahead.main, lookahead.main);
+                assert_eq!(expect_lookahead.trailing_trivia, lookahead.trailing_trivia);
+                break 'lookahead;
+            }
+            'lookahead: {
+                let Some(lookahead) = scanner_view.shift() else { unreachable!() };
+                let expect_lookahead = Token{
+                    leading_trivia: Some(vec![
+                        ScanEvent{ kind: syntax_kind::COMMENT, offset: 37, len: 26, value: Some("/* ASを取り除いた */".into()) },
+                        ScanEvent{ kind: syntax_kind::SPACE, offset: 63, len: 1, value: Some(" ".into()) },
+                    ]),
+                    main: ScanEvent{ kind: syntax_kind::ID, offset: 64, len: 1, value: Some("a".into()) },
+                    trailing_trivia: None,
+                };
+                assert_eq!(expect_lookahead.leading_trivia, lookahead.leading_trivia);
+                assert_eq!(expect_lookahead.main, lookahead.main);
+                assert_eq!(expect_lookahead.trailing_trivia, lookahead.trailing_trivia);
+                break 'lookahead;
+            }
+            'lookahead: {
+                let Some(lookahead) = scanner_view.shift() else { unreachable!() };
+                let expect_lookahead = Token{
+                    leading_trivia: None,
+                    main: ScanEvent{ kind: syntax_kind::SEMI, offset: 65, len: 1, value: Some(";".into()) },
+                    trailing_trivia: None,
+                };
+                assert_eq!(expect_lookahead.leading_trivia, lookahead.leading_trivia);
+                assert_eq!(expect_lookahead.main, lookahead.main);
+                assert_eq!(expect_lookahead.trailing_trivia, lookahead.trailing_trivia);
+                break 'lookahead;
+            }
+            break 'scanner;
+        }
+        'scanner: {
+            let scanner = scanners.next();
+            assert_eq!(true, scanner.is_some());
+
+            let scanner = scanner.unwrap();
+            assert_eq!(StatementScannerType::Eof, scanner.scanner_type());
+            assert_eq!(66..66, scanner.scan_range());
+
+            let mut scanner_view = scanner.as_view(..);
+            'lookahead: {
+                let Some(lookahead) = scanner_view.shift() else { unreachable!() };
+                let expect_lookahead = Token{
+                    leading_trivia: None,
+                    main: ScanEvent{ kind: syntax_kind::EOF, offset: 66, len: 0, value: None },
+                    trailing_trivia: None,
+                };
+                assert_eq!(expect_lookahead.leading_trivia, lookahead.leading_trivia);
+                assert_eq!(expect_lookahead.main, lookahead.main);
+                assert_eq!(expect_lookahead.trailing_trivia, lookahead.trailing_trivia);
+                break 'lookahead;
+            }
+            break 'scanner;
+        }
+        'scanner: {
+            let scanner = scanners.next();
+            assert_eq!(false, scanner.is_some());
+            break 'scanner;
+        }
+
+        Ok(())
+    }
 }
 
 mod edit_hint_eval_tests {
     use tolerant_parser_sdk::core::engine_core::scanner_engine::CaseSensitivity;
     use tolerant_parser_sdk::core::parser_core::{incremental::edit_hint::EditHint, ParseMode, RecoveryPenalty};
-    use tolerant_parser_sdk::core::scanner_core::{Scanner, ScannerConfig};
     use super::*;
 
     #[test]
@@ -2093,15 +2205,15 @@ mod edit_hint_eval_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        let new_source = "SELECT 1;\n/* comment */";
+        // let new_source = "SELECT 1;\n/* comment */";
         let scope = EditScope{
             start_char_offset: 23,
             old_char_len: 30,
             new_char_len: 0,
             text: "".into(),
         };
-        let emit_region = engine.parsing_rules.statement_emit_config();
-        let full_emit_region = engine.parsing_rules.full_emit_config();
+        // let emit_region = engine.parsing_rules.statement_emit_config();
+        // let full_emit_region = engine.parsing_rules.full_emit_config();
 
         let hint = EditHint::new(&tree, scope.old_char_range());
         // let scanner = Scanner::create_without_scan(new_source, hint.scan_from(), engine.scanning_rules, ScannerConfig{ case_sensitive: config.case_sensitive, offset_with: 0 })?;

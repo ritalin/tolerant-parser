@@ -181,7 +181,7 @@ impl<T> IncludeEnd for std::ops::Range<T> {
     }
 }
 
-pub fn adjust_edit_range(base_range: &std::ops::Range<usize>, node_byte_range: &std::ops::Range<usize>) -> std::ops::Range<usize> {
+pub fn intersect_edit_range(base_range: &std::ops::Range<usize>, node_byte_range: &std::ops::Range<usize>) -> std::ops::Range<usize> {
     let lowest_offset = usize::max(base_range.start, node_byte_range.start);
     let highest_offset = usize::min(base_range.end, node_byte_range.end);
     

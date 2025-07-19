@@ -198,7 +198,7 @@ mod parser_tests {
             text: "AS ".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_single_statement_with_inserting.json"))?;
 
@@ -227,10 +227,10 @@ mod parser_tests {
             start_char_offset: 10,
             old_char_len: 3,
             new_char_len: 0,
-            text: "AS ".into(),
+            text: "".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_single_statement_with_deleting.json"))?;
 
@@ -262,7 +262,7 @@ mod parser_tests {
             text: "42; SELECT p, ".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_single_with_cross_over_2_statements.json"))?;
 
@@ -294,7 +294,7 @@ mod parser_tests {
             text: " SELECT 42 x FROM foo u;".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_append_statment.json"))?;
 
@@ -325,7 +325,7 @@ mod parser_tests {
     //         new_char_len: 24,
     //     };
 
-    //     let batches = parser.incremental(&tree, scope).parse(new_source)?;
+    //     let batches = parser.parse_incremental(&tree, scope)?;
     //     let new_tree = tree.apply_batches(batches);
     //     let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_prepend_statment.json"))?;
 
@@ -357,7 +357,7 @@ mod parser_tests {
             text: "/* ASを取り除いた */".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_with_maltibyte_char.json"))?;
 
@@ -389,7 +389,7 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_remove_all.json"))?;
 
@@ -421,7 +421,7 @@ mod parser_tests {
             text: "SELECT 42 AS x FROM foo u;".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_insert_from_empty.json"))?;
 
@@ -453,7 +453,7 @@ mod parser_tests {
             text: "SELECT 11;SELECT 22;".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_insert_changining_full.json"))?;
 
@@ -484,7 +484,7 @@ mod parser_tests {
     //         new_char_len: 17,
     //     };
 
-    //     let batches = parser.incremental(&tree, scope).parse(new_source)?;
+    //     let batches = parser.parse_incremental(&tree, scope)?;
     //     let new_tree = tree.apply_batches(batches);
     //     let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_split_statement_on_inserting_semicolon.json"))?;
 
@@ -513,7 +513,7 @@ mod parser_tests {
             text: "E".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_broken_keyword_by_inserting.json"))?;
 
@@ -542,7 +542,7 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_broken_keyword_by_removing_first_char.json"))?;
 
@@ -571,7 +571,7 @@ mod parser_tests {
             text: "S".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_broken_keyword_by_inserting_first.json"))?;
 
@@ -600,7 +600,7 @@ mod parser_tests {
             text: ";".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_appending_semicolon.json"))?;
 
@@ -629,7 +629,7 @@ mod parser_tests {
             text: "/* Answer to the Ultimate Question of Life, the Universe, and Everything */".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_appending_leading_trivia.json"))?;
 
@@ -658,7 +658,7 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_semicolon.json"))?;
 
@@ -687,7 +687,7 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_first_statement.json"))?;
 
@@ -716,7 +716,7 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_first_statement_without_trailing_trivia.json"))?;
 
@@ -745,7 +745,7 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_first_statement_without_leading_trivia.json"))?;
 
@@ -774,7 +774,7 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_middle_statement.json"))?;
 
@@ -803,7 +803,7 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_middle_statement_without_trailing_trivia.json"))?;
 
@@ -832,7 +832,7 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_middle_statement_without_leading_trivia.json"))?;
 
@@ -861,7 +861,7 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_last_statement.json"))?;
 
@@ -890,7 +890,7 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_last_statement_without_trailing_trivia.json"))?;
 
@@ -919,7 +919,7 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_last_statement_without_leading_trivia.json"))?;
 
@@ -947,7 +947,7 @@ mod parser_tests {
     //         new_char_len: 2,
     //     };
 
-    //     let batches = parser.incremental(&tree, scope).parse(new_source)?;
+    //     let batches = parser.parse_incremental(&tree, scope)?;
     //     let new_tree = tree.apply_batches(batches);
     //     let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_filling_value.json"))?;
 
@@ -973,10 +973,10 @@ mod parser_tests {
             start_char_offset: 0,
             old_char_len: 10,
             new_char_len: 18,
-            text: " AS  FRO".into(),
+            text: "SELECT 42 AS  FRO;".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_replacing_all.json"))?;
 
@@ -988,61 +988,63 @@ mod parser_tests {
         Ok(())
     }
 
-    // #[test]
-    // fn test_parse_statement_by_editing_latter() -> Result<(), anyhow::Error> {
-    //     let source = "SELECT 1;SELECT 2;";
-    //     let new_source = "SELECT 1;SELECT 23;";
+    #[test]
+    fn test_parse_statement_by_editing_latter() -> Result<(), anyhow::Error> {
+        let source = "SELECT 1;SELECT 2;";
+        let new_source = "SELECT 1;SELECT 23;";
 
-    //     let engine = sqlite_engine::create()?;
-    //     let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive: CaseSensitivity::Insensitive };
-    //     let parser = Parser::new(engine.clone(), config.clone());
-    //     let tree = parser.parse(source)?;
+        let engine = sqlite_engine::create()?;
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive: CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
+        let tree = parser.parse(source)?;
 
-    //     let scope = EditScope{
-    //         start_char_offset: 17,
-    //         old_char_len: 0,
-    //         new_char_len: 1,
-    //     };
+        let scope = EditScope{
+            start_char_offset: 17,
+            old_char_len: 0,
+            new_char_len: 1,
+            text: "3".into(),
+        };
 
-    //     let batches = parser.incremental(&tree, scope).parse(new_source)?;
-    //     let new_tree = tree.apply_batches(batches);
-    //     let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_editing_latter.json"))?;
+        let batches = parser.parse_incremental(&tree, scope)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_editing_latter.json"))?;
 
-    //     let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
-    //     assert_eq!(new_source, rebuilded_source);
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
 
-    //     test_support::verify(new_tree.root(), &expect_node);
+        test_support::verify(new_tree.root(), &expect_node);
 
-    //     Ok(())
-    // }
+        Ok(())
+    }
 
-    // #[test]
-    // fn test_parse_statement_with_semicolon_after_newline() -> Result<(), anyhow::Error> {
-    //     let source = "SELECT 42;";
-    //     let new_source = "SELECT 42;\n";
+    #[test]
+    fn test_parse_statement_with_semicolon_after_newline() -> Result<(), anyhow::Error> {
+        let source = "SELECT 42;";
+        let new_source = "SELECT 42;\n";
 
-    //     let engine = sqlite_engine::create()?;
-    //     let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive: CaseSensitivity::Insensitive };
-    //     let parser = Parser::new(engine.clone(), config.clone());
-    //     let tree = parser.parse(source)?;
+        let engine = sqlite_engine::create()?;
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive: CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
+        let tree = parser.parse(source)?;
 
-    //     let scope = EditScope{
-    //         start_char_offset: 10,
-    //         old_char_len: 0,
-    //         new_char_len: 1,
-    //     };
+        let scope = EditScope{
+            start_char_offset: 10,
+            old_char_len: 0,
+            new_char_len: 1,
+            text: "\n".into(),
+        };
 
-    //     let batches = parser.incremental(&tree, scope).parse(new_source)?;
-    //     let new_tree = tree.apply_batches(batches);
-    //     let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_with_semicolon_after_newline.json"))?;
+        let batches = parser.parse_incremental(&tree, scope)?;
+        let new_tree = tree.apply_batches(batches);
+        let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_with_semicolon_after_newline.json"))?;
 
-    //     let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
-    //     assert_eq!(new_source, rebuilded_source);
+        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        assert_eq!(new_source, rebuilded_source);
 
-    //     test_support::verify(new_tree.root(), &expect_node);
+        test_support::verify(new_tree.root(), &expect_node);
 
-    //     Ok(())
-    // }
+        Ok(())
+    }
 
     #[test]
     fn test_parse_statement_following_incorrent_statement() -> Result<(), anyhow::Error> {
@@ -1061,7 +1063,7 @@ mod parser_tests {
             text: "S".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_following_incorrent_statement.json"))?;
 
@@ -1090,7 +1092,7 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.incremental(&tree, scope).parse(new_source)?;
+        let batches = parser.parse_incremental(&tree, scope)?;
         let new_tree = tree.apply_batches(batches);
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_incorrect_identifier_removing_word.json"))?;
 
