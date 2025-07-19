@@ -206,12 +206,12 @@ impl Iterator for CachedStatementScannerIterator {
     type Item = StatementScanner;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.lookaheads.is_empty() { return  None }
-
+        let Some(head) = self.lookaheads.get(0) else { return None };
         let index = self.lookaheads.iter().position(|la| la.main.kind == self.emit_symbol);
+
         match index {
             Some(index) => {
-                let (Some(head), Some(tail)) = (self.lookaheads.get(0), self.lookaheads.get(index)) else { return None };
+                let Some(tail) = self.lookaheads.get(index) else { return None };
 
                 Some(StatementScanner {
                     scanner_type: StatementScannerType::Statement,
@@ -220,13 +220,13 @@ impl Iterator for CachedStatementScannerIterator {
                     lookaheads: self.lookaheads.drain(0..=index).collect()
                 })
             }
-            None if self.lookaheads.len() > 1 => {
-                let (Some(head), Some(tail)) = (self.lookaheads.get(0), self.lookaheads.back().cloned()) else { return None };
+            None if head.main.kind != self.full_emit_symbol => {
+                let Some(tail) = self.lookaheads.back().cloned() else { return None };
 
                 let scanner = StatementScanner {
                     scanner_type: StatementScannerType::Statement,
-                    scan_range: (head.lowest_offset())..(tail.token_range().end),
-                    is_full_emit: true,
+                    scan_range: (head.lowest_offset())..(tail.lowest_offset()), // Drop last lookahead from the scan range.
+                    is_full_emit: true,  // Full emit mode dispatches the last lookahead.
                     lookaheads: self.lookaheads.drain(..).collect(),
                 };
                 self.lookaheads.push_back(tail.clone()); // leave a EOF lookahead in the cache
@@ -234,8 +234,6 @@ impl Iterator for CachedStatementScannerIterator {
                 Some(scanner)
             }
             None => {
-                let Some(head) = self.lookaheads.get(0) else { return None };
-
                 Some(StatementScanner {
                     scanner_type: StatementScannerType::Eof,
                     scan_range: head.token_range(),

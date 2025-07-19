@@ -46,7 +46,7 @@ impl Parser {
         let full_emit_region = self.engine.parsing_rules.full_emit_config();
 
         // enumerate scanners except for over the new byte offset scope.
-        let scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol).collect::<Vec<_>>();
+        let scanners = scanner.statement_scanners(emit_region.to_symbol, full_emit_region.to_symbol);
         let slots = self.edit_hint.eval_hint(scanners, new_edit_byte_range.clone());
 
         // Determine first statement byte offset
