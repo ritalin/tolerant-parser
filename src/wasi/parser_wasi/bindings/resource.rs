@@ -1,4 +1,4 @@
-use crate::core::parser_core::{self, ParserConfig, syntax_tree::{ApplyBatch, LookupCandidate, MetadataAccess, NodeOperation, SyntaxTree}};
+use crate::core::parser_core::{self, ParserConfig, syntax_tree::{ApplyBatch, LookupCandidate, MetadataAccess, NodeOperation}};
 use crate::core::engine_core;
 use super::parser_world::exports::ritalin::parser::parsers;
 use super::syntax_tree_world::exports::ritalin::parser::syntaxes;
@@ -22,7 +22,7 @@ impl parsers::GuestParser for ParserImpl {
         SyntaxTreeImpl::from_raw(tree)
     }
     
-    fn incremental(&self,tree: parsers::SyntaxTree,scopes: Vec::<parsers::EditScope>,) -> parsers::IncrementalParser {
+    fn parse_incremental(&self,tree: parsers::SyntaxTree,scopes: Vec::<parsers::EditScope>,) -> parsers::SyntaxTree {
         let old_tree = tree.into_inner::<SyntaxTreeImpl>().inner;
 
         let scopes: Vec<parser_core::incremental::EditScope> = scopes.into_iter()
@@ -30,30 +30,8 @@ impl parsers::GuestParser for ParserImpl {
             .collect::<Vec<_>>()
         ;
 
-        IncrementalParserImpl::from_raw(
-            self.inner.incremental(&old_tree, scopes.first().unwrap().clone()),
-            old_tree
-        )
-    }
-}
-
-pub struct IncrementalParserImpl {
-    inner: parser_core::incremental::Parser,
-    old_tree: SyntaxTree,
-}
-
-impl IncrementalParserImpl {
-    pub(crate) fn from_raw(inner: parser_core::incremental::Parser, old_tree: SyntaxTree) -> parsers::IncrementalParser {
-        parsers::IncrementalParser::new(Self { inner, old_tree })
-    }
-}
-
-impl parsers::GuestIncrementalParser for IncrementalParserImpl {
-    fn parse(&self,source: String,) -> parsers::SyntaxTree {
-        let batches = self.inner.parse(&source).expect("Failed to parse");
-
-        let new_tree = self.old_tree.apply_batches(batches);
-        SyntaxTreeImpl::from_raw(new_tree)
+        let batches = self.inner.parse_incremental(&old_tree, scopes.first().unwrap().clone()).expect("Failed to incremental parse");
+        SyntaxTreeImpl::from_raw(old_tree.apply_batches(batches))
     }
 }
 
@@ -309,6 +287,7 @@ impl From<parsers::EditScope> for parser_core::incremental::EditScope {
             start_char_offset: value.start_offset as usize,
             old_char_len: value.old_len as usize,
             new_char_len: value.new_len as usize,
+            text: value.text,
         }
     }
 }

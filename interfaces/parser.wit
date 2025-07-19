@@ -1,4 +1,4 @@
-package ritalin:parser@0.0.1;
+package ritalin:parser@0.1.0;
 
 interface parsers {
     // create new parser instance
@@ -11,12 +11,7 @@ interface parsers {
         // execute to parse souce content
         parse: func(source: string) -> syntax-tree;
 
-        incremental: func(tree: syntax-tree, scopes: list<edit-scope>) -> incremental-parser;
-    }
-
-    resource incremental-parser {
-        // execute to parse souce content
-        parse: func(source: string) -> syntax-tree;
+        parse-incremental: func(tree: syntax-tree, scopes: list<edit-scope>) -> syntax-tree;
     }
 
     record edit-scope {
@@ -26,6 +21,8 @@ interface parsers {
         old-len: u32,
         // after editing length (UTF-16 code units)
         new-len: u32,
+        // after edited text
+        text: string,
     }
 }
 
