@@ -162,21 +162,9 @@ mod incremental_support_tests {
 }
 
 mod parser_tests {
-    use tolerant_parser_sdk::core::parser_core::{syntax_tree::{ApplyBatch, NodeOperation, SyntaxTokenItem}, ParseMode, ParserConfig, RecoveryPenalty};
-    use crate::test_support::{self, ExpectNode};
+    use tolerant_parser_sdk::core::parser_core::{ParseMode, ParserConfig, RecoveryPenalty};
+    use crate::test_support::{self, ExpectNode, };
     use super::*;
-
-    fn rebuild_source(token: Option<SyntaxTokenItem>) -> String {
-        let mut tokens = vec![];
-        let mut next_token = token;
-
-        while let Some(x) = next_token {
-            tokens.push(x.value().to_string());
-            next_token = x.next_sibling().clone();
-        }
-
-        tokens.join("")
-    }
 
     #[test]
     fn test_parse_single_statement_with_inserting() -> Result<(), anyhow::Error> {
@@ -188,7 +176,7 @@ mod parser_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
@@ -198,11 +186,10 @@ mod parser_tests {
             text: "AS ".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_single_statement_with_inserting.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -220,7 +207,7 @@ mod parser_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
@@ -230,11 +217,10 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_single_statement_with_deleting.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -252,7 +238,7 @@ mod parser_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
@@ -262,11 +248,10 @@ mod parser_tests {
             text: "42; SELECT p, ".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_single_with_cross_over_2_statements.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -284,7 +269,7 @@ mod parser_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
@@ -294,11 +279,10 @@ mod parser_tests {
             text: " SELECT 42 x FROM foo u;".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_append_statment.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -316,7 +300,7 @@ mod parser_tests {
     //     let parser = Parser::new(engine.clone(), config.clone());
     //     let tree = parser.parse(source)?;
 
-    //     let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
+    //     let rebuilded_source = test_support::rebuild_source(tree.root().token_at_utf16_offset(0));
     //     assert_eq!(source, rebuilded_source);
 
     //     let scope = EditScope{
@@ -325,11 +309,10 @@ mod parser_tests {
     //         new_char_len: 24,
     //     };
 
-    //     let batches = parser.parse_incremental(&tree, scope)?;
-    //     let new_tree = tree.apply_batches(batches);
+    //     let new_tree = parser.parse_incremental(&tree, &[scope])?;
     //     let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_prepend_statment.json"))?;
 
-    //     let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+    //     let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
     //     assert_eq!(new_source, rebuilded_source);
 
     //     test_support::verify(new_tree.root(), &expect_node);
@@ -347,7 +330,7 @@ mod parser_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
@@ -357,11 +340,10 @@ mod parser_tests {
             text: "/* ASを取り除いた */".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_with_maltibyte_char.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -379,7 +361,7 @@ mod parser_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
@@ -389,11 +371,10 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_remove_all.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -411,7 +392,7 @@ mod parser_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
@@ -421,11 +402,10 @@ mod parser_tests {
             text: "SELECT 42 AS x FROM foo u;".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_insert_from_empty.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -443,7 +423,7 @@ mod parser_tests {
         let parser = Parser::new(engine.clone(), config.clone());
         let tree = parser.parse(source)?;
 
-        let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(tree.root().token_at_utf16_offset(0));
         assert_eq!(source, rebuilded_source);
 
         let scope = EditScope{
@@ -453,11 +433,10 @@ mod parser_tests {
             text: "SELECT 11;SELECT 22;".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_insert_changining_full.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -475,7 +454,7 @@ mod parser_tests {
     //     let parser = Parser::new(engine.clone(), config.clone());
     //     let tree = parser.parse(source)?;
 
-    //     let rebuilded_source = rebuild_source(tree.root().token_at_utf16_offset(0));
+    //     let rebuilded_source = test_support::rebuild_source(tree.root().token_at_utf16_offset(0));
     //     assert_eq!(source, rebuilded_source);
 
     //     let scope = EditScope{
@@ -484,11 +463,10 @@ mod parser_tests {
     //         new_char_len: 17,
     //     };
 
-    //     let batches = parser.parse_incremental(&tree, scope)?;
-    //     let new_tree = tree.apply_batches(batches);
+    //     let new_tree = parser.parse_incremental(&tree, &[scope])?;
     //     let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_split_statement_on_inserting_semicolon.json"))?;
 
-    //     let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+    //     let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
     //     assert_eq!(new_source, rebuilded_source);
 
     //     test_support::verify(new_tree.root(), &expect_node);
@@ -513,11 +491,10 @@ mod parser_tests {
             text: "E".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_broken_keyword_by_inserting.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -542,11 +519,10 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_broken_keyword_by_removing_first_char.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -571,11 +547,10 @@ mod parser_tests {
             text: "S".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_broken_keyword_by_inserting_first.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -600,11 +575,10 @@ mod parser_tests {
             text: ";".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_appending_semicolon.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -629,11 +603,10 @@ mod parser_tests {
             text: "/* Answer to the Ultimate Question of Life, the Universe, and Everything */".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_appending_leading_trivia.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -658,11 +631,10 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_semicolon.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -687,11 +659,10 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_first_statement.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -716,11 +687,10 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_first_statement_without_trailing_trivia.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -745,11 +715,10 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_first_statement_without_leading_trivia.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -774,11 +743,10 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_middle_statement.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -803,11 +771,10 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_middle_statement_without_trailing_trivia.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -832,11 +799,10 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_middle_statement_without_leading_trivia.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -861,11 +827,10 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_last_statement.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -890,11 +855,10 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_last_statement_without_trailing_trivia.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -919,11 +883,10 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_dropping_last_statement_without_leading_trivia.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -947,11 +910,10 @@ mod parser_tests {
     //         new_char_len: 2,
     //     };
 
-    //     let batches = parser.parse_incremental(&tree, scope)?;
-    //     let new_tree = tree.apply_batches(batches);
+    //     let new_tree = parser.parse_incremental(&tree, &[scope])?;
     //     let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_filling_value.json"))?;
 
-    //     let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+    //     let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
     //     assert_eq!(new_source, rebuilded_source);
 
     //     test_support::verify(new_tree.root(), &expect_node);
@@ -976,11 +938,10 @@ mod parser_tests {
             text: "SELECT 42 AS  FRO;".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_replacing_all.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -1005,11 +966,10 @@ mod parser_tests {
             text: "3".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_by_editing_latter.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -1034,11 +994,10 @@ mod parser_tests {
             text: "\n".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_with_semicolon_after_newline.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -1063,11 +1022,10 @@ mod parser_tests {
             text: "S".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_statement_following_incorrent_statement.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);
@@ -1092,11 +1050,10 @@ mod parser_tests {
             text: "".into(),
         };
 
-        let batches = parser.parse_incremental(&tree, scope)?;
-        let new_tree = tree.apply_batches(batches);
+        let new_tree = parser.parse_incremental(&tree, &[scope])?;
         let expect_node = serde_json::from_str::<Vec<ExpectNode>>(include_str!("../fixtures/parse_tests/parser_tests_members/test_parse_incorrect_identifier_removing_word.json"))?;
 
-        let rebuilded_source = rebuild_source(new_tree.root().token_at_utf16_offset(0));
+        let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
         assert_eq!(new_source, rebuilded_source);
 
         test_support::verify(new_tree.root(), &expect_node);

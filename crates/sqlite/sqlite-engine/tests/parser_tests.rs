@@ -9,5 +9,6 @@ mod parser_tests_members {
     mod full_parse_tests;
     mod incremental_parse_tests;
     mod incremental_parse_support_tests;
+    mod incremental_parse_multi_cursor_tests;
     mod syntax_tree_tests;
 }

@@ -1,5 +1,4 @@
 use crate::core::engine_core::{parser_engine::ParsingRuleSet, scanner_engine::CaseSensitivity, Engine, SyntaxKind};
-use crate::core::parser_core::syntax_tree::SyntaxFragmentBatch;
 use crate::core::scanner_core::{self, Scanner, ScannerAccess, ScannerError};
 use crate::core::parser_core::{self, error_recovery::{RecoveryEventDispatcher, RecoveryPenalty}, event_dispatcher::{ParseEvent, ParseEventDispatcher, ParseEventError}, incremental::EditScope, node_handler::{NodeBuildError, SyntaxTreeBuilder}, syntax_tree::SyntaxTree};
 
@@ -31,9 +30,9 @@ impl DefaultPasrser {
         }
     }
 
-    pub fn parse_incremental(&self, old_tree: &SyntaxTree, scope: EditScope) -> Result<Vec<SyntaxFragmentBatch>, parser_core::parser::ParseError> {
+    pub fn parse_incremental(&self, old_tree: &SyntaxTree, scopes: &[EditScope]) -> Result<SyntaxTree, parser_core::parser::ParseError> {
         let parser = parser_core::incremental::Parser::new(self.engine.clone(), self.config.clone());
-        parser.parse(old_tree, scope)
+        parser.parse(old_tree, scopes)
     }
 }
 

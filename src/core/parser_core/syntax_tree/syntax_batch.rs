@@ -270,17 +270,15 @@ fn new_root_metadata(kind: SyntaxKind, byte_offset: usize, char_offset: usize) -
 
 pub trait ApplyBatch {
     type Output;
-    fn apply_batches(&self, batches: Vec<SyntaxFragmentBatch>) -> Self::Output;
+    fn apply_batch(&self, batches: SyntaxFragmentBatch) -> Self::Output;
 }
 
-pub fn apply_batches<Batch>(
+pub fn apply_batch(
     root: &rowan::SyntaxNode<RowanLangageImpl>, 
     metadata_table: &MetadataTable, 
     engine: ParsingRuleSet, 
-    batches: Batch) -> SyntaxTree
-where Batch: IntoIterator<Item = SyntaxFragmentBatch>
+    batch: SyntaxFragmentBatch) -> SyntaxTree
 {
-    let Some(batch) = batches.into_iter().next() else { panic!("At least SyntaxFragmentBatch is needed") };
     let batch_range = batch.replace_from..(batch.replace_from + batch.replace_size);
 
     let (children, metadata_entries): (Vec<rowan::NodeOrToken<rowan::GreenNode, rowan::GreenToken>>, Vec<StatementMetadataEntry>) = 

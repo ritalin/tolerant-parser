@@ -42,7 +42,7 @@ impl SyntaxTree {
 impl ApplyBatch for SyntaxTree {
     type Output = SyntaxTree;
     
-    fn apply_batches(&self, batches: Vec<SyntaxFragmentBatch>) -> Self::Output {
-        super::syntax_batch::apply_batches(&self.root, &self.metadata_table, self.engine, batches)
+    fn apply_batch(&self, batch: SyntaxFragmentBatch) -> Self::Output {
+        super::syntax_batch::apply_batch(&self.root, &self.metadata_table, self.engine, batch)
     }
 }

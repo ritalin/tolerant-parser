@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use crate::core::engine_core::{self, parser_engine::ParsingRuleSet};
+use crate::core::parser_core::syntax_tree::ApplyBatch;
 use crate::core::scanner_core::StatementScannerView;
 use crate::core::parser_core::{self, event_dispatcher::ParseEventDispatcher, incremental::{edit_hint::SlotEvent, support::IncrementalParserStrategy}, node_handler::SyntaxTreeBuilder, parser::ParseError, syntax_tree::{FragmentNodeMetadataKey, MetadataAccess, SyntaxFragment, SyntaxFragmentBatch, SyntaxTree}, NodeMetadata, NodeMetadataKey, ParserConfig, PatchAction};
 
@@ -18,135 +19,147 @@ impl Parser {
         Self { engine, config }
     }
 
-    pub fn parse(&self, old_tree: &SyntaxTree, scope: EditScope) -> Result<Vec<SyntaxFragmentBatch>, parser_core::parser::ParseError> {
-        let prev_root = old_tree.root().clone();
-        let metadata_table = old_tree.metadata_table();
-        let eof_statement = old_tree.root().children().last();
+    pub fn parse(&self, old_tree: &SyntaxTree, scopes: &[EditScope]) -> Result<SyntaxTree, parser_core::parser::ParseError> {
+        let mut indexed_scopes = scopes.iter().enumerate().collect::<Vec<_>>();
+        
+        indexed_scopes.sort_by(|(i, lhs), (j, rhs)| {
+            lhs.start_char_offset
+            .cmp(&rhs.start_char_offset).reverse()
+            .then_with(|| i.cmp(&j))
+        });
 
         let emit_region = self.engine.parsing_rules.statement_emit_config();
+        let mut prev_tree = old_tree.clone();
 
-        let old_char_range = scope.old_char_range();
-        let edit_hint = edit_hint::EditHint::new(old_tree, old_char_range.clone());
-        // enumerate scanners except for over the new byte offset scope.
-        let scanners = edit_hint.reconcile_lookaheads(old_char_range, &scope.text, self.engine.scanning_rules.clone(), self.engine.parsing_rules, self.config.case_sensitive.clone())?;
-        let slots = edit_hint.eval_hint(scanners);
+        for (_, scope) in indexed_scopes {
+            let prev_root = prev_tree.root().clone();
+            let metadata_table = prev_tree.metadata_table();
+            let eof_statement = prev_tree.root().children().last();
 
-        // Determine first statement byte offset
-        let mut global_byte_offset = metadata_table.statement_metadata(Some(slots.replace_from)).global_offset.of_byte;
+            let old_char_range = scope.old_char_range();
+            let edit_hint = edit_hint::EditHint::new(&prev_tree, old_char_range.clone());
+            // enumerate scanners except for over the new byte offset scope.
+            let scanners = edit_hint.reconcile_lookaheads(old_char_range, &scope.text, self.engine.scanning_rules.clone(), self.engine.parsing_rules, self.config.case_sensitive.clone())?;
+            let slots = edit_hint.eval_hint(scanners);
 
-        let old_scope_range = slots.replace_byte_range.unwrap_or_else(|| prev_root.metadata_key().byte_range());
-        
-        let mut fragments = vec![];
-        let mut old_first_fragment_key = None;
+            // Determine first statement byte offset
+            let mut global_byte_offset = metadata_table.statement_metadata(Some(slots.replace_from)).global_offset.of_byte;
 
-        for event in &slots.events {
-            let (new_stmt, new_metadata_entry, new_node_key) = match event {
-                SlotEvent::Replacing {node: stmt, scanner: stmt_scanner } => {
-                    let old_stmt_range = stmt.metadata_key().byte_range();
-                    let stmt_edit_range = support::intersect_edit_range(&old_scope_range, &old_stmt_range);
+            let old_scope_range = slots.replace_byte_range.unwrap_or_else(|| prev_root.metadata_key().byte_range());
+            
+            let mut fragments = vec![];
+            let mut old_first_fragment_key = None;
 
-                    let gardener = support::TreeGardener::as_subtree(&stmt);
-                    // Find common anscestor
-                    let common_anscestor = match stmt.metadata().patch {
-                        PatchAction::None => {
-                            // No error in  the previous parsing
-                            gardener.common_anscestor(
-                                gardener.pick_token(stmt_edit_range.start), 
-                                gardener.pick_token(stmt_edit_range.end),
-                                emit_region.to_symbol
-                            )
-                            .expect("A metadata definitely must exist")
+            for event in &slots.events {
+                let (new_stmt, new_metadata_entry, new_node_key) = match event {
+                    SlotEvent::Replacing {node: stmt, scanner: stmt_scanner } => {
+                        let old_stmt_range = stmt.metadata_key().byte_range();
+                        let stmt_edit_range = support::intersect_edit_range(&old_scope_range, &old_stmt_range);
+
+                        let gardener = support::TreeGardener::as_subtree(&stmt);
+                        // Find common anscestor
+                        let common_anscestor = match stmt.metadata().patch {
+                            PatchAction::None => {
+                                // No error in  the previous parsing
+                                gardener.common_anscestor(
+                                    gardener.pick_token(stmt_edit_range.start), 
+                                    gardener.pick_token(stmt_edit_range.end),
+                                    emit_region.to_symbol
+                                )
+                                .expect("A metadata definitely must exist")
+                            }
+                            _ => {
+                                // Parse whole statement
+                                gardener.clone()
+                            }
+                        };
+
+                        // text_range is local coordicate because of clone_subtree()
+                        let mut range: std::ops::Range<usize> = common_anscestor.node.text_range().into();
+                        (range.start, range.end) = (range.start + global_byte_offset, range.end + global_byte_offset);
+                        
+                        let strategy = common_anscestor.pick_terminate_kind(stmt_scanner.scanner_type(), self.engine.parsing_rules);
+
+                        let scanner_view = stmt_scanner.as_view(range.start..);
+                        let old_metadata_map = common_anscestor.metadata_entry;
+                        let metadata = old_metadata_map.map
+                            .get(&&NodeMetadataKey::from_raw_node(&common_anscestor.node, self.engine.parsing_rules))
+                            .expect("All node have metadata")
+                        ;
+
+                        let (new_node, new_matadata_map) = parse_internal(scanner_view, &self.config, metadata.edit_state, strategy, self.engine.parsing_rules)?;
+                        let new_key = common_anscestor.new_node_key(&new_node, self.engine.parsing_rules);
+                        
+                        if old_first_fragment_key.is_none() {
+                            // If it's assigned, assigns the statement key as the first fragment key
+                            old_first_fragment_key = Some(FragmentNodeMetadataKey{
+                                key: NodeMetadataKey::from_raw_node(&common_anscestor.node, self.engine.parsing_rules),
+                                is_eof: false,
+                            });
                         }
-                        _ => {
-                            // Parse whole statement
-                            gardener.clone()
+
+                        let new_stmt = gardener.replace_with_new_node(new_node.clone(), &common_anscestor.node);
+                        let metadata_entry = support::merge_metadata_map(
+                            Some((common_anscestor.node, &old_metadata_map.map)),
+                            (&new_node, new_matadata_map),
+                            global_byte_offset, metadata.char_offset,
+                            self.engine.parsing_rules
+                        );
+
+                        (new_stmt, metadata_entry, new_key)
+                    }
+                    SlotEvent::Inserting { scanner: stmt_scanner } => {
+                        let scanner_view = stmt_scanner.as_view(std::ops::RangeFull);
+                        let strategy = IncrementalParserStrategy::default_strategy(self.engine.parsing_rules);
+
+                        let (new_stmt, new_matadata_map) = parse_internal(scanner_view, &self.config, 0, strategy, self.engine.parsing_rules)?;
+                        let new_key = NodeMetadataKey::from_green_node(&new_stmt, 0, self.engine.parsing_rules);
+
+                        if old_first_fragment_key.is_none() {
+                            // If it's assgned, assigns the following statement ( = EOF only statement) as the first fragment key
+                            old_first_fragment_key = eof_statement.as_ref().map(|el| {
+                                FragmentNodeMetadataKey{ key: el.metadata_key(), is_eof: true }
+                            });
                         }
-                    };
 
-                    // text_range is local coordicate because of clone_subtree()
-                    let mut range: std::ops::Range<usize> = common_anscestor.node.text_range().into();
-                    (range.start, range.end) = (range.start + global_byte_offset, range.end + global_byte_offset);
-                    
-                    let strategy = common_anscestor.pick_terminate_kind(stmt_scanner.scanner_type(), self.engine.parsing_rules);
+                        let metadata_entry = support::merge_metadata_map(
+                            None,
+                            (&new_stmt, new_matadata_map),
+                            global_byte_offset, // Because lookahead is contained global_byte_offset
+                            0, // Because always global_char_offset = 0 in the statement
+                            self.engine.parsing_rules
+                        );
 
-                    let scanner_view = stmt_scanner.as_view(range.start..);
-                    let old_metadata_map = common_anscestor.metadata_entry;
-                    let metadata = old_metadata_map.map
-                        .get(&&NodeMetadataKey::from_raw_node(&common_anscestor.node, self.engine.parsing_rules))
-                        .expect("All node have metadata")
-                    ;
-
-                    let (new_node, new_matadata_map) = parse_internal(scanner_view, &self.config, metadata.edit_state, strategy, self.engine.parsing_rules)?;
-                    let new_key = common_anscestor.new_node_key(&new_node, self.engine.parsing_rules);
-                    
-                    if old_first_fragment_key.is_none() {
-                        // If it's assigned, assigns the statement key as the first fragment key
-                        old_first_fragment_key = Some(FragmentNodeMetadataKey{
-                            key: NodeMetadataKey::from_raw_node(&common_anscestor.node, self.engine.parsing_rules),
-                            is_eof: false,
-                        });
+                        (new_stmt.clone(), metadata_entry, new_key)
                     }
-
-                    let new_stmt = gardener.replace_with_new_node(new_node.clone(), &common_anscestor.node);
-                    let metadata_entry = support::merge_metadata_map(
-                        Some((common_anscestor.node, &old_metadata_map.map)),
-                        (&new_node, new_matadata_map),
-                        global_byte_offset, metadata.char_offset,
-                        self.engine.parsing_rules
-                    );
-
-                    (new_stmt, metadata_entry, new_key)
-                }
-                SlotEvent::Inserting { scanner: stmt_scanner } => {
-                    let scanner_view = stmt_scanner.as_view(std::ops::RangeFull);
-                    let strategy = IncrementalParserStrategy::default_strategy(self.engine.parsing_rules);
-
-                    let (new_stmt, new_matadata_map) = parse_internal(scanner_view, &self.config, 0, strategy, self.engine.parsing_rules)?;
-                    let new_key = NodeMetadataKey::from_green_node(&new_stmt, 0, self.engine.parsing_rules);
-
-                    if old_first_fragment_key.is_none() {
-                        // If it's assgned, assigns the following statement ( = EOF only statement) as the first fragment key
-                        old_first_fragment_key = eof_statement.as_ref().map(|el| {
-                            FragmentNodeMetadataKey{ key: el.metadata_key(), is_eof: true }
-                        });
+                    SlotEvent::Deleting{ .. } => {
+                        // no parse action
+                        // Note that it does not consume iterator
+                        continue;
                     }
+                };
 
-                    let metadata_entry = support::merge_metadata_map(
-                        None,
-                        (&new_stmt, new_matadata_map),
-                        global_byte_offset, // Because lookahead is contained global_byte_offset
-                        0, // Because always global_char_offset = 0 in the statement
-                        self.engine.parsing_rules
-                    );
+                global_byte_offset += usize::from(new_stmt.text_len()); 
 
-                    (new_stmt.clone(), metadata_entry, new_key)
-                }
-                SlotEvent::Deleting{ .. } => {
-                    // no parse action
-                    // Note that it does not consume iterator
-                    continue;
-                }
+                fragments.push(SyntaxFragment::new(fragments.len(), new_stmt, new_metadata_entry, new_node_key))
+            }
+
+            let replace_size = slots.events.into_iter()
+                .filter(|slot| matches!(slot, SlotEvent::Replacing{..} | SlotEvent::Deleting{..}))
+                .count()
+            ;
+
+            let batch = SyntaxFragmentBatch{
+                fragments,
+                replace_from: slots.replace_from,
+                replace_size,
+                old_first_fragment_key,
+                engine: self.engine.parsing_rules,
             };
-
-            global_byte_offset += usize::from(new_stmt.text_len()); 
-
-            fragments.push(SyntaxFragment::new(fragments.len(), new_stmt, new_metadata_entry, new_node_key))
+            prev_tree = prev_tree.apply_batch(batch);
         }
 
-        let replace_size = slots.events.into_iter()
-            .filter(|slot| matches!(slot, SlotEvent::Replacing{..} | SlotEvent::Deleting{..}))
-            .count()
-        ;
-
-        let batch = SyntaxFragmentBatch{
-            fragments,
-            replace_from: slots.replace_from,
-            replace_size,
-            old_first_fragment_key,
-            engine: self.engine.parsing_rules,
-        };
-
-        Ok(vec![batch])
+        Ok(prev_tree)
     }
 }
 
