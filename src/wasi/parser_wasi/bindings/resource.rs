@@ -33,6 +33,10 @@ impl parsers::GuestParser for ParserImpl {
         let batches = self.inner.parse_incremental(&old_tree, scopes.first().unwrap().clone()).expect("Failed to incremental parse");
         SyntaxTreeImpl::from_raw(old_tree.apply_batches(batches))
     }
+    
+    fn api_version(&self,) -> String {
+        env!("CARGO_PKG_VERSION").to_string()
+    }
 }
 
 pub struct SyntaxTreeImpl {

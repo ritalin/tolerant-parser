@@ -1,8 +1,10 @@
-package ritalin:parser@0.1.0;
+package ritalin:parser@0.3.1;
 
 interface parsers {
     // create new parser instance
     create: func() -> parser;
+    // show parser product version
+    version: func() -> string;
 
     use syntaxes.{syntax-tree};
     use errors.{parse-error};
@@ -10,8 +12,10 @@ interface parsers {
     resource parser {
         // execute to parse souce content
         parse: func(source: string) -> syntax-tree;
-
+        // execute incremental parsing with diffs
         parse-incremental: func(tree: syntax-tree, scopes: list<edit-scope>) -> syntax-tree;
+        // show parser API version
+        api-version: func() -> string;
     }
 
     record edit-scope {

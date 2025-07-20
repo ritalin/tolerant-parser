@@ -179,13 +179,13 @@ pub mod exports {
 
         #[doc(hidden)]
 
-        macro_rules! __export_ritalin_parser_types_0_1_0_cabi{
+        macro_rules! __export_ritalin_parser_types_0_3_0_cabi{
           ($ty:ident with_types_in $($path_to_types:tt)*) => (const _: () = {
 
           };);
         }
         #[doc(hidden)]
-        pub(crate) use __export_ritalin_parser_types_0_1_0_cabi;
+        pub(crate) use __export_ritalin_parser_types_0_3_0_cabi;
 
       }
 
@@ -220,14 +220,14 @@ mod _rt {
 macro_rules! __export_types_world_impl {
   ($ty:ident) => (crate::wasi::parser_wasi::bindings::types_world::export!($ty with_types_in crate::wasi::parser_wasi::bindings::types_world););
   ($ty:ident with_types_in $($path_to_types_root:tt)*) => (
-  $($path_to_types_root)*::exports::ritalin::parser::types::__export_ritalin_parser_types_0_1_0_cabi!($ty with_types_in $($path_to_types_root)*::exports::ritalin::parser::types);
+  $($path_to_types_root)*::exports::ritalin::parser::types::__export_ritalin_parser_types_0_3_0_cabi!($ty with_types_in $($path_to_types_root)*::exports::ritalin::parser::types);
   )
 }
 #[doc(inline)]
 pub(crate) use __export_types_world_impl as export;
 
 #[cfg(target_arch = "wasm32")]
-#[unsafe(link_section = "component-type:wit-bindgen:0.42.1:ritalin:parser@0.1.0:types-world:encoded world")]
+#[unsafe(link_section = "component-type:wit-bindgen:0.42.1:ritalin:parser@0.3.0:types-world:encoded world")]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
 pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 424] = *b"\
@@ -236,8 +236,8 @@ A\x02\x01B\x08\x01m\x04\x07keyword\x0bnon-keyword\x07pattern\x0cnon-terminal\x04
 \0\x0csymbol-group\x03\0\0\x01r\x02\x04names\x05group\x01\x04\0\x0bsyntax-kind\x03\
 \0\x02\x01m\x05\x04node\x09token-set\x0eleading-trivia\x0atoken-item\x0ftrailing\
 -trivia\x04\0\x09node-type\x03\0\x04\x01m\x04\x04none\x06delete\x05shift\x07inva\
-lid\x04\0\x0cpatch-action\x03\0\x06\x04\0\x1aritalin:parser/types@0.1.0\x05\0\x04\
-\0\x20ritalin:parser/types-world@0.1.0\x04\0\x0b\x11\x01\0\x0btypes-world\x03\0\0\
+lid\x04\0\x0cpatch-action\x03\0\x06\x04\0\x1aritalin:parser/types@0.3.0\x05\0\x04\
+\0\x20ritalin:parser/types-world@0.3.0\x04\0\x0b\x11\x01\0\x0btypes-world\x03\0\0\
 \0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.234.0\x10wit-bind\
 gen-rust\x060.42.1";
 

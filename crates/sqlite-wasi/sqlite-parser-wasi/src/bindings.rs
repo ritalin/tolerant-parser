@@ -17,6 +17,10 @@ impl parser_wasi::bindings::parsers::Guest for ParserComponent {
 
         parser_wasi::bindings::parsers::Parser::new(ParserImpl::new(engine, config))
     }
+    
+    fn version() -> String {
+        env!("CARGO_PKG_VERSION").to_string()
+    }
 }
 
 tolerant_parser_sdk::export_parser!(ParserComponent);
