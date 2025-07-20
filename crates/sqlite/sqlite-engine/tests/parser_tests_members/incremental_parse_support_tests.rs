@@ -29,7 +29,6 @@ mod expand_region_tests {
         let scope = EditScope {
             start_char_offset: 11,
             old_char_len: 23,
-            new_char_len: 5,
             text: "Hello".into()
         };
 
@@ -49,7 +48,6 @@ mod expand_region_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 27,
-            new_char_len: 27,
             text: source.to_string(),
         };
         let new_scope = extend_to_neighbors(scope.old_char_range(), Some(&tree.root()), syntax_kind::SEMI);
@@ -68,7 +66,6 @@ mod expand_region_tests {
         let scope = EditScope{
             start_char_offset: 7,
             old_char_len: 33,
-            new_char_len: 28,
             text: "42;SELECT 101 FROM foo u;SEL".into(),
         };
         let new_scope = extend_to_neighbors(
@@ -91,7 +88,6 @@ mod expand_region_tests {
         let scope = EditScope{
             start_char_offset: 45, // DOT
             old_char_len: 4,
-            new_char_len: 3,
             text: ".ab".into(),
         };
         let new_scope = extend_to_neighbors(
@@ -115,7 +111,6 @@ mod expand_region_tests {
         let scope = EditScope{
             start_char_offset: 32,
             old_char_len: 10,
-            new_char_len: 13,
             text: "ooooo u;SELEC".into(),
         };
 
@@ -157,7 +152,6 @@ mod edit_hint_init_tests {
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 18,
-            new_char_len: 18,
             text: "SELECT 4;SELECT 5;".into(),
         };
 
@@ -181,7 +175,6 @@ mod edit_hint_init_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
-            new_char_len: 10,
             text: "SELECT 42;".into(),
         };
 
@@ -205,7 +198,6 @@ mod edit_hint_init_tests {
         let scope = EditScope{
             start_char_offset: 18,
             old_char_len: 0,
-            new_char_len: 9,
             text: "SELECT 3;".into(),
         };
 
@@ -229,7 +221,6 @@ mod edit_hint_init_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
-            new_char_len: 22,
             text: "SELECT 0;".into(),
         };
 
@@ -253,7 +244,6 @@ mod edit_hint_init_tests {
         let scope = EditScope{
             start_char_offset: 18,
             old_char_len: 0,
-            new_char_len: 10,
             text: "SELECT 42;".into(),
         };
 
@@ -282,7 +272,6 @@ mod edit_hint_reconcile_tests {
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 0,
-            new_char_len: 9,
             text: "SELECT 2;".into(),
         };
 
@@ -428,7 +417,6 @@ mod edit_hint_reconcile_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
-            new_char_len: 9,
             text: "SELECT 0;".into(),
         };
 
@@ -573,7 +561,6 @@ mod edit_hint_reconcile_tests {
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 18,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -671,7 +658,6 @@ mod edit_hint_reconcile_tests {
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 0,
-            new_char_len: 1,
             text: "2".into(),
         };
 
@@ -757,7 +743,6 @@ mod edit_hint_reconcile_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
-            new_char_len: 1,
             text: "S".into(),
         };
 
@@ -843,7 +828,6 @@ mod edit_hint_reconcile_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
-            new_char_len: 13,
             text: "/* comment */".into(),
         };
 
@@ -895,7 +879,6 @@ mod edit_hint_reconcile_tests {
         let scope = EditScope{
             start_char_offset: 1,
             old_char_len: 0,
-            new_char_len: 1,
             text: "\n".into(),
         };
 
@@ -947,7 +930,6 @@ mod edit_hint_reconcile_tests {
         let scope = EditScope{
             start_char_offset: 3,
             old_char_len: 0,
-            new_char_len: 1,
             text: "E".into(),
         };
 
@@ -1048,7 +1030,6 @@ mod edit_hint_reconcile_tests {
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 17,
-            new_char_len: 1,
             text: "2".into(),
         };
 
@@ -1146,7 +1127,6 @@ mod edit_hint_reconcile_tests {
         let scope = EditScope{
             start_char_offset: 23,
             old_char_len: 2,
-            new_char_len: 14,
             text: "/* ASを取り除いた */".into(),
         };
 
@@ -1265,7 +1245,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 0,
-            new_char_len: 9,
             text: "SELECT 2;".into(),
         };
 
@@ -1291,7 +1270,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 0,
-            new_char_len: 18,
             text: "SELECT 2;SELECT 3;".into(),
         };
 
@@ -1317,7 +1295,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 0,
-            new_char_len: 1,
             text: "6".into(),
         };
 
@@ -1343,7 +1320,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 0,
-            new_char_len: 1,
             text: ";".into(),
         };
 
@@ -1369,7 +1345,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 0,
-            new_char_len: 1,
             text: "\n".into(),
         };
 
@@ -1395,7 +1370,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 0,
-            new_char_len: 1,
             text: "\n".into(),
         };
 
@@ -1421,7 +1395,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 0,
-            new_char_len: 13,
             text: "/* comment */".into(),
         };
 
@@ -1447,7 +1420,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 1,
             old_char_len: 0,
-            new_char_len: 1,
             text: "\n".into(),
         };
 
@@ -1474,7 +1446,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 1,
             old_char_len: 1,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -1501,7 +1472,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 11,
             old_char_len: 0,
-            new_char_len: 1,
             text: "-".into(),
         };
 
@@ -1528,7 +1498,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 20,
             old_char_len: 0,
-            new_char_len: 1,
             text: "-".into(),
         };
 
@@ -1554,7 +1523,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 0,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -1579,7 +1547,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
-            new_char_len: 9,
             text: "SELECT 0;".into(),
         };
 
@@ -1604,7 +1571,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
-            new_char_len: 19,
             text: "SELECT -1;SELECT 0;".into(),
         };
 
@@ -1628,7 +1594,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
-            new_char_len: 1,
             text: "\n".into(),
         };
 
@@ -1653,7 +1618,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
-            new_char_len: 22,
             text: "WITH v AS (SELECT 42) ".into(),
         };
 
@@ -1678,7 +1642,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
-            new_char_len: 33,
             text: "SELECT 'a';SELECT 'b';WITH v AS (SELECT 42) ".into(),
         };
 
@@ -1703,7 +1666,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -1728,7 +1690,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 18,
             old_char_len: 0,
-            new_char_len: 22,
             text: "SELECT 'a';SELECT 'b';".into(),
         };
 
@@ -1753,7 +1714,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 18,
             old_char_len: 0,
-            new_char_len: 1,
             text: "\n".into(),
         };
 
@@ -1778,7 +1738,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 18,
             old_char_len: 0,
-            new_char_len: 16,
             text: "/* (comment) */ ".into(),
         };
 
@@ -1803,7 +1762,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 18,
             old_char_len: 0,
-            new_char_len: 22,
             text: "WITH v AS (SELECT 42) ".into(),
         };
 
@@ -1828,7 +1786,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 0,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -1853,7 +1810,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 3,
             old_char_len: 0,
-            new_char_len: 1,
             text: "E".into(),
         };
 
@@ -1878,7 +1834,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 16,
             old_char_len: 1,
-            new_char_len: 2,
             text: "33".into(),
         };
 
@@ -1903,7 +1858,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 16,
             old_char_len: 18,
-            new_char_len: 21,
             text: "42;SELECT 43;SELECT 4".into(),
         };
 
@@ -1928,7 +1882,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 0,
-            new_char_len: 17,
             text: ";SELECT 3;SELECT ".into(),
         };
 
@@ -1953,7 +1906,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 8,
             old_char_len: 17,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -1978,7 +1930,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 2,
-            new_char_len: 17,
             text: "AS y; SELECT 2 AS".into(),
         };
 
@@ -2003,7 +1954,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 10,
             old_char_len: 20,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -2028,7 +1978,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 10,
             old_char_len: 19,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -2053,7 +2002,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 23,
             old_char_len: 30,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -2078,7 +2026,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 26,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -2103,7 +2050,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 1,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -2129,7 +2075,6 @@ mod edit_hint_eval_tests {
         let scope = EditScope{
             start_char_offset: 11,
             old_char_len: 3,
-            new_char_len: 0,
             text: "".into(),
         };
 

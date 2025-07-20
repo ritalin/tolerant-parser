@@ -182,7 +182,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 10,
             old_char_len: 0,
-            new_char_len: 3,
             text: "AS ".into(),
         };
 
@@ -213,7 +212,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 10,
             old_char_len: 3,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -244,7 +242,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 7,
             old_char_len: 14,
-            new_char_len: 14,
             text: "42; SELECT p, ".into(),
         };
 
@@ -275,7 +272,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 13,
             old_char_len: 0,
-            new_char_len: 24,
             text: " SELECT 42 x FROM foo u;".into(),
         };
 
@@ -306,7 +302,6 @@ mod parser_tests {
     //     let scope = EditScope{
     //         start_char_offset: 0,
     //         old_char_len: 0,
-    //         new_char_len: 24,
     //     };
 
     //     let new_tree = parser.parse_incremental(&tree, &[scope])?;
@@ -336,7 +331,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 23,
             old_char_len: 2,
-            new_char_len: 14,
             text: "/* ASを取り除いた */".into(),
         };
 
@@ -367,7 +361,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 23,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -398,7 +391,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
-            new_char_len: 26,
             text: "SELECT 42 AS x FROM foo u;".into(),
         };
 
@@ -429,7 +421,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 18,
-            new_char_len: 20,
             text: "SELECT 11;SELECT 22;".into(),
         };
 
@@ -460,7 +451,6 @@ mod parser_tests {
     //     let scope = EditScope{
     //         start_char_offset: 9,
     //         old_char_len: 2,
-    //         new_char_len: 17,
     //     };
 
     //     let new_tree = parser.parse_incremental(&tree, &[scope])?;
@@ -487,7 +477,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 1,
             old_char_len: 0,
-            new_char_len: 1,
             text: "E".into(),
         };
 
@@ -515,7 +504,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 1,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -543,7 +531,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 0,
-            new_char_len: 1,
             text: "S".into(),
         };
 
@@ -571,7 +558,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 0,
-            new_char_len: 1,
             text: ";".into(),
         };
 
@@ -599,7 +585,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 0,
-            new_char_len: 75,
             text: "/* Answer to the Ultimate Question of Life, the Universe, and Everything */".into(),
         };
 
@@ -627,7 +612,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 9,
             old_char_len: 1,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -655,7 +639,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 9,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -683,7 +666,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 9,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -711,7 +693,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 13,
             old_char_len: 10,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -739,7 +720,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 10,
             old_char_len: 20,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -767,7 +747,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 10,
             old_char_len: 19,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -795,7 +774,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 23,
             old_char_len: 19,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -823,7 +801,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 20,
             old_char_len: 20,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -851,7 +828,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 20,
             old_char_len: 19,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -879,7 +855,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 23,
             old_char_len: 30,
-            new_char_len: 0,
             text: "".into(),
         };
 
@@ -907,7 +882,6 @@ mod parser_tests {
     //     let scope = EditScope{
     //         start_char_offset: 7,
     //         old_char_len: 0,
-    //         new_char_len: 2,
     //     };
 
     //     let new_tree = parser.parse_incremental(&tree, &[scope])?;
@@ -934,7 +908,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 0,
             old_char_len: 10,
-            new_char_len: 18,
             text: "SELECT 42 AS  FRO;".into(),
         };
 
@@ -962,7 +935,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 17,
             old_char_len: 0,
-            new_char_len: 1,
             text: "3".into(),
         };
 
@@ -990,7 +962,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 10,
             old_char_len: 0,
-            new_char_len: 1,
             text: "\n".into(),
         };
 
@@ -1018,7 +989,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 1,
             old_char_len: 0,
-            new_char_len: 1,
             text: "S".into(),
         };
 
@@ -1046,7 +1016,6 @@ mod parser_tests {
         let scope = EditScope{
             start_char_offset: 4,
             old_char_len: 1,
-            new_char_len: 0,
             text: "".into(),
         };
 

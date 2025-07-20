@@ -169,8 +169,6 @@ pub struct EditScope {
     pub start_char_offset: usize,
     /// old editing length (UTF-16 char units)
     pub old_char_len: usize,
-    /// new editing length (UTF-16 char units)
-    pub new_char_len: usize,
     /// new editing text
     pub text: String,
 }
@@ -181,7 +179,6 @@ impl EditScope {
         Self {
             start_char_offset: offset,
             old_char_len: self.old_char_len + offset - self.start_char_offset,
-            new_char_len: self.new_char_len + offset - self.start_char_offset,
             text: self.text.clone(),
         }
     }
@@ -191,7 +188,7 @@ impl EditScope {
     }
 
     pub fn new_char_range(&self) -> std::ops::Range<usize> {
-        std::ops::Range { start: self.start_char_offset, end: self.start_char_offset + self.new_char_len }
+        std::ops::Range { start: self.start_char_offset, end: self.start_char_offset + self.text.chars().count() }
     }
 }
 
