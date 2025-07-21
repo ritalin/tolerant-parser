@@ -1226,6 +1226,103 @@ mod edit_hint_reconcile_tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_prefend_before_last_new_line() -> Result<(), anyhow::Error> {
+        let source = "\n";
+
+        let engine = sqlite_engine::create()?;
+        let config = ParserConfig{ mode: ParseMode::ByStatement, penalty: RecoveryPenalty::default(), case_sensitive: CaseSensitivity::Insensitive };
+        let parser = Parser::new(engine.clone(), config.clone());
+        let tree = parser.parse(source)?;
+
+        let scope = EditScope{
+            start_char_offset: 1,
+            old_char_len: 0,
+            text: "SELECT 2;".into(),
+        };
+
+        let hint = EditHint::new(&tree, scope.old_char_range());
+        let mut scanners = hint.reconcile_lookaheads(scope.old_char_range(), &scope.text, engine.scanning_rules, engine.parsing_rules, config.case_sensitive)?;
+
+        'scanner: {
+            let scanner = scanners.next();
+            assert_eq!(true, scanner.is_some());
+
+            let scanner = scanner.unwrap();
+            assert_eq!(StatementScannerType::Statement, scanner.scanner_type());
+            assert_eq!(0..10, scanner.scan_range());
+
+            let mut scanner_view = scanner.as_view(..);
+            'lookahead: {
+                let Some(lookahead) = scanner_view.shift() else { unreachable!() };
+                let expect_lookahead = Token{
+                    leading_trivia: Some(vec![ScanEvent{ kind: syntax_kind::SPACE, offset: 0, len: 1, value: Some("\n".into()) }]),
+                    main: ScanEvent{ kind: syntax_kind::SELECT, offset: 1, len: 6, value: Some("SELECT".into()) },
+                    trailing_trivia: Some(vec![ScanEvent{ kind: syntax_kind::SPACE, offset: 7, len: 1, value: Some(" ".into()) }]),
+                };
+                assert_eq!(expect_lookahead.leading_trivia, lookahead.leading_trivia);
+                assert_eq!(expect_lookahead.main, lookahead.main);
+                assert_eq!(expect_lookahead.trailing_trivia, lookahead.trailing_trivia);
+                break 'lookahead;
+            }
+            'lookahead: {
+                let Some(lookahead) = scanner_view.shift() else { unreachable!() };
+                let expect_lookahead = Token{
+                    leading_trivia: None,
+                    main: ScanEvent{ kind: syntax_kind::INTEGER, offset: 8, len: 1, value: Some("2".into()) },
+                    trailing_trivia: None,
+                };
+                assert_eq!(expect_lookahead.leading_trivia, lookahead.leading_trivia);
+                assert_eq!(expect_lookahead.main, lookahead.main);
+                assert_eq!(expect_lookahead.trailing_trivia, lookahead.trailing_trivia);
+                break 'lookahead;
+            }
+            'lookahead: {
+                let Some(lookahead) = scanner_view.shift() else { unreachable!() };
+                let expect_lookahead = Token{
+                    leading_trivia: None,
+                    main: ScanEvent{ kind: syntax_kind::SEMI, offset: 9, len: 1, value: Some(";".into()) },
+                    trailing_trivia: None,
+                };
+                assert_eq!(expect_lookahead.leading_trivia, lookahead.leading_trivia);
+                assert_eq!(expect_lookahead.main, lookahead.main);
+                assert_eq!(expect_lookahead.trailing_trivia, lookahead.trailing_trivia);
+                break 'lookahead;
+            }
+            break 'scanner;
+        }
+        'scanner: {
+            let scanner = scanners.next();
+            assert_eq!(true, scanner.is_some());
+
+            let scanner = scanner.unwrap();
+            assert_eq!(StatementScannerType::Eof, scanner.scanner_type());
+            assert_eq!(10..10, scanner.scan_range());
+
+            let mut scanner_view = scanner.as_view(..);
+            'lookahead: {
+                let Some(lookahead) = scanner_view.shift() else { unreachable!() };
+                let expect_lookahead = Token{
+                    leading_trivia: None,
+                    main: ScanEvent{ kind: syntax_kind::EOF, offset: 10, len: 0, value: None },
+                    trailing_trivia: None,
+                };
+                assert_eq!(expect_lookahead.leading_trivia, lookahead.leading_trivia);
+                assert_eq!(expect_lookahead.main, lookahead.main);
+                assert_eq!(expect_lookahead.trailing_trivia, lookahead.trailing_trivia);
+                break 'lookahead;
+            }
+            break 'scanner;
+        }
+        'scanner: {
+            let scanner = scanners.next();
+            assert_eq!(false, scanner.is_some());
+            break 'scanner;
+        }
+
+        Ok(())
+    }
 }
 
 mod edit_hint_eval_tests {
