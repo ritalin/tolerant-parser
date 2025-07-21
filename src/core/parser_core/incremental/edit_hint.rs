@@ -217,9 +217,9 @@ impl EditHint {
             let mut scanner = Scanner::create_without_scan(&buf, 0, scan_engine.clone(), ScannerConfig{ case_sensitive, offset_with: start_offset})?;
             let full_emit_kind = full_emit_region.to_symbol;
             let dirty_lookaheads = scanner.prefetch_iter(full_emit_kind)
-                .filter(|x| match (x.main.kind == full_emit_kind, x.leading_trivia.as_ref()) {
-                    (true, None) => false,
-                    _ => true
+                .filter(|x| {
+                    if (x.main.kind != full_emit_kind) || x.leading_trivia.is_some() { return true }
+                    (followings.len() == 1) && tail_token_sets.back().is_none()
                 })
                 .cloned()
             ;
@@ -235,7 +235,7 @@ impl EditHint {
         'tail_clean_lookaheads: {
             // Resolve tail clean lookaheads
             if lookaheads.back().iter().any(|x| x.main.kind == full_emit_region.to_symbol) {
-                // Brcause EOF token is dirty, it aloready was pushed.
+                // Because EOF token is dirty, it aloready was pushed.
                 // So tail clean token is not precessed.
                 break 'tail_clean_lookaheads;
             }
