@@ -30,8 +30,16 @@ impl DefaultPasrser {
         }
     }
 
-    pub fn incremental(&self, old_tree: &SyntaxTree, scope: EditScope) -> parser_core::incremental::Parser {
-        parser_core::incremental::Parser::new(old_tree, scope, self.engine.clone(), self.config.clone())
+    /// Parse incrementally.
+    /// 
+    /// # Remarks
+    /// 
+    /// Having multiple edits at the same offset results in undefined behavior.
+    /// To ensure consistency, avoid overlapping edits within a single transaction.
+    /// 
+    pub fn parse_incremental(&self, old_tree: &SyntaxTree, scopes: Vec<EditScope>) -> Result<SyntaxTree, parser_core::parser::ParseError> {
+        let parser = parser_core::incremental::Parser::new(self.engine.clone(), self.config.clone());
+        parser.parse(old_tree, scopes)
     }
 }
 

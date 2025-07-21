@@ -3,14 +3,14 @@ use tolerant_parser_sdk::core::engine_core::scanner_engine::{AcceptableRegexSet,
 
 #[cfg(test)]
 mod default_scanner_engine_tests {
-    use tolerant_parser_sdk::core::engine_core::{scanner_engine::{AcceptableRegexSet}, Engine};
+    use tolerant_parser_sdk::core::{engine_core::{scanner_engine::AcceptableRegexSet, Engine}};
     use super::*;
 
     #[test]
     fn test_by_lexme() -> Result<(), anyhow::Error> {
         let source = "FROM";
         let engine = Engine::default().scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive, 0);
 
         assert_eq!(None, dispatcher.next_lexme());
         Ok(())
@@ -20,7 +20,7 @@ mod default_scanner_engine_tests {
     fn test_by_regex() -> Result<(), anyhow::Error> {
         let source = "qwerty";
         let engine = Engine::default().scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive, 0);
 
         assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Main));
         Ok(())
@@ -37,7 +37,7 @@ mod scan_by_lexme_tests {
     fn test_accepted() -> Result<(), anyhow::Error> {
         let source = "FROM foo";
         let engine = sqlite_engine::create()?;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive, 0);
         
         let expect_event = ScanEvent {
             offset:0, len:4, value: Some("FROM".into()), kind: syntax_kind::r#FROM
@@ -53,7 +53,7 @@ mod scan_by_lexme_tests {
     fn test_rejected() -> Result<(), anyhow::Error> {
         let source = "qwerty";
         let engine = sqlite_engine::create()?.scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive, 0);
         assert_eq!(None, dispatcher.next_lexme());
         Ok(())
     }
@@ -62,7 +62,7 @@ mod scan_by_lexme_tests {
     fn test_empty_source() -> Result<(), anyhow::Error> {
         let source = "";
         let engine = sqlite_engine::create()?.scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive, 0);
 
         let expect_event = ScanEvent {
             offset:0, len:0, value: None, kind: syntax_kind::r#EOF
@@ -76,7 +76,7 @@ mod scan_by_lexme_tests {
     fn test_overflow_offset() -> Result<(), anyhow::Error> {
         let source = "";
         let engine = sqlite_engine::create()?.scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 1, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 1, engine, CaseSensitivity::Insensitive, 0);
 
         assert_eq!(None, dispatcher.next_lexme());
         Ok(())
@@ -86,7 +86,7 @@ mod scan_by_lexme_tests {
     fn test_short_match_all() -> Result<(), anyhow::Error> {
         let source = "INSERTORREPLACEINTO";
         let engine = sqlite_engine::create()?.scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive, 0);
 
         let expect_event_1 = ScanEvent {
             offset:0, len:6, value: Some("INSERT".into()), kind: syntax_kind::r#INSERT
@@ -124,7 +124,7 @@ mod scan_by_regex_tests {
     fn test_accepted() -> Result<(), anyhow::Error> {
         let source = "FROM foo";
         let engine = sqlite_engine::create()?;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive, 0);
 
         let expect_event = ScanEvent {
             offset:0, len:4, value: Some("FROM".into()), kind: syntax_kind::r#ID
@@ -137,7 +137,7 @@ mod scan_by_regex_tests {
     fn test_rejected() -> Result<(), anyhow::Error> {
         let source = "FROM foo";
         let engine = sqlite_engine::create()?;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine.scanning_rules, CaseSensitivity::Insensitive, 0);
         assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Leading));
         Ok(())
     }
@@ -146,7 +146,7 @@ mod scan_by_regex_tests {
     fn test_empty_source() -> Result<(), anyhow::Error> {
         let source = "";
         let engine = sqlite_engine::create()?.scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive, 0);
 
         let expect_event = ScanEvent {
             offset:0, len:0, value: None, kind: syntax_kind::r#EOF
@@ -160,7 +160,7 @@ mod scan_by_regex_tests {
     fn test_empty_source_for_main_token() -> Result<(), anyhow::Error> {
         let source = "";
         let engine = sqlite_engine::create()?.scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive, 0);
 
         let expect_event = ScanEvent {
             offset:0, len:0, value: None, kind: syntax_kind::r#EOF
@@ -174,7 +174,7 @@ mod scan_by_regex_tests {
     fn test_empty_source_trivia() -> Result<(), anyhow::Error> {
         let source = "";
         let engine = sqlite_engine::create()?.scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive, 0);
 
         assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Leading));
         assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Trailing));
@@ -185,7 +185,7 @@ mod scan_by_regex_tests {
     fn test_overflow_offset() -> Result<(), anyhow::Error> {
         let source = "";
         let engine = sqlite_engine::create()?.scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 1, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 1, engine, CaseSensitivity::Insensitive, 0);
 
         assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Leading));
         assert_eq!(None, dispatcher.next_regex(&AcceptableRegexSet::Main));
@@ -197,7 +197,7 @@ mod scan_by_regex_tests {
     fn test_match_all() -> Result<(), anyhow::Error> {
         let source = "INSERTORREPLACEINTO";
         let engine = sqlite_engine::create()?.scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive, 0);
 
         let expect_event_1 = ScanEvent {
             offset:0, len:19, value: Some("INSERTORREPLACEINTO".into()), kind: syntax_kind::r#ID
@@ -223,7 +223,7 @@ mod scan_greedy_tests {
     fn test_rejected() -> Result<(), anyhow::Error> {
         let source = "$$";
         let engine = sqlite_engine::create()?.scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive, 0);
         assert_eq!(None, dispatcher.next(&AcceptableRegexSet::Leading));
         Ok(())
     }
@@ -232,7 +232,7 @@ mod scan_greedy_tests {
     fn test_empty_source() -> Result<(), anyhow::Error> {
         let source = "";
         let engine = sqlite_engine::create()?.scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive, 0);
 
         let expect_event = ScanEvent {
             offset:0, len:0, value: None, kind: syntax_kind::r#EOF
@@ -246,7 +246,7 @@ mod scan_greedy_tests {
     fn test_empty_source_trivia() -> Result<(), anyhow::Error> {
         let source = "";
         let engine = sqlite_engine::create()?.scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive, 0);
 
         assert_eq!(None, dispatcher.next(&AcceptableRegexSet::Leading));
         assert_eq!(None, dispatcher.next(&AcceptableRegexSet::Trailing));
@@ -257,7 +257,7 @@ mod scan_greedy_tests {
     fn test_overflow_offset() -> Result<(), anyhow::Error> {
         let source = "";
         let engine = sqlite_engine::create()?.scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 1, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 1, engine, CaseSensitivity::Insensitive, 0);
 
         assert_eq!(None, dispatcher.next(&AcceptableRegexSet::Main));
         Ok(())
@@ -267,7 +267,7 @@ mod scan_greedy_tests {
     fn test_match_all() -> Result<(), anyhow::Error> {
         let source = "INSERTORREPLACEINTO";
         let engine = sqlite_engine::create()?.scanning_rules;
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive, 0);
 
         let expect_event_1 = ScanEvent {
             offset:0, len:19, value: Some("INSERTORREPLACEINTO".into()), kind: syntax_kind::r#ID

@@ -779,7 +779,7 @@ dependencies = [
 
 [[package]]
 name = "sqlite-engine"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "phf",
@@ -790,7 +790,7 @@ dependencies = [
 
 [[package]]
 name = "sqlite-parser-wasi"
-version = "0.1.0"
+version = "0.4.1"
 dependencies = [
  "sqlite-engine",
  "tolerant-parser-sdk",
@@ -865,7 +865,7 @@ dependencies = [
 
 [[package]]
 name = "tolerant-parser-sdk"
-version = "0.1.0"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "cactus",

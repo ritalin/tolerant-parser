@@ -1,5 +1,8 @@
-use crate::core::scanner_core::{iter::{StatementScanner, StatementScannerType}, ScannerAccess};
+use std::collections::VecDeque;
+
+use crate::core::{engine_core::{parser_engine::ParsingRuleSet, scanner_engine::{CaseSensitivity, ScanningRuleSet}}, scanner_core::{iter::{CachedStatementScannerIterator, StatementScanner, StatementScannerType}, Scanner, ScannerAccess, ScannerConfig}};
 use crate::core::parser_core::{self, incremental::support, syntax_tree::{MetadataAccess, NodeOperation, SyntaxElement, SyntaxNode, SyntaxTree}};
+use super::extract_lookahead;
 
 /// Contains information about the edit region and its surrounding statements.
 ///
@@ -108,8 +111,8 @@ impl EditHint {
         Self { statements, precedings, followings }
     }
 
-    pub fn eval_hint(&self, scanners: Vec<StatementScanner>, new_edit_byte_range: std::ops::Range<usize>) -> EditHintSlots {
-        let scanners = extend_statement_scanners(scanners, &new_edit_byte_range);
+    pub fn eval_hint(&self, scanners: impl Iterator<Item = StatementScanner>) -> EditHintSlots {
+        let scanners = scanners.collect::<Vec<_>>();
         let preceding_len = self.precedings.iter().flatten().count();
         let following_len = self.followings.iter().flatten().count();
 
@@ -117,7 +120,6 @@ impl EditHint {
             EvalState::ForwardScan{ head_anchor: index, tail_anchor: tail_index, tail_window_size } => {
                 let tail_window_size = if self.statements.is_empty() && (following_len != tail_window_size) { following_len } else { tail_window_size };
                 let scanner_start = preceding_len - index;
-                // let scanner_end = scanners.len() - (following_len - tail_index.unwrap_or_default());
                 let scanner_end = scanners.len() - tail_index.map(|i| tail_window_size - i).unwrap_or_default();
                 
                 let statements = eval_hint_internal(
@@ -169,6 +171,84 @@ impl EditHint {
             replace_byte_range: replace_from_range,
         }
     }
+    
+    pub fn reconcile_lookaheads(
+        &self, 
+        old_char_range: std::ops::Range<usize>, text: &str, 
+        scan_engine: ScanningRuleSet, parse_engine: ParsingRuleSet, 
+        case_sensitive: CaseSensitivity) -> Result<impl Iterator<Item = StatementScanner>, super::ParseError> 
+    {
+        let mut lookaheads = VecDeque::with_capacity(32);
+
+        let precedings = self.precedings.iter().flatten().cloned().collect::<Vec<_>>();
+        let followings = self.followings.iter().flatten().cloned().collect::<Vec<_>>();
+        
+        let full_emit_region = parse_engine.full_emit_config();
+        let emit_region = parse_engine.statement_emit_config();
+
+        'head_clean_lookaheads: {
+            // Resolve head clean lookaheads 
+            if let Some(token_sets) = extract_lookahead::pick_clean_head_token_sets(&precedings, true) {
+                extract_lookahead::extract_clean_lookaheads(token_sets, None, &scan_engine, &mut lookaheads);
+            }
+            break 'head_clean_lookaheads;
+        };
+        'dirty_lookaheads: {
+            let start_replace_stmt = precedings.first().or_else(|| self.statements.first());
+            let end_replace_stmt = followings.first();
+            
+            // resolve head clean part
+            let mut head_dirty_tokenset = None;
+            let mut head_token_sets = VecDeque::new();
+            let start_token_set = support::find_first_token_set(start_replace_stmt);
+            extract_lookahead::extract_head_clean_lookaheads_forwards(start_token_set, old_char_range.start, &mut head_token_sets, &mut head_dirty_tokenset);
+            
+            // resolve tail clean part
+            let end_token_set = support::find_last_token_set(end_replace_stmt);
+            let mut tail_dirty_tokenset = None;
+            let mut tail_token_sets = VecDeque::new();
+            extract_lookahead::extract_tail_clean_lookaheads_backwards(end_token_set, old_char_range.end, &mut tail_token_sets, &mut tail_dirty_tokenset);
+
+            // include next tail tokenset
+            let next_tail_token_set = tail_token_sets.pop_front();
+
+            // resolve dirty part
+            let (start_offset, buf) = extract_lookahead::concat_dirty_text(head_dirty_tokenset.as_ref(), tail_dirty_tokenset.as_ref(), next_tail_token_set.as_ref(), text, &old_char_range);
+            let mut scanner = Scanner::create_without_scan(&buf, 0, scan_engine.clone(), ScannerConfig{ case_sensitive, offset_with: start_offset})?;
+            let full_emit_kind = full_emit_region.to_symbol;
+            let dirty_lookaheads = scanner.prefetch_iter(full_emit_kind)
+                .filter(|x| match (x.main.kind == full_emit_kind, x.leading_trivia.as_ref()) {
+                    (true, None) => false,
+                    _ => true
+                })
+                .cloned()
+            ;
+
+            extract_lookahead::extract_clean_lookaheads(head_token_sets, None, &scan_engine, &mut lookaheads);
+            lookaheads.extend(dirty_lookaheads);
+
+            let start_tail_offset = lookaheads.back().map(|x| x.token_range().end).unwrap_or_default();
+            extract_lookahead::extract_clean_lookaheads(tail_token_sets, Some(start_tail_offset), &scan_engine, &mut lookaheads);
+
+            break 'dirty_lookaheads;
+        };
+        'tail_clean_lookaheads: {
+            // Resolve tail clean lookaheads
+            if lookaheads.back().iter().any(|x| x.main.kind == full_emit_region.to_symbol) {
+                // Brcause EOF token is dirty, it aloready was pushed.
+                // So tail clean token is not precessed.
+                break 'tail_clean_lookaheads;
+            }
+
+            if let Some(token_sets) = extract_lookahead::pick_clean_tail_token_sets(&followings, true) {
+                let start_tail_offset = lookaheads.back().map(|x| x.token_range().end).unwrap_or_default();
+                extract_lookahead::extract_clean_lookaheads(token_sets, Some(start_tail_offset), &scan_engine, &mut lookaheads);
+            }
+            break 'tail_clean_lookaheads;
+        };
+
+        Ok(CachedStatementScannerIterator::new(lookaheads, emit_region.to_symbol, full_emit_region.to_symbol))
+    }
 }
 
 #[derive(PartialEq)]
@@ -177,8 +257,9 @@ enum EvalState {
     ReverseScan{ head_anchor: usize, tail_anchor: Option<usize>, tail_window_size: usize, need_skip: bool },
 }
 
-fn extend_statement_scanners(scanners: Vec<StatementScanner>, byte_range: &std::ops::Range<usize>) -> Vec<StatementScanner> {
-    let mut result = Vec::with_capacity(scanners.len());
+#[allow(unused)]
+fn extend_statement_scanners(scanners: impl Iterator<Item = StatementScanner>, byte_range: &std::ops::Range<usize>) -> Vec<StatementScanner> {
+    let mut result = Vec::with_capacity(scanners.size_hint().0);
     let mut iter = scanners.into_iter();
     let mut left = FOLLOWING_SIZE;
 

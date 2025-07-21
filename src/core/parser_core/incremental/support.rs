@@ -168,6 +168,7 @@ impl parser_core::parser::ParseStrategy for IncrementalParserStrategy {
     }
 }
 
+#[allow(unused)]
 pub(crate)trait  IncludeEnd {
     type Item;
     fn include_end(self) -> std::ops::RangeInclusive<Self::Item>;
@@ -181,7 +182,7 @@ impl<T> IncludeEnd for std::ops::Range<T> {
     }
 }
 
-pub fn adjust_edit_range(base_range: &std::ops::Range<usize>, node_byte_range: &std::ops::Range<usize>) -> std::ops::Range<usize> {
+pub fn intersect_edit_range(base_range: &std::ops::Range<usize>, node_byte_range: &std::ops::Range<usize>) -> std::ops::Range<usize> {
     let lowest_offset = usize::max(base_range.start, node_byte_range.start);
     let highest_offset = usize::min(base_range.end, node_byte_range.end);
     
@@ -328,6 +329,24 @@ pub fn find_last_token_set(stmt: Option<&SyntaxNode>) -> Option<SyntaxTokenSet> 
     }
 
     None
+}
+
+pub fn find_next_token_set(token_set: Option<&SyntaxTokenSet>, centinel: Option<&SyntaxTokenSet>) -> Option<SyntaxTokenSet> {
+    let Some(token_set) = token_set else { return None };
+
+    token_set.descendant_tokens().last()
+    .and_then(|token| token.next_sibling())
+    .and_then(|token| token.parent())
+    .filter(|token_set| Some(token_set) != centinel)
+}
+
+pub fn find_prev_token_set(token_set: Option<&SyntaxTokenSet>, centinel: Option<&SyntaxTokenSet>) -> Option<SyntaxTokenSet> {
+    let Some(token_set) = token_set else { return None };
+
+    token_set.descendant_tokens().next()
+    .and_then(|token| token.prev_sibling())
+    .and_then(|token| token.parent())
+    .filter(|token_set| Some(token_set) != centinel)
 }
 
 pub fn trim_trivia_char_range(node: &SyntaxNode) -> Option<std::ops::Range<usize>> {

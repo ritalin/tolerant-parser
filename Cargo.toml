@@ -1,6 +1,6 @@
 [package]
 name = "tolerant-parser-sdk"
-version = "0.1.0"
+version = "0.3.2"
 edition = "2024"
 
 [workspace]
@@ -45,3 +45,10 @@ anyhow = { workspace = true }
 test_support = []
 parallel-parse = ["rayon"]
 wasi = ["wit-bindgen"]
+
+[profile.release]
+lto = true
+
+[profile.release.package."sqlite-parser-wasi"]
+opt-level = "z"
+codegen-units = 1

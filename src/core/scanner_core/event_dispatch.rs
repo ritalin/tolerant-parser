@@ -5,12 +5,13 @@ pub struct ScanEventDispatcher {
     source: String,
     index: usize,
     case_sensitive: CaseSensitivity,
+    offset_with: usize,
     engine: scanner_engine::ScanningRuleSet,
 }
 
 impl ScanEventDispatcher {
-    pub fn new(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet, case_sensitive: CaseSensitivity) -> Self {
-        Self { source: source.into(), index: index, case_sensitive, engine }
+    pub fn new(source: &str, index: usize, engine: scanner_engine::ScanningRuleSet, case_sensitive: CaseSensitivity, offset_with: usize) -> Self {
+        Self { source: source.into(), index: index, case_sensitive, engine, offset_with }
     }
 
     pub fn next_lexme(&mut self) -> Option<ScanEvent> {
@@ -20,10 +21,10 @@ impl ScanEventDispatcher {
             }
             std::cmp::Ordering::Equal => {
                 self.index += 1;
-                Some(ScanEvent { kind: self.engine.eof(), offset: self.source.len(), len: 0, value: None })
+                Some(ScanEvent { kind: self.engine.eof(), offset: self.offset_with + self.source.len(), len: 0, value: None })
             }
             std::cmp::Ordering::Greater => {
-                let event = self.engine.scan_by_lexme(&self.source[self.index..], self.index, &self.case_sensitive);
+                let event = self.engine.scan_by_lexme(&self.source[self.index..], self.offset_with + self.index, &self.case_sensitive);
                 if let Some(event) = event.as_ref() {
                     self.index += event.len;
                 }
@@ -41,13 +42,13 @@ impl ScanEventDispatcher {
                 match regex_set {
                     AcceptableRegexSet::Main => {
                         self.index += 1;
-                        Some(ScanEvent { kind: self.engine.eof(), offset: self.source.len(), len: 0, value: None })
+                        Some(ScanEvent { kind: self.engine.eof(), offset: self.offset_with + self.source.len(), len: 0, value: None })
                     }
                     _ => None
                 }
             }
             std::cmp::Ordering::Greater => {
-                let event = self.engine.scan_by_regex(&self.source[self.index..], self.index, regex_set);
+                let event = self.engine.scan_by_regex(&self.source[self.index..], self.offset_with + self.index, regex_set);
                 if let Some(event) = event.as_ref() {
                     self.index += event.len;
                 }
@@ -65,15 +66,15 @@ impl ScanEventDispatcher {
                 match regex_set {
                     AcceptableRegexSet::Main => {
                         self.index += 1;
-                        Some(ScanEvent { kind: self.engine.eof(), offset: self.source.len(), len: 0, value: None })
+                        Some(ScanEvent { kind: self.engine.eof(), offset: self.offset_with + self.source.len(), len: 0, value: None })
                     }
                     _ => None
                 }
             }
             std::cmp::Ordering::Greater => {
                 let source = &self.source[self.index..];
-                let event_1 = self.engine.scan_by_lexme(source, self.index, &self.case_sensitive);
-                let event_2 = self.engine.scan_by_regex(source, self.index, regex_set);
+                let event_1 = self.engine.scan_by_lexme(source, self.offset_with + self.index, &self.case_sensitive);
+                let event_2 = self.engine.scan_by_regex(source, self.offset_with + self.index, regex_set);
 
                 let event = match (event_1.as_ref(), event_2.as_ref()) {
                     (Some(lhs), Some(rhs)) if lhs.len < rhs.len => rhs,
@@ -101,7 +102,7 @@ impl ScanEventDispatcher {
         let len = len.unwrap_or_default();
         self.index += len;
 
-        ScanEvent{ kind: self.engine.invalid(), offset, len, value }
+        ScanEvent{ kind: self.engine.invalid(), offset: self.offset_with + offset, len, value }
     }
 
     pub fn has_more(&self) -> bool {
@@ -144,7 +145,7 @@ mod scanner_core_tests {
             .build()?
         ;
 
-        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive);
+        let mut dispatcher = ScanEventDispatcher::new(source, 0, engine, CaseSensitivity::Insensitive, 0);
         'next_event: {
             let event = dispatcher.next(&AcceptableRegexSet::Main);
             let expect_event = ScanEvent{ 

@@ -146,3 +146,17 @@ pub fn verify(actual_node: SyntaxNode, expect_nodes: &[ExpectNode]) {
         i += 1;
     }
 }
+
+pub fn rebuild_source(token: Option<SyntaxTokenItem>) -> String {
+    use crate::core::parser_core::syntax_tree::NodeOperation;
+
+    let mut tokens = vec![];
+    let mut next_token = token;
+
+    while let Some(x) = next_token {
+        tokens.push(x.value().to_string());
+        next_token = x.next_sibling().clone();
+    }
+
+    tokens.join("")
+}

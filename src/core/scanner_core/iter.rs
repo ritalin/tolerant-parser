@@ -183,3 +183,64 @@ impl Iterator for StatementScannerIterator {
         }
     }
 }
+
+pub struct CachedStatementScannerIterator {
+    lookaheads: VecDeque<Token>,
+    emit_symbol: SyntaxKind,
+    full_emit_symbol: SyntaxKind,
+}
+
+impl CachedStatementScannerIterator {
+    pub fn new<I>(lookaheads: I, emit_symbol: SyntaxKind, full_emit_symbol: SyntaxKind) -> Self 
+    where I: IntoIterator<Item = Token>
+    {
+        Self {
+            lookaheads: VecDeque::from_iter(lookaheads.into_iter()),
+            emit_symbol,
+            full_emit_symbol,
+        }
+    }
+}
+
+impl Iterator for CachedStatementScannerIterator {
+    type Item = StatementScanner;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let Some(head) = self.lookaheads.get(0) else { return None };
+        let index = self.lookaheads.iter().position(|la| la.main.kind == self.emit_symbol);
+
+        match index {
+            Some(index) => {
+                let Some(tail) = self.lookaheads.get(index) else { return None };
+
+                Some(StatementScanner {
+                    scanner_type: StatementScannerType::Statement,
+                    scan_range: (head.lowest_offset())..(tail.token_range().end),
+                    is_full_emit: tail.main.kind == self.full_emit_symbol,
+                    lookaheads: self.lookaheads.drain(0..=index).collect()
+                })
+            }
+            None if head.main.kind != self.full_emit_symbol => {
+                let Some(tail) = self.lookaheads.back().cloned() else { return None };
+
+                let scanner = StatementScanner {
+                    scanner_type: StatementScannerType::Statement,
+                    scan_range: (head.lowest_offset())..(tail.lowest_offset()), // Drop last lookahead from the scan range.
+                    is_full_emit: true,  // Full emit mode dispatches the last lookahead.
+                    lookaheads: self.lookaheads.drain(..).collect(),
+                };
+                self.lookaheads.push_back(tail.clone()); // leave a EOF lookahead in the cache
+
+                Some(scanner)
+            }
+            None => {
+                Some(StatementScanner {
+                    scanner_type: StatementScannerType::Eof,
+                    scan_range: head.token_range(),
+                    is_full_emit: true,
+                    lookaheads: self.lookaheads.drain(..).collect(),
+                })
+            }
+        }
+    }
+}
