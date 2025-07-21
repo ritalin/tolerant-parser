@@ -1,4 +1,4 @@
-use crate::core::parser_core::{self, ParserConfig, syntax_tree::{ApplyBatch, LookupCandidate, MetadataAccess, NodeOperation}};
+use crate::core::parser_core::{self, ParserConfig, syntax_tree::{LookupCandidate, MetadataAccess, NodeOperation}};
 use crate::core::engine_core;
 use super::parser_world::exports::ritalin::parser::parsers;
 use super::syntax_tree_world::exports::ritalin::parser::syntaxes;
@@ -30,8 +30,8 @@ impl parsers::GuestParser for ParserImpl {
             .collect::<Vec<_>>()
         ;
 
-        let batches = self.inner.parse_incremental(&old_tree, scopes.first().unwrap().clone()).expect("Failed to incremental parse");
-        SyntaxTreeImpl::from_raw(old_tree.apply_batches(batches))
+        let new_tree = self.inner.parse_incremental(&old_tree, scopes).expect("Failed to incremental parse");
+        SyntaxTreeImpl::from_raw(new_tree)
     }
     
     fn api_version(&self,) -> String {
@@ -290,7 +290,6 @@ impl From<parsers::EditScope> for parser_core::incremental::EditScope {
         Self {
             start_char_offset: value.start_offset as usize,
             old_char_len: value.old_len as usize,
-            new_char_len: value.new_len as usize,
             text: value.text,
         }
     }

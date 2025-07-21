@@ -1,31 +1,31 @@
 package ritalin:parser@0.3.1;
 
 interface parsers {
-    // create new parser instance
+    // Create new parser instance
     create: func() -> parser;
-    // show parser product version
+    // Show parser product version
     version: func() -> string;
 
     use syntaxes.{syntax-tree};
     use errors.{parse-error};
 
     resource parser {
-        // execute to parse souce content
+        // Execute to parse souce content
         parse: func(source: string) -> syntax-tree;
-        // execute incremental parsing with diffs
+        // Execute incremental parsing with differences.
+        // Note that having multiple edits at the same offset results in undefined behavior.
+        // To ensure consistency, avoid overlapping edits within a single transaction.
         parse-incremental: func(tree: syntax-tree, scopes: list<edit-scope>) -> syntax-tree;
         // show parser API version
         api-version: func() -> string;
     }
 
     record edit-scope {
-        // editing start offset (UTF-16 code unit base)
+        // Editing start offset (UTF-16 code unit base)
         start-offset: u32,
-        // before editing length (UTF-16 code units)
+        // Before editing length (UTF-16 code units)
         old-len: u32,
-        // after editing length (UTF-16 code units)
-        new-len: u32,
-        // after edited text
+        // After edited text
         text: string,
     }
 }
@@ -39,9 +39,9 @@ interface errors {
 interface types {
     // Terminal/Non-terminal symbol definition
     record syntax-kind {
-        // symbol name
+        // Symbol name
         name: string,
-        // symbol group category
+        // Symbol group category
         group: symbol-group,
     }
 
@@ -50,25 +50,25 @@ interface types {
     // Syntax node type
     enum node-type {
         node,
-        // node for owning leading trivias, token and trailing trivias
+        // Node for owning leading trivias, token and trailing trivias
         token-set,
-        // leading trivia mainly has some comment
+        // Leading trivia mainly has some comment
         leading-trivia,
-        // main token
+        // Main token
         token-item,
-        // trailing trivia mainly has some white space
+        // Trailing trivia mainly has some white space
         trailing-trivia,
     }
 
     // error recovery type selected by a error recovery
     enum patch-action {
-        // no error recovery
+        // No error recovery
         none,
-        // lookahead token is deleted
+        // Lookahead token is deleted
         delete,
         // Non-terminated symbol is inserted
         shift,
-        // failed to error recovery
+        // Failed to error recovery
         invalid,
     }
 }
@@ -88,18 +88,18 @@ interface syntaxes {
         metadata-key: func() -> metadata-key;
         // Node metadata value
         metadata: func() -> metadata;
-        // parent node
-        // it will return none if not root node
+        // Parent node
+        // It will return none if not root node
         parent: func() -> option<syntax-node>;
-        // enumerate all of the child nodes or the token-sets
+        // Enumerate all of the child nodes or the token-sets
         children: func() -> list<syntax-element>;
-        // enumerate all of the descendant nodes or the token-sets containing self node
+        // Enumerate all of the descendant nodes or the token-sets containing self node
         descendant-nodes: func() -> list<syntax-element>;
-        // look up a item of the syntax token set (UTF-16 code unit base)
+        // Look up a item of the syntax token set (UTF-16 code unit base)
         token-at-offset: func(offset: u32) -> option<syntax-token-item>;
-        // get previous neighbor sibling node on the same parent
+        // Get previous neighbor sibling node on the same parent
         prev-sibling: func() -> option<syntax-element>;
-        // get next neighbor sibling node on the same parent
+        // Get next neighbor sibling node on the same parent
         next-sibling: func() -> option<syntax-element>;
     }
 
@@ -109,20 +109,20 @@ interface syntaxes {
         metadata-key: func() -> metadata-key;
         // Node metadata value
         metadata: func() -> metadata;
-        // parent node
-        // it will return none if not root node
+        // Parent node
+        // It will return none if not root node
         parent: func() -> option<syntax-node>;
-        // enumerate all of the token items; leading trivia, main token, and trailing trivia
+        // Enumerate all of the token items; leading trivia, main token, and trailing trivia
         descendant-tokens: func() -> list<syntax-token-item>;
-        // get previous neighbor sibling node on the same parent
+        // Get previous neighbor sibling node on the same parent
         prev-sibling: func() -> option<syntax-element>;
-        // get next neighbor sibling node on the same parent
+        // Get next neighbor sibling node on the same parent
         next-sibling: func() -> option<syntax-element>;
         // Returns leading trivia tokens
         leading-trivia: func() -> list<syntax-token-item>;
         // Returns main token
         token: func() -> syntax-token-item;
-        // returns trailing trivia tokens
+        // Returns trailing trivia tokens
         trailing-trivia: func() -> list<syntax-token-item>;
         // Look up another candidate for specified node or token set
         lookup-candidates: func() -> list<syntax-kind>;
@@ -133,12 +133,12 @@ interface syntaxes {
         metadata-key: func() -> metadata-key;
         // Node metadata value
         metadata: func() -> metadata;
-        // parent node
-        // it will return none if not root node
+        // Parent node
+        // It will return none if not root node
         parent: func() -> option<syntax-token-set>;
-        // get previous neighbor token over the parent node
+        // Get previous neighbor token over the parent node
         prev-token: func() -> option<syntax-token-item>;
-        // get next neighbor token over the parent node
+        // Get next neighbor token over the parent node
         next-token: func() -> option<syntax-token-item>;
         // Returns token value
         value: func() -> string;
@@ -151,11 +151,11 @@ interface syntaxes {
     }
 
     record metadata-key {
-        // symbol kind of node
+        // Symbol kind of node
         kind: syntax-kind,
-        // byte offset from begining of the document 
+        // Byte offset from begining of the document 
         offset: u32,
-        // byte-length of node
+        // Byte-length of node
         // For the node and the token set, it's a summary of all descendant node 
         len: u32,
         // Wherther node is leaf (token item)
@@ -163,16 +163,16 @@ interface syntaxes {
     }
 
     record metadata {
-        // type of node
+        // Type of node
         node-type: node-type,
         // Resume state at incremental parsing
         edit-state: u64,
         // Selected patch action
         // If it does not go to error recover, `None` passed
         patch: patch-action,
-        // char offset from begining of the document 
+        // UTF-16 base offset from begining of the document 
         char-offset: u32,
-        // char length of node
+        // UTF-16 base length of node
         // For the node and the token set, it's a summary of all descendant node 
         char-len: u32,
     }
