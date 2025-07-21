@@ -26,7 +26,7 @@ fn test_insert_word() -> Result<(), anyhow::Error> {
         },
     ];
 
-    let new_tree = parser.parse_incremental(&tree, &scopes)?;
+    let new_tree = parser.parse_incremental(&tree, scopes)?;
 
     let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
     assert_eq!(new_source, rebuilded_source);
@@ -62,7 +62,7 @@ fn test_drop_word() -> Result<(), anyhow::Error> {
         },
     ];
 
-    let new_tree = parser.parse_incremental(&tree, &scopes)?;
+    let new_tree = parser.parse_incremental(&tree, scopes)?;
 
     let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
     assert_eq!(new_source, rebuilded_source);
@@ -98,7 +98,7 @@ fn test_replace_word() -> Result<(), anyhow::Error> {
         },
     ];
 
-    let new_tree = parser.parse_incremental(&tree, &scopes)?;
+    let new_tree = parser.parse_incremental(&tree, scopes)?;
 
     let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
     assert_eq!(new_source, rebuilded_source);
@@ -134,7 +134,7 @@ fn test_drap_and_move_word() -> Result<(), anyhow::Error> {
         },
     ];
 
-    let new_tree = parser.parse_incremental(&tree, &scopes)?;
+    let new_tree = parser.parse_incremental(&tree, scopes)?;
 
     let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
     assert_eq!(new_source, rebuilded_source);
@@ -170,7 +170,7 @@ fn test_no_edit() -> Result<(), anyhow::Error> {
         },
     ];
 
-    let new_tree = parser.parse_incremental(&tree, &scopes)?;
+    let new_tree = parser.parse_incremental(&tree, scopes)?;
 
     let rebuilded_source = test_support::rebuild_source(new_tree.root().token_at_utf16_offset(0));
     assert_eq!(new_source, rebuilded_source);

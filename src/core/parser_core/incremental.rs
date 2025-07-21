@@ -19,19 +19,15 @@ impl Parser {
         Self { engine, config }
     }
 
-    pub fn parse(&self, old_tree: &SyntaxTree, scopes: &[EditScope]) -> Result<SyntaxTree, parser_core::parser::ParseError> {
-        let mut indexed_scopes = scopes.iter().enumerate().collect::<Vec<_>>();
-        
-        indexed_scopes.sort_by(|(i, lhs), (j, rhs)| {
-            lhs.start_char_offset
-            .cmp(&rhs.start_char_offset).reverse()
-            .then_with(|| i.cmp(&j))
+    pub fn parse(&self, old_tree: &SyntaxTree, mut scopes: Vec<EditScope>) -> Result<SyntaxTree, parser_core::parser::ParseError> {
+        scopes.sort_by(|lhs, rhs| {
+            lhs.start_char_offset.cmp(&rhs.start_char_offset).reverse()
         });
 
         let emit_region = self.engine.parsing_rules.statement_emit_config();
         let mut prev_tree = old_tree.clone();
 
-        for (_, scope) in indexed_scopes {
+        for scope in scopes {
             let prev_root = prev_tree.root().clone();
             let metadata_table = prev_tree.metadata_table();
             let eof_statement = prev_tree.root().children().last();
