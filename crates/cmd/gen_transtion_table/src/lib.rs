@@ -37,8 +37,11 @@ pub fn generate(config: CmdConfig) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+use anyhow::Context;
+
 fn read_json_file<Content: serde::de::DeserializeOwned>(path: PathBuf) -> Result<Content, anyhow::Error> {
-    let file = std::fs::File::open(path)?;
+    eprintln!("Reading `{}`", path.display());
+    let file = std::fs::File::open(path.as_path()).with_context(|| format!("Failed to open file: {}", path.display()))?;
     let content: Content = serde_json::from_reader(file)?;
     Ok(content)
 }
