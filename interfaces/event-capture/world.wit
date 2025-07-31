@@ -1,0 +1,78 @@
+package ritalin:event-capture@0.0.1;
+
+interface types {
+    use ritalin:parser/types@0.3.1.{syntax-kind};
+
+    variant capture-event {
+        scan(token),
+        parse(parse-event),
+    }
+
+    record token {
+        leading-trivia: list<scan-event>,
+        main-token: scan-event,
+        trailing-trivia: list<scan-event>,
+    }
+
+    record scan-event {
+        // Identifier for distinguishing token.
+        kind: syntax-kind,
+        // potion (byte offset) from a document head
+        offset: u64,
+        // token length
+        len: u64,
+        // token value
+        value: option<string>
+    }
+
+    variant parse-event {
+        shift(transition-state),
+        reduce(reduce-transition-state),
+        emit(transition-state),
+        accept(transition-state),
+        patch-drop(transition-state),
+        patch-shift(transition-state),
+        patch-reduce(reduce-transition-state),
+        patch-emit(transition-state),
+        invalid(transition-state),
+        invalid-emit(reduce-transition-state),
+    }
+
+    record transition-state {
+        kind: syntax-kind,
+        current: option<u64>,
+        next: option<u64>,
+        edit: u64,
+    }
+
+    record reduce-transition-state {
+        kind: syntax-kind,
+        current: option<u64>,
+        next: option<u64>,
+        edit: u64,
+        pop-count: u64,
+    }
+
+    record capture-config {
+        no-scan: bool,
+        no-parse: bool,
+        ignore-case: bool,
+    }
+}
+
+interface captures {
+    use types.{capture-event, capture-config};
+
+    create: func(source: string, config: capture-config) -> event-capture;
+    
+    resource event-capture {
+        next: func() -> option<capture-event>;
+    }
+}
+
+world event-capture-world {
+    import ritalin:parser/types@0.3.1;
+    export ritalin:parser/types@0.3.1;
+    export types;
+    export captures;
+}

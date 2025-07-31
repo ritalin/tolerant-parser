@@ -27,6 +27,8 @@ derive_builder = "0.20.2"
 regex = "1.11.1"
 cactus = "1.0.7"
 rowan = "0.16.1"
+directories = "6.0.0"
+toml = "0.9.4"
 
 [dependencies]
 serde = { workspace = true }

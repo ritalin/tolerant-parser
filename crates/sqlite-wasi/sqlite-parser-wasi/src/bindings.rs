@@ -8,7 +8,7 @@ impl parser_wasi::bindings::parsers::Guest for ParserComponent {
     type Parser = ParserImpl;
     
     fn create() -> parser_wasi::bindings::parsers::Parser {
-        let engine = sqlite_engine::create().expect("Failed to nstanciate parser engine");
+        let engine = sqlite_engine::create().expect("Failed to instanciate parser engine");
         let config = parser_core::ParserConfig{
             mode: ParseMode::ByStatement,
             penalty: RecoveryPenalty::default(),

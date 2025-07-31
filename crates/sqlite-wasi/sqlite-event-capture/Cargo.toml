@@ -1,0 +1,12 @@
+[package]
+name = "sqlite-event-capture"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+tolerant-parser-sdk = { path = "../../..", features = ["wasi"] }
+sqlite-engine = { path = "../../sqlite/sqlite-engine" }
+wit-bindgen = { workspace = true }
