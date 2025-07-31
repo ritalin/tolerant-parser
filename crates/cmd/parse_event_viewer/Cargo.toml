@@ -1,13 +1,16 @@
 [package]
 name = "parse_event_viewer"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
-tolerant-parser-sdk = { path = "../../.." }
+tolerant-parser-sdk = { path = "../../..", features = ["wasi"] }
 anyhow = { workspace = true }
 clap = { workspace = true }
+directories = { workspace = true }
+toml = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 ansi_term = "0.12.1"
-sqlite-engine = { path = "../../sqlite/sqlite-engine" }
+
+wasmtime = "35.0.0"
+wasmtime-wasi = "35.0.0"
