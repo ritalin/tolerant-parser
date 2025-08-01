@@ -9,4 +9,3 @@ crate-type = ["cdylib"]
 [dependencies]
 tolerant-parser-sdk = { path = "../../..", features = ["wasi"] }
 sqlite-engine = { path = "../../sqlite/sqlite-engine" }
-wit-bindgen = { workspace = true }

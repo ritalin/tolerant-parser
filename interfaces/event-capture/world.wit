@@ -67,6 +67,7 @@ interface captures {
     
     resource event-capture {
         next: func() -> option<capture-event>;
+        state-histories: func() -> list<u64>;
     }
 }
 
