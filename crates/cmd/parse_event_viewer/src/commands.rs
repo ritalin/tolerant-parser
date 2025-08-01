@@ -56,16 +56,18 @@ fn print_event_all(capture: &mut EventCapture, setting: &CaptureSetting, source:
         println!("--------------------------------------------------------------------------------");
     }
 
+    let mut id_gen = IdGenerator::new(1);
+
     loop {
         let before_states = if setting.show_state { capture.state_histories()? } else { vec![] };
         let Some(event) = capture.next()? else { break };
 
         if !setting.quiet {
             match event {
-                event_capture::types::CaptureEvent::Scan(event) => print_scan_event(&event, &setting),
+                event_capture::types::CaptureEvent::Scan(event) => print_scan_event(&event, &setting, &mut id_gen),
                 event_capture::types::CaptureEvent::Parse(event) => {
                 let after_states = if setting.show_state { capture.state_histories()? } else { vec![] };
-                    print_parse_event(&event, &before_states, &after_states, &setting)
+                    print_parse_event(&event, &before_states, &after_states, &setting, &mut id_gen)
                 }
             }
         }
@@ -74,80 +76,96 @@ fn print_event_all(capture: &mut EventCapture, setting: &CaptureSetting, source:
     Ok(())
 }
 
+struct IdGenerator {
+    iter: std::iter::Successors<usize, fn(&usize) -> Option<usize>>,
+}
+
+impl IdGenerator {
+    pub fn new(init: usize) -> Self {
+        Self {
+            iter: std::iter::successors(Some(init), |prev| Some(prev + 1)),
+        }
+    }
+
+    pub fn next(&mut self) -> usize {
+        self.iter.next().unwrap()
+    }
+}
+
 const MAX_LABEL_LEN: usize = 10;
 
-fn print_scan_event(token: &event_capture::types::Token, setting: &CaptureSetting) {
+fn print_scan_event(token: &event_capture::types::Token, setting: &CaptureSetting, id_gen: &mut IdGenerator) {
     for (i, event) in token.leading_trivia.iter().enumerate() { 
-        println!("[{}]", apply_label_color(&format!("Scan/Leading#{}", i+1), setting, ansi_term::Color::RGB(128, 128, 128)));
+        println!("[{}] #{}", apply_label_color(&format!("Scan/Leading#{}", i+1), setting, ansi_term::Color::RGB(128, 128, 128)), id_gen.next());
         println!("{:>width$} {}, (offset) {}, (len) {}", "(kind)", event.kind.name, event.offset, event.len, width = MAX_LABEL_LEN);
         println!("{:>width$} `{:?}`", "(value)", event.value, width = MAX_LABEL_LEN);
     }
 
     {
         let event = &token.main_token;
-        println!("[{}]", apply_label_color("Scan/Main", setting, ansi_term::Color::Yellow));
+        println!("[{}] #{}", apply_label_color("Scan/Main", setting, ansi_term::Color::Yellow), id_gen.next());
         println!("{:>width$} {}, (offset) {}, (len) {}", "(kind)", event.kind.name, event.offset, event.len, width = MAX_LABEL_LEN);
         println!("{:>width$} {:?}", "(value)", event.value, width = MAX_LABEL_LEN);
     }
 
     for (i, event) in token.trailing_trivia.iter().enumerate() {
-        println!("[{}]", apply_label_color(&format!("Scan/Trailing#{}", i+1), setting, ansi_term::Color::RGB(128, 128, 128)));
+        println!("[{}] #{}", apply_label_color(&format!("Scan/Trailing#{}", i+1), setting, ansi_term::Color::RGB(128, 128, 128)), id_gen.next());
         println!("{:>width$} {}, (offset) {}, (len) {}", "(kind)", event.kind.name, event.offset, event.len, width = MAX_LABEL_LEN);
         println!("{:>width$} {:?}", "(value)", event.value, width = MAX_LABEL_LEN);
     }
 }
 
-fn print_parse_event(event: &event_capture::types::ParseEvent, state_histories_before: &[u64], state_histories_after: &[u64], setting: &CaptureSetting) {
+fn print_parse_event(event: &event_capture::types::ParseEvent, state_histories_before: &[u64], state_histories_after: &[u64], setting: &CaptureSetting, id_gen: &mut IdGenerator) {
     use event_capture::types::{ParseEvent, TransitionState, ReduceTransitionState};
 
     match event {
         ParseEvent::Shift(TransitionState{ kind, current, next, edit }) => {
-            println!("[{}]", apply_parse_event_color(event, "Parse/Shift", setting));
+            println!("[{}] #{}", apply_parse_event_color(event, "Parse/Shift", setting), id_gen.next());
             println!("{:>width$} {}", "(kind)", kind.name, width = MAX_LABEL_LEN);
             println!("{:>width$} current: {}, next: {}, edit: {}", "(state)", current.unwrap(), next.unwrap(), edit, width = MAX_LABEL_LEN);
         }
         ParseEvent::Reduce(ReduceTransitionState{ kind, current, next, edit, pop_count }) => {
-            println!("[{}]", apply_parse_event_color(event, "Parse/Reduce", setting));
+            println!("[{}] #{}", apply_parse_event_color(event, "Parse/Reduce", setting), id_gen.next());
             println!("{:>width$} {}, (pop_count) {}", "(kind)", kind.name, pop_count, width = MAX_LABEL_LEN);
             println!("{:>width$} current: {}, next: {}, edit: {}", "(state)", current.unwrap(), next.unwrap(), edit, width = MAX_LABEL_LEN);
         }
         ParseEvent::Emit(TransitionState{ kind, edit, .. }) => {
-            println!("[{}]", apply_parse_event_color(event, "Parse/Emit", setting));
+            println!("[{}] #{}", apply_parse_event_color(event, "Parse/Emit", setting), id_gen.next());
             println!("{:>width$} {}", "(kind)", kind.name, width = MAX_LABEL_LEN);
             println!("{:>width$} edit: {}", "(state)", edit, width = MAX_LABEL_LEN);
         }
         ParseEvent::Accept(TransitionState{ kind, current, edit, .. }) => {
-            println!("[{}]", apply_parse_event_color(event, "Parse/Accept", setting));
+            println!("[{}] #{}", apply_parse_event_color(event, "Parse/Accept", setting), id_gen.next());
             println!("{:>width$} {}", "(kind)", kind.name, width = MAX_LABEL_LEN);
             println!("{:>width$} last: {}, edit: {}", "(state)", current.unwrap(), edit, width = MAX_LABEL_LEN);
         }
         ParseEvent::PatchDrop(TransitionState{ kind, current, next, edit }) => {
-            println!("[{}]", apply_parse_event_color(event, "Recover/Drop", setting));
+            println!("[{}] #{}", apply_parse_event_color(event, "Recover/Drop", setting), id_gen.next());
             println!("{:>width$} {}", "(kind)", kind.name, width = MAX_LABEL_LEN);
             println!("{:>width$} current: {}, next: {}, edit: {}", "(state)", current.unwrap(), next.unwrap(), edit, width = MAX_LABEL_LEN);
         }
         ParseEvent::PatchShift(TransitionState{ kind, current, next, edit }) => {
-            println!("[{}]", apply_parse_event_color(event, "Recover/Shift", setting));
+            println!("[{}] #{}", apply_parse_event_color(event, "Recover/Shift", setting), id_gen.next());
             println!("{:>width$} {}", "(kind)", kind.name, width = MAX_LABEL_LEN);
             println!("{:>width$} current: {}, next: {}, edit: {}", "(state)", current.unwrap(), next.unwrap(), edit, width = MAX_LABEL_LEN);
         }
         ParseEvent::PatchReduce(ReduceTransitionState{ kind, current, next, edit, pop_count }) => {
-            println!("[{}]", apply_parse_event_color(event, "Recover/Reduce", setting));
+            println!("[{}] #{}", apply_parse_event_color(event, "Recover/Reduce", setting), id_gen.next());
             println!("{:>width$} {}, (pop_count) {}", "(kind)", kind.name, pop_count, width = MAX_LABEL_LEN);
             println!("{:>width$} current: {}, next: {}, edit: {}", "(state)", current.unwrap(), next.unwrap(), edit, width = MAX_LABEL_LEN);
         }
         ParseEvent::PatchEmit(TransitionState{ kind, edit, .. }) => {
-            println!("[{}]", apply_parse_event_color(event, "Recover/Emit", setting));
+            println!("[{}] #{}", apply_parse_event_color(event, "Recover/Emit", setting), id_gen.next());
             println!("{:>width$} {}", "(kind)", kind.name, width = MAX_LABEL_LEN);
             println!("{:>width$} edit: {}", "(state)", edit, width = MAX_LABEL_LEN);
         }
         ParseEvent::Invalid(TransitionState{ kind, current, edit, .. }) => {
-            println!("[{}]", apply_parse_event_color(event, "Recover/Invalid", setting));
+            println!("[{}] #{}", apply_parse_event_color(event, "Recover/Invalid", setting), id_gen.next());
             println!("{:>width$} {}", "(kind)", kind.name, width = MAX_LABEL_LEN);
             println!("{:>width$} current: {}, edit: {}", "(state)", current.unwrap(), edit, width = MAX_LABEL_LEN);
         }
         ParseEvent::InvalidEmit(ReduceTransitionState{ kind, pop_count, edit, .. }) => {
-            println!("[{}]", apply_parse_event_color(event, "Parse/InvalidEmit", setting));
+            println!("[{}] #{}", apply_parse_event_color(event, "Parse/InvalidEmit", setting), id_gen.next());
             println!("{:>width$}{}, (pop_count) {}", "(kind)", kind.name, pop_count, width = MAX_LABEL_LEN);
             println!("{:>width$} edit: {}", "(state)", edit, width = MAX_LABEL_LEN);
         }
