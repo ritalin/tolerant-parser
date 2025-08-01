@@ -1896,7 +1896,6 @@ version = "0.1.0"
 dependencies = [
  "sqlite-engine",
  "tolerant-parser-sdk",
- "wit-bindgen",
 ]
 
 [[package]]
