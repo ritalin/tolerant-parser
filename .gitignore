@@ -2,3 +2,5 @@
 /build
 _generated
 .DS_Store
+deps.lock
+deps/

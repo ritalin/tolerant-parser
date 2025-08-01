@@ -8,7 +8,7 @@ pub mod parsers {
     pub use super::resource::ParserImpl;
 }
 
-mod parser_types {
+pub mod parser_types {
     pub use super::types_world::exports::ritalin::parser::types::*;
 }
 mod syntax {

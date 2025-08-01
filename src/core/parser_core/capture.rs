@@ -143,4 +143,8 @@ impl ParseEventCapture {
 
         Ok(())
     }
+
+    pub fn state_histories(&self) -> Vec<usize> {
+        self.dispatcher.borrow_stack().state_values()
+    }
 }

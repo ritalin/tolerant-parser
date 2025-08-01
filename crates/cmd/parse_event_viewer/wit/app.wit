@@ -1,0 +1,8 @@
+package ritalin:parse-event-viewer@0.2.0;
+
+world app-world {
+    import ritalin:event-capture/types@0.0.1;
+    import ritalin:event-capture/captures@0.0.1;
+    import ritalin:parser/types@0.3.1;
+    export ritalin:event-capture/captures@0.0.1;
+}
