@@ -918,97 +918,131 @@ pub mod exports {
             },
           }
         } }
-        pub trait Guest {
-          type EventCapture: GuestEventCapture;
-          #[allow(async_fn_in_trait)]
-          fn create(source: _rt::String,config: CaptureConfig,) -> EventCapture;
-        }
-        pub trait GuestEventCapture: 'static {
-
-          #[doc(hidden)]
-          unsafe fn _resource_new(val: *mut u8) -> u32
-          where Self: Sized
-          {
-            
-            #[cfg(target_arch = "wasm32")]
-            #[link(wasm_import_module = "[export]ritalin:event-capture/captures@0.0.1")]
-            unsafe extern "C" {
-              #[link_name = "[resource-new]event-capture"]
-              fn new(_: *mut u8, ) -> i32;
-            }
-
-            #[cfg(not(target_arch = "wasm32"))]
-            unsafe extern "C" fn new(_: *mut u8, ) -> i32 { unreachable!() }
-            
-            unsafe { new(val) as u32 }
-          }
-
-          #[doc(hidden)]
-          fn _resource_rep(handle: u32) -> *mut u8
-          where Self: Sized
-          {
-            
-            #[cfg(target_arch = "wasm32")]
-            #[link(wasm_import_module = "[export]ritalin:event-capture/captures@0.0.1")]
-            unsafe extern "C" {
-              #[link_name = "[resource-rep]event-capture"]
-              fn rep(_: i32, ) -> *mut u8;
-            }
-
-            #[cfg(not(target_arch = "wasm32"))]
-            unsafe extern "C" fn rep(_: i32, ) -> *mut u8 { unreachable!() }
-            
-            unsafe { rep(handle as i32) }
-          }
-
-          
-          #[allow(async_fn_in_trait)]
-          fn next(&self,) -> Option<CaptureEvent>;
-        }
         #[doc(hidden)]
-        #[macro_export]
-        macro_rules! __export_ritalin_event_capture_captures_0_0_1_cabi{
-          ($ty:ident with_types_in $($path_to_types:tt)*) => (const _: () = {
-
-            #[unsafe(export_name = "ritalin:event-capture/captures@0.0.1#create")]
-            unsafe extern "C" fn export_create(arg0: *mut u8,arg1: usize,arg2: i32,arg3: i32,arg4: i32,) -> i32 {
-              unsafe { $($path_to_types)*::_export_create_cabi::<$ty>(arg0, arg1, arg2, arg3, arg4) }
-            }
-            #[unsafe(export_name = "ritalin:event-capture/captures@0.0.1#[method]event-capture.next")]
-            unsafe extern "C" fn export_method_event_capture_next(arg0: *mut u8,) -> *mut u8 {
-              unsafe { $($path_to_types)*::_export_method_event_capture_next_cabi::<<$ty as $($path_to_types)*::Guest>::EventCapture>(arg0) }
-            }
-            #[unsafe(export_name = "cabi_post_ritalin:event-capture/captures@0.0.1#[method]event-capture.next")]
-            unsafe extern "C" fn _post_return_method_event_capture_next(arg0: *mut u8,) {
-              unsafe { $($path_to_types)*::__post_return_method_event_capture_next::<<$ty as $($path_to_types)*::Guest>::EventCapture>(arg0) }
-            }
-
-            const _: () = {
-              #[doc(hidden)]
-              #[unsafe(export_name = "ritalin:event-capture/captures@0.0.1#[dtor]event-capture")]
-              #[allow(non_snake_case)]
-              unsafe extern "C" fn dtor(rep: *mut u8) {
-                unsafe {
-                  $($path_to_types)*::EventCapture::dtor::<
-                  <$ty as $($path_to_types)*::Guest>::EventCapture
-                  >(rep)
-                }
-              }
-            };
-            
-          };);
-        }
-        #[doc(hidden)]
-        pub use __export_ritalin_event_capture_captures_0_0_1_cabi;
-
-        #[repr(align(8))]
-        struct _RetArea([::core::mem::MaybeUninit::<u8>; 64+6*::core::mem::size_of::<*const u8>()]);
-        static mut _RET_AREA: _RetArea = _RetArea([::core::mem::MaybeUninit::uninit(); 64+6*::core::mem::size_of::<*const u8>()]);
-
+        #[allow(non_snake_case, unused_unsafe)]
+        pub unsafe fn _export_method_event_capture_state_histories_cabi<T: GuestEventCapture>(arg0: *mut u8,) -> *mut u8 { unsafe {#[cfg(target_arch="wasm32")]
+        _rt::run_ctors_once();let result0 = {
+          T::state_histories(EventCaptureBorrow::lift(arg0 as u32 as usize).get())
+        };
+        let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+        let vec2 = (result0).into_boxed_slice();
+        let ptr2 = vec2.as_ptr().cast::<u8>();
+        let len2 = vec2.len();
+        ::core::mem::forget(vec2);
+        *ptr1.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len2;
+        *ptr1.add(0).cast::<*mut u8>() = ptr2.cast_mut();
+        ptr1
+      } }
+      #[doc(hidden)]
+      #[allow(non_snake_case)]
+      pub unsafe fn __post_return_method_event_capture_state_histories<T: GuestEventCapture>(arg0: *mut u8,) { unsafe {
+        let l0 = *arg0.add(0).cast::<*mut u8>();
+        let l1 = *arg0.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
+        let base2 = l0;
+        let len2 = l1;
+        _rt::cabi_dealloc(base2, len2 * 8, 8);
+      } }
+      pub trait Guest {
+        type EventCapture: GuestEventCapture;
+        #[allow(async_fn_in_trait)]
+        fn create(source: _rt::String,config: CaptureConfig,) -> EventCapture;
       }
+      pub trait GuestEventCapture: 'static {
+
+        #[doc(hidden)]
+        unsafe fn _resource_new(val: *mut u8) -> u32
+        where Self: Sized
+        {
+          
+          #[cfg(target_arch = "wasm32")]
+          #[link(wasm_import_module = "[export]ritalin:event-capture/captures@0.0.1")]
+          unsafe extern "C" {
+            #[link_name = "[resource-new]event-capture"]
+            fn new(_: *mut u8, ) -> i32;
+          }
+
+          #[cfg(not(target_arch = "wasm32"))]
+          unsafe extern "C" fn new(_: *mut u8, ) -> i32 { unreachable!() }
+          
+          unsafe { new(val) as u32 }
+        }
+
+        #[doc(hidden)]
+        fn _resource_rep(handle: u32) -> *mut u8
+        where Self: Sized
+        {
+          
+          #[cfg(target_arch = "wasm32")]
+          #[link(wasm_import_module = "[export]ritalin:event-capture/captures@0.0.1")]
+          unsafe extern "C" {
+            #[link_name = "[resource-rep]event-capture"]
+            fn rep(_: i32, ) -> *mut u8;
+          }
+
+          #[cfg(not(target_arch = "wasm32"))]
+          unsafe extern "C" fn rep(_: i32, ) -> *mut u8 { unreachable!() }
+          
+          unsafe { rep(handle as i32) }
+        }
+
+        
+        #[allow(async_fn_in_trait)]
+        fn next(&self,) -> Option<CaptureEvent>;
+        #[allow(async_fn_in_trait)]
+        fn state_histories(&self,) -> _rt::Vec::<u64>;
+      }
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __export_ritalin_event_capture_captures_0_0_1_cabi{
+        ($ty:ident with_types_in $($path_to_types:tt)*) => (const _: () = {
+
+          #[unsafe(export_name = "ritalin:event-capture/captures@0.0.1#create")]
+          unsafe extern "C" fn export_create(arg0: *mut u8,arg1: usize,arg2: i32,arg3: i32,arg4: i32,) -> i32 {
+            unsafe { $($path_to_types)*::_export_create_cabi::<$ty>(arg0, arg1, arg2, arg3, arg4) }
+          }
+          #[unsafe(export_name = "ritalin:event-capture/captures@0.0.1#[method]event-capture.next")]
+          unsafe extern "C" fn export_method_event_capture_next(arg0: *mut u8,) -> *mut u8 {
+            unsafe { $($path_to_types)*::_export_method_event_capture_next_cabi::<<$ty as $($path_to_types)*::Guest>::EventCapture>(arg0) }
+          }
+          #[unsafe(export_name = "cabi_post_ritalin:event-capture/captures@0.0.1#[method]event-capture.next")]
+          unsafe extern "C" fn _post_return_method_event_capture_next(arg0: *mut u8,) {
+            unsafe { $($path_to_types)*::__post_return_method_event_capture_next::<<$ty as $($path_to_types)*::Guest>::EventCapture>(arg0) }
+          }
+          #[unsafe(export_name = "ritalin:event-capture/captures@0.0.1#[method]event-capture.state-histories")]
+          unsafe extern "C" fn export_method_event_capture_state_histories(arg0: *mut u8,) -> *mut u8 {
+            unsafe { $($path_to_types)*::_export_method_event_capture_state_histories_cabi::<<$ty as $($path_to_types)*::Guest>::EventCapture>(arg0) }
+          }
+          #[unsafe(export_name = "cabi_post_ritalin:event-capture/captures@0.0.1#[method]event-capture.state-histories")]
+          unsafe extern "C" fn _post_return_method_event_capture_state_histories(arg0: *mut u8,) {
+            unsafe { $($path_to_types)*::__post_return_method_event_capture_state_histories::<<$ty as $($path_to_types)*::Guest>::EventCapture>(arg0) }
+          }
+
+          const _: () = {
+            #[doc(hidden)]
+            #[unsafe(export_name = "ritalin:event-capture/captures@0.0.1#[dtor]event-capture")]
+            #[allow(non_snake_case)]
+            unsafe extern "C" fn dtor(rep: *mut u8) {
+              unsafe {
+                $($path_to_types)*::EventCapture::dtor::<
+                <$ty as $($path_to_types)*::Guest>::EventCapture
+                >(rep)
+              }
+            }
+          };
+          
+        };);
+      }
+      #[doc(hidden)]
+      pub use __export_ritalin_event_capture_captures_0_0_1_cabi;
+
+      #[repr(align(8))]
+      struct _RetArea([::core::mem::MaybeUninit::<u8>; 64+6*::core::mem::size_of::<*const u8>()]);
+      static mut _RET_AREA: _RetArea = _RetArea([::core::mem::MaybeUninit::uninit(); 64+6*::core::mem::size_of::<*const u8>()]);
 
     }
+
   }
+}
 }
 mod _rt {
   #![allow(dead_code, clippy::all)]
@@ -1205,8 +1239,8 @@ macro_rules! __export_event_capture_world_impl {
     #[unsafe(link_section = "component-type:wit-bindgen:0.42.1:ritalin:event-capture@0.0.1:event-capture-world:imports and exports")]
     #[doc(hidden)]
     #[allow(clippy::octal_escapes)]
-    pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 1480] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xbe\x0a\x01A\x02\x01\
+    pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 1536] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xf6\x0a\x01A\x02\x01\
 A\x0b\x01B\x08\x01m\x04\x07keyword\x0bnon-keyword\x07pattern\x0cnon-terminal\x04\
 \0\x0csymbol-group\x03\0\0\x01r\x02\x04names\x05group\x01\x04\0\x0bsyntax-kind\x03\
 \0\x02\x01m\x05\x04node\x09token-set\x0eleading-trivia\x0atoken-item\x0ftrailing\
@@ -1229,12 +1263,13 @@ patch-drop\x01\x0a\0\x0bpatch-shift\x01\x0a\0\x0cpatch-reduce\x01\x0c\0\x0apatch
 ent\x03\0\x0d\x01q\x02\x04scan\x01\x07\0\x05parse\x01\x0e\0\x04\0\x0dcapture-eve\
 nt\x03\0\x0f\x01r\x03\x07no-scan\x7f\x08no-parse\x7f\x0bignore-case\x7f\x04\0\x0e\
 capture-config\x03\0\x11\x04\0!ritalin:event-capture/types@0.0.1\x05\x03\x02\x03\
-\0\x02\x0dcapture-event\x02\x03\0\x02\x0ecapture-config\x01B\x0c\x02\x03\x02\x01\
+\0\x02\x0dcapture-event\x02\x03\0\x02\x0ecapture-config\x01B\x0f\x02\x03\x02\x01\
 \x04\x04\0\x0dcapture-event\x03\0\0\x02\x03\x02\x01\x05\x04\0\x0ecapture-config\x03\
 \0\x02\x04\0\x0devent-capture\x03\x01\x01h\x04\x01k\x01\x01@\x01\x04self\x05\0\x06\
-\x04\0\x1a[method]event-capture.next\x01\x07\x01i\x04\x01@\x02\x06sources\x06con\
-fig\x03\0\x08\x04\0\x06create\x01\x09\x04\0$ritalin:event-capture/captures@0.0.1\
-\x05\x06\x04\0/ritalin:event-capture/event-capture-world@0.0.1\x04\0\x0b\x19\x01\
+\x04\0\x1a[method]event-capture.next\x01\x07\x01pw\x01@\x01\x04self\x05\0\x08\x04\
+\0%[method]event-capture.state-histories\x01\x09\x01i\x04\x01@\x02\x06sources\x06\
+config\x03\0\x0a\x04\0\x06create\x01\x0b\x04\0$ritalin:event-capture/captures@0.\
+0.1\x05\x06\x04\0/ritalin:event-capture/event-capture-world@0.0.1\x04\0\x0b\x19\x01\
 \0\x13event-capture-world\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit\
 -component\x070.234.0\x10wit-bindgen-rust\x060.42.1";
   };

@@ -20,6 +20,13 @@ impl event_capture::captures::GuestEventCapture for EventCaptureImpl {
     fn next(&self,) -> Option<event_capture::captures::CaptureEvent> {
         self.inner.borrow_mut().next().expect("Can not parse source here.").map(Into::into)
     }
+    
+    fn state_histories(&self,) -> Vec::<u64> {
+        self.inner.borrow().state_histories().into_iter()
+        .map(|state| state as u64)
+        .collect()
+    }
+    
 }
 
 impl From<parser_core::capture::CaptureEvent> for event_capture::captures::CaptureEvent {

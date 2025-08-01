@@ -44,6 +44,8 @@ pub struct CaptureSetting {
     pub quiet: bool,
     #[arg(long)]
     pub ignore_case: bool,
+    #[arg(long)]
+    pub show_state: bool,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
