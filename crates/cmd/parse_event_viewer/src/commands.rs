@@ -4,7 +4,7 @@ use wasmtime::{component::{Component, Linker}, Store};
 use  crate::{config::CaptureSetting, ritalin::event_capture::{self}};
 use crate::{config, runtime};
 
-pub fn run_capture(runtime: runtime::Runtime, config: config::ProviderConfig, setting: config::CaptureSetting) -> Result<(), anyhow::Error> {
+pub fn run_inspect(runtime: runtime::Runtime, config: config::ProviderConfig, setting: config::CaptureSetting) -> Result<(), anyhow::Error> {
     let provider = config.resolve(setting.engine.as_ref(), setting.input.as_path())?;
     let (bindings, store) = runtime.instanciate::<crate::AppWorld>(provider.path.as_path())?;
     
@@ -175,7 +175,7 @@ fn apply_label_color(label: &str, setting: &CaptureSetting, color: ansi_term::Co
     color.paint(label).to_string()
 }
 
-pub fn run_install_provider(runtime: runtime::Runtime, mut config: config::ProviderConfig, engine: &str, extension: &str, wasm_path: &std::path::Path) -> Result<(), anyhow::Error> {
+pub fn run_attach_provider(runtime: runtime::Runtime, mut config: config::ProviderConfig, engine: &str, extension: &str, wasm_path: &std::path::Path) -> Result<(), anyhow::Error> {
     let binary = runtime.prebuild(wasm_path)?;
     let provider = config.put(engine, extension)?;
 
@@ -183,12 +183,13 @@ pub fn run_install_provider(runtime: runtime::Runtime, mut config: config::Provi
         std::fs::create_dir_all(dir_path)?;
     }
     std::fs::write(provider.path.as_path(), &binary)?;
+    println!("engine updated.");
     
     config.save()?;
     Ok(())
 }
 
-pub fn run_drop_provider(_runtime: runtime::Runtime, mut config: config::ProviderConfig, engine: &str) -> Result<(), anyhow::Error> {
+pub fn run_detach_provider(_runtime: runtime::Runtime, mut config: config::ProviderConfig, engine: &str) -> Result<(), anyhow::Error> {
     let Some(provider) = config.remove_by_engine(engine) else {
         anyhow::bail!("Warn: Specified engine does not set.");
     };

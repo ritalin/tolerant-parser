@@ -12,7 +12,7 @@ pub struct CliSetting {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum SubcommdSetting {
-    Set { 
+    Attach { 
         #[arg(short = 'm', value_name = "ENGINE")]
         engine: String, 
         #[arg(short = 'e', value_name = "EXT")]
@@ -20,11 +20,11 @@ pub enum SubcommdSetting {
         #[arg(short = 'f', long = "file", value_name = "WASI-FILE")]
         path: std::path::PathBuf 
     },
-    Drop { 
+    Detach { 
         #[arg(short = 'm', value_name = "ENGINEx")]
         engine: String 
     },
-    Capture(CaptureSetting),
+    Inspect(CaptureSetting),
     List,
 }
 
@@ -45,19 +45,6 @@ pub struct CaptureSetting {
     #[arg(long)]
     pub ignore_case: bool,
 }
-
-
-// impl CmdConfig {
-//     pub fn to_capture_config(&self) -> parser_core::capture::EventCaptureConfig {
-//         parser_core::capture::EventCaptureConfig {
-//             mode: if self.enable_full_parse { ParseMode::Full } else { ParseMode::ByStatement },
-//             no_scan: self.no_scan,
-//             no_parse: self.no_parse,
-//             case_sensitive: if self.ignore_case { CaseSensitivity::Insensitive } else { CaseSensitivity::Sensitive },
-            
-//         }
-//     }
-// }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct ProviderConfig {
